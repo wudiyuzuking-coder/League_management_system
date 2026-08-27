@@ -1,0 +1,15 @@
+<script setup>
+import { onMounted, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { createClubStat, getClubPlayers, getClubStats, updateClubStat } from '../../api/club'
+import { getSeasons } from '../../api/league'
+const rows=ref([]),players=ref([]),seasons=ref([]),loading=ref(false),visible=ref(false),editingId=ref(null),formRef=ref()
+const empty=()=>({seasonId:null,playerId:null,appearances:0,goals:0,assists:0}),form=reactive(empty())
+const nonnegative={type:'number',min:0,message:'不能小于0'},rules={seasonId:[{required:true,message:'请输入赛季ID'}],playerId:[{required:true,message:'请选择球员'}],appearances:[nonnegative],goals:[nonnegative],assists:[nonnegative]}
+const load=async()=>{loading.value=true;try{const [s,p,se]=await Promise.all([getClubStats(),getClubPlayers(),getSeasons()]);rows.value=s.data;players.value=p.data;seasons.value=se.data}finally{loading.value=false}}
+const open=(row)=>{editingId.value=row?.statId||null;Object.assign(form,empty(),row||{});visible.value=true}
+const save=async()=>{await formRef.value.validate();editingId.value?await updateClubStat(editingId.value,form):await createClubStat(form);visible.value=false;ElMessage.success('保存成功');await load()}
+onMounted(load)
+</script>
+<template><el-card><template #header><div class="head"><h2>球员赛季数据</h2><el-button type="primary" @click="open()">新增数据</el-button></div></template><el-table v-loading="loading" :data="rows"><el-table-column prop="seasonName" label="赛季"/><el-table-column prop="playerName" label="球员"/><el-table-column prop="appearances" label="出场"/><el-table-column prop="goals" label="进球"/><el-table-column prop="assists" label="助攻"/><el-table-column label="操作" width="90"><template #default="{row}"><el-button link type="primary" @click="open(row)">编辑</el-button></template></el-table-column></el-table></el-card><el-dialog v-model="visible" :title="editingId?'编辑数据':'新增数据'" width="500px"><el-form ref="formRef" :model="form" :rules="rules" label-width="90px"><el-form-item label="赛季" prop="seasonId"><el-select v-model="form.seasonId" placeholder="请选择赛季"><el-option v-for="s in seasons" :key="s.seasonId" :label="`${s.seasonName}（${s.seasonStatus}）`" :value="s.seasonId"/></el-select></el-form-item><el-form-item label="球员" prop="playerId"><el-select v-model="form.playerId"><el-option v-for="p in players" :key="p.playerId" :label="`${p.shirtNo}号 ${p.playerName}`" :value="p.playerId"/></el-select></el-form-item><el-form-item label="出场" prop="appearances"><el-input-number v-model="form.appearances" :min="0"/></el-form-item><el-form-item label="进球" prop="goals"><el-input-number v-model="form.goals" :min="0"/></el-form-item><el-form-item label="助攻" prop="assists"><el-input-number v-model="form.assists" :min="0"/></el-form-item></el-form><template #footer><el-button @click="visible=false">取消</el-button><el-button type="primary" @click="save">保存</el-button></template></el-dialog></template>
+<style scoped>.head{display:flex;align-items:center;justify-content:space-between}.head h2{margin:0}.el-alert{margin-bottom:16px}</style>

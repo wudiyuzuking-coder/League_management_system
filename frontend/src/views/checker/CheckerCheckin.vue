@@ -1,0 +1,13 @@
+<script setup>
+import {computed,onMounted,ref} from 'vue'
+import {useRoute,useRouter} from 'vue-router'
+import {checkinTicket,getCheckerCheckins,getCheckerMatches} from '../../api/checkin'
+const route=useRoute(),router=useRouter(),match=ref({}),ticketCode=ref(''),checking=ref(false),result=ref(null),recent=ref([])
+const resultText={SUCCESS:'检票成功，允许入场',CODE_NOT_FOUND:'票码不存在',WRONG_MATCH:'非当前场次',ORDER_INVALID:'订单无效',TICKET_USED:'该票已使用',TICKET_REFUNDED:'该票已退票',TICKET_VOID:'票据已作废'}
+const success=computed(()=>result.value?.checkResult==='SUCCESS')
+const load=async()=>{const matches=(await getCheckerMatches()).data;match.value=matches.find(x=>String(x.matchId)===String(route.params.id))||{};const page=(await getCheckerCheckins({matchId:route.params.id,page:1,size:10})).data;recent.value=page.records}
+const submit=async()=>{if(!ticketCode.value.trim())return;checking.value=true;try{result.value=(await checkinTicket(route.params.id,ticketCode.value.trim())).data;ticketCode.value='';await load()}finally{checking.value=false}}
+onMounted(load)
+</script>
+<template><div><el-page-header @back="router.push('/checker/matches')"><template #content>检票工作台</template></el-page-header><el-card class="match"><h2>{{match.homeClubName}} vs {{match.awayClubName}}</h2><p>{{$formatDateTime(match.matchTime)}} · {{match.stadiumName}} · {{$statusLabel(match.matchStatus)}}</p></el-card><el-card class="scan"><el-input v-model="ticketCode" size="large" autofocus clearable placeholder="输入或扫描电子票码" @keyup.enter="submit"><template #append><el-button type="primary" :loading="checking" @click="submit">核验入场</el-button></template></el-input><el-alert v-if="result" class="result" :type="success?'success':'error'" :title="resultText[result.checkResult]||result.message" :description="result.message" :closable="false" show-icon/><div v-if="success" class="seat">{{result.rowLabel}}排 {{result.seatLabel}}座</div></el-card><el-card><template #header><b>最近检票结果</b></template><el-table :data="recent" empty-text="暂无检票记录"><el-table-column label="时间" min-width="175"><template #default="{row}">{{$formatDateTime(row.checkedAt)}}</template></el-table-column><el-table-column prop="inputTicketCode" label="输入票码" min-width="230"/><el-table-column label="结果"><template #default="{row}"><StatusTag :value="row.checkResult"/></template></el-table-column><el-table-column prop="remark" label="说明" min-width="220"/></el-table></el-card></div></template>
+<style scoped>.match,.scan{margin:18px 0}.match h2{margin:0 0 8px}.match p{margin:0;color:#6b7280}.result{margin-top:18px}.seat{text-align:center;font-size:24px;font-weight:700;color:#166534;margin-top:16px}</style>

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.leagueticket.mapper.StatisticsMapper">
+    <sql id="matchStatsCte">
+        WITH match_raw AS (
+            SELECT m.match_id,m.season_id,m.round_id,m.home_club_id,hc.club_name home_club_name,
+                   ac.club_name away_club_name,m.match_time,m.match_status,
+                   (SELECT COUNT(*) FROM match_seat_inventory i WHERE i.match_id=m.match_id AND i.inventory_status!='DISABLED') total_seat_count,
+                   (SELECT COUNT(*) FROM order_item oi JOIN ticket_order o ON o.order_id=oi.order_id WHERE o.match_id=m.match_id AND oi.item_status='PAID') valid_sold_count,
+                   (SELECT COUNT(*) FROM order_item oi JOIN ticket_order o ON o.order_id=oi.order_id WHERE o.match_id=m.match_id AND oi.item_status='REFUNDED') refunded_count,
+                   (SELECT COUNT(*) FROM e_ticket t JOIN ticket_order o ON o.order_id=t.order_id WHERE o.match_id=m.match_id AND t.ticket_status='USED') checked_in_count,
+                   COALESCE((SELECT SUM(p.pay_amount) FROM payment_record p JOIN ticket_order o ON o.order_id=p.order_id WHERE o.match_id=m.match_id AND p.pay_status='SUCCESS'),0.00) gross_sales_amount,
+                   COALESCE((SELECT SUM(r.refund_amount) FROM refund_apply r JOIN ticket_order o ON o.order_id=r.order_id WHERE o.match_id=m.match_id AND r.refund_status='APPROVED'),0.00) refund_amount,
+                   (SELECT COUNT(*) FROM checkin_record c WHERE c.match_id=m.match_id AND c.check_result='SUCCESS') success_count,
+                   (SELECT COUNT(*) FROM checkin_record c WHERE c.match_id=m.match_id AND c.check_result='CODE_NOT_FOUND') code_not_found_count,
+                   (SELECT COUNT(*) FROM checkin_record c WHERE c.match_id=m.match_id AND c.check_result='WRONG_MATCH') wrong_match_count,
+                   (SELECT COUNT(*) FROM checkin_record c WHERE c.match_id=m.match_id AND c.check_result='ORDER_INVALID') order_invalid_count,
+                   (SELECT COUNT(*) FROM checkin_record c WHERE c.match_id=m.match_id AND c.check_result='TICKET_USED') ticket_used_count,
+                   (SELECT COUNT(*) FROM checkin_record c WHERE c.match_id=m.match_id AND c.check_result='TICKET_REFUNDED') ticket_refunded_count,
+                   (SELECT COUNT(*) FROM checkin_record c WHERE c.match_id=m.match_id AND c.check_result='TICKET_VOID') ticket_void_count
+            FROM match_info m
+            JOIN club_info hc ON hc.club_id=m.home_club_id
+            JOIN club_info ac ON ac.club_id=m.away_club_id
+            WHERE 1=1
+            <if test="q != null and q.seasonId != null">AND m.season_id=#{q.seasonId}</if>
+            <if test="q != null and q.roundId != null">AND m.round_id=#{q.roundId}</if>
+            <choose>
+                <when test="clubScope != null">AND m.home_club_id=#{clubScope}</when>
+                <when test="q != null and q.clubId != null">AND (m.home_club_id=#{q.clubId} OR m.away_club_id=#{q.clubId})</when>
+            </choose>
+            <if test="q != null and q.matchStatus != null">AND m.match_status=#{q.matchStatus}</if>
+            <if test="q != null and q.startTime != null">AND m.match_time&gt;=#{q.startTime}</if>
+            <if test="q != null and q.endTime != null">AND m.match_time&lt;=#{q.endTime}</if>
+        ), match_stats AS (
+            SELECT r.*,
+                   CAST(r.gross_sales_amount-r.refund_amount AS DECIMAL(14,2)) net_sales_amount,
+                   CAST(CASE WHEN r.total_seat_count=0 THEN 0 ELSE ROUND(r.valid_sold_count*100.0/r.total_seat_count,2) END AS DECIMAL(7,2)) ticket_sale_rate,
+                   CAST(CASE WHEN r.total_seat_count=0 THEN 0 ELSE ROUND(r.checked_in_count*100.0/r.total_seat_count,2) END AS DECIMAL(7,2)) attendance_rate
+            FROM match_raw r
+        )
+    </sql>
+
+    <select id="overview" resultType="com.example.leagueticket.vo.OverviewStatisticsResponse">
+        <include refid="matchStatsCte"/>
+        SELECT COUNT(*) total_matches,
+               (SELECT COUNT(*) FROM ticket_order o JOIN match_stats s ON s.match_id=o.match_id) total_orders,
+               (SELECT COUNT(*) FROM ticket_order o JOIN match_stats s ON s.match_id=o.match_id WHERE o.order_status IN ('PAID','REFUND_PENDING')) paid_orders,
+               (SELECT COUNT(*) FROM ticket_order o JOIN match_stats s ON s.match_id=o.match_id WHERE o.order_status='REFUNDED') refunded_orders,
+               COALESCE(SUM(valid_sold_count),0) valid_tickets_sold,
+               COALESCE(SUM(checked_in_count),0) checked_in_tickets,
+               CAST(COALESCE(SUM(gross_sales_amount),0) AS DECIMAL(14,2)) gross_sales_amount,
+               CAST(COALESCE(SUM(refund_amount),0) AS DECIMAL(14,2)) refund_amount,
+               CAST(COALESCE(SUM(net_sales_amount),0) AS DECIMAL(14,2)) net_sales_amount,
+               CAST(COALESCE(ROUND(AVG(attendance_rate),2),0) AS DECIMAL(7,2)) average_attendance_rate
+        FROM match_stats
+    </select>
+
+    <select id="countMatches" resultType="long"><include refid="matchStatsCte"/> SELECT COUNT(*) FROM match_stats</select>
+    <select id="matchPage" resultType="com.example.leagueticket.vo.MatchStatisticsResponse">
+        <include refid="matchStatsCte"/> SELECT * FROM match_stats ORDER BY match_time DESC,match_id DESC LIMIT #{limit} OFFSET #{offset}
+    </select>
+    <select id="matchDetail" resultType="com.example.leagueticket.vo.MatchStatisticsResponse">
+        <include refid="matchStatsCte"/> SELECT * FROM match_stats WHERE match_id=#{matchId}
+    </select>
+
+    <select id="matchZoneStatistics" resultType="com.example.leagueticket.vo.MatchZoneStatisticsResponse">
+        SELECT z.match_zone_id,z.zone_name_snapshot zone_name,z.ticket_price,
+               (SELECT COUNT(*) FROM match_seat_inventory i
+                WHERE i.match_zone_id=z.match_zone_id AND i.inventory_status!='DISABLED') total_seat_count,
+               (SELECT COUNT(*) FROM order_item oi JOIN ticket_order o ON o.order_id=oi.order_id
+                WHERE o.match_zone_id=z.match_zone_id AND oi.item_status='PAID') valid_sold_count,
+               (SELECT COUNT(*) FROM order_item oi JOIN ticket_order o ON o.order_id=oi.order_id
+                WHERE o.match_zone_id=z.match_zone_id AND oi.item_status='REFUNDED') refunded_count,
+               CAST(CASE WHEN (SELECT COUNT(*) FROM match_seat_inventory i WHERE i.match_zone_id=z.match_zone_id AND i.inventory_status!='DISABLED')=0 THEN 0
+                    ELSE ROUND((SELECT COUNT(*) FROM order_item oi JOIN ticket_order o ON o.order_id=oi.order_id WHERE o.match_zone_id=z.match_zone_id AND oi.item_status='PAID')*100.0/
+                               (SELECT COUNT(*) FROM match_seat_inventory i WHERE i.match_zone_id=z.match_zone_id AND i.inventory_status!='DISABLED'),2)
+                    END AS DECIMAL(7,2)) ticket_sale_rate
+        FROM match_ticket_zone z WHERE z.match_id=#{matchId} ORDER BY z.match_zone_id
+    </select>
+
+    <select id="clubStatistics" resultType="com.example.leagueticket.vo.ClubStatisticsResponse">
+        <include refid="matchStatsCte"/>
+        SELECT c.club_id,c.club_name,COUNT(s.match_id) home_match_count,
+               COALESCE(SUM(s.valid_sold_count),0) valid_tickets_sold,
+               COALESCE(SUM(s.checked_in_count),0) checked_in_tickets,
+               CAST(COALESCE(SUM(s.gross_sales_amount),0) AS DECIMAL(14,2)) gross_sales_amount,
+               CAST(COALESCE(SUM(s.refund_amount),0) AS DECIMAL(14,2)) refund_amount,
+               CAST(COALESCE(SUM(s.net_sales_amount),0) AS DECIMAL(14,2)) net_sales_amount,
+               CAST(COALESCE(ROUND(AVG(s.ticket_sale_rate),2),0) AS DECIMAL(7,2)) average_ticket_sale_rate,
+               CAST(COALESCE(ROUND(AVG(s.attendance_rate),2),0) AS DECIMAL(7,2)) average_attendance_rate
+        FROM club_info c LEFT JOIN match_stats s ON s.home_club_id=c.club_id
+        <if test="clubScope != null">WHERE c.club_id=#{clubScope}</if>
+        GROUP BY c.club_id,c.club_name ORDER BY valid_tickets_sold DESC,c.club_id
+    </select>
+
+    <select id="popularMatches" resultType="com.example.leagueticket.vo.MatchStatisticsResponse">
+        <include refid="matchStatsCte"/> SELECT * FROM match_stats ORDER BY valid_sold_count DESC,net_sales_amount DESC,match_time,match_id LIMIT #{limit}
+    </select>
+
+    <select id="salesTrend" resultType="com.example.leagueticket.vo.SalesTrendResponse">
+        SELECT stat_date,CAST(SUM(gross_amount) AS DECIMAL(14,2)) gross_sales_amount,
+               CAST(SUM(refund_amount) AS DECIMAL(14,2)) refund_amount,
+               CAST(SUM(gross_amount)-SUM(refund_amount) AS DECIMAL(14,2)) net_sales_amount,
+               SUM(tickets_sold) tickets_sold
+        FROM (
+            SELECT DATE(p.pay_time) stat_date,SUM(p.pay_amount) gross_amount,0.00 refund_amount,SUM(o.ticket_count) tickets_sold
+            FROM payment_record p JOIN ticket_order o ON o.order_id=p.order_id JOIN match_info m ON m.match_id=o.match_id
+            WHERE p.pay_status='SUCCESS'
+            <if test="q.seasonId != null">AND m.season_id=#{q.seasonId}</if>
+            <if test="q.startTime != null">AND p.pay_time&gt;=#{q.startTime}</if>
+            <if test="q.endTime != null">AND p.pay_time&lt;=#{q.endTime}</if>
+            GROUP BY DATE(p.pay_time)
+            UNION ALL
+            SELECT DATE(r.audit_time),0.00,SUM(r.refund_amount),0
+            FROM refund_apply r JOIN ticket_order o ON o.order_id=r.order_id JOIN match_info m ON m.match_id=o.match_id
+            WHERE r.refund_status='APPROVED'
+            <if test="q.seasonId != null">AND m.season_id=#{q.seasonId}</if>
+            <if test="q.startTime != null">AND r.audit_time&gt;=#{q.startTime}</if>
+            <if test="q.endTime != null">AND r.audit_time&lt;=#{q.endTime}</if>
+            GROUP BY DATE(r.audit_time)
+        ) daily GROUP BY stat_date ORDER BY stat_date
+    </select>
+
+    <select id="refundStatistics" resultType="com.example.leagueticket.vo.RefundStatisticsResponse">
+        SELECT COUNT(*) total_applications,
+               SUM(r.refund_status='PENDING') pending_count,
+               SUM(r.refund_status='APPROVED') approved_count,
+               SUM(r.refund_status='REJECTED') rejected_count,
+               CAST(COALESCE(SUM(CASE WHEN r.refund_status='APPROVED' THEN r.refund_amount ELSE 0 END),0) AS DECIMAL(14,2)) approved_refund_amount,
+               (SELECT COUNT(DISTINCT p.order_id) FROM payment_record p JOIN ticket_order po ON po.order_id=p.order_id JOIN match_info pm ON pm.match_id=po.match_id WHERE p.pay_status='SUCCESS'
+                 <if test="q.seasonId != null">AND pm.season_id=#{q.seasonId}</if>
+                 <if test="q.startTime != null">AND p.pay_time&gt;=#{q.startTime}</if><if test="q.endTime != null">AND p.pay_time&lt;=#{q.endTime}</if>) successful_paid_orders,
+               CAST(CASE WHEN (SELECT COUNT(DISTINCT p.order_id) FROM payment_record p JOIN ticket_order po ON po.order_id=p.order_id JOIN match_info pm ON pm.match_id=po.match_id WHERE p.pay_status='SUCCESS'
+                 <if test="q.seasonId != null">AND pm.season_id=#{q.seasonId}</if>
+                 <if test="q.startTime != null">AND p.pay_time&gt;=#{q.startTime}</if><if test="q.endTime != null">AND p.pay_time&lt;=#{q.endTime}</if>)=0 THEN 0
+                 ELSE ROUND(SUM(r.refund_status='APPROVED')*100.0/(SELECT COUNT(DISTINCT p.order_id) FROM payment_record p JOIN ticket_order po ON po.order_id=p.order_id JOIN match_info pm ON pm.match_id=po.match_id WHERE p.pay_status='SUCCESS'
+                 <if test="q.seasonId != null">AND pm.season_id=#{q.seasonId}</if>
+                 <if test="q.startTime != null">AND p.pay_time&gt;=#{q.startTime}</if><if test="q.endTime != null">AND p.pay_time&lt;=#{q.endTime}</if>),2) END AS DECIMAL(7,2)) refund_rate
+        FROM refund_apply r JOIN ticket_order o ON o.order_id=r.order_id JOIN match_info m ON m.match_id=o.match_id
+        WHERE 1=1 <if test="q.seasonId != null">AND m.season_id=#{q.seasonId}</if>
+        <if test="q.startTime != null">AND r.created_at&gt;=#{q.startTime}</if><if test="q.endTime != null">AND r.created_at&lt;=#{q.endTime}</if>
+    </select>
+
+    <select id="checkinStatistics" resultType="com.example.leagueticket.vo.CheckinStatisticsResponse">
+        SELECT COUNT(*) total_attempts,SUM(c.check_result='SUCCESS') success_count,SUM(c.check_result!='SUCCESS') failed_count,
+               CAST(CASE WHEN COUNT(*)=0 THEN 0 ELSE ROUND(SUM(c.check_result='SUCCESS')*100.0/COUNT(*),2) END AS DECIMAL(7,2)) success_rate,
+               SUM(c.check_result='CODE_NOT_FOUND') code_not_found_count,SUM(c.check_result='WRONG_MATCH') wrong_match_count,
+               SUM(c.check_result='ORDER_INVALID') order_invalid_count,SUM(c.check_result='TICKET_USED') ticket_used_count,
+               SUM(c.check_result='TICKET_REFUNDED') ticket_refunded_count,SUM(c.check_result='TICKET_VOID') ticket_void_count
+        FROM checkin_record c JOIN match_info m ON m.match_id=c.match_id WHERE 1=1
+        <if test="q.seasonId != null">AND m.season_id=#{q.seasonId}</if>
+        <if test="q.startTime != null">AND c.check_time&gt;=#{q.startTime}</if><if test="q.endTime != null">AND c.check_time&lt;=#{q.endTime}</if>
+    </select>
+</mapper>

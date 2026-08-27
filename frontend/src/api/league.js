@@ -1,0 +1,13 @@
+import request from '../utils/request'
+export const getSeasons=()=>request.get('/seasons')
+export const getSeason=(id)=>request.get(`/seasons/${id}`)
+export const getRounds=(seasonId)=>request.get(`/seasons/${seasonId}/rounds`)
+export const getStandings=(seasonId)=>request.get(`/seasons/${seasonId}/standings`)
+export const createSeason=(data)=>request.post('/admin/seasons',data)
+export const updateSeason=(id,data)=>request.put(`/admin/seasons/${id}`,data)
+export const updateSeasonStatus=(id,seasonStatus)=>request.put(`/admin/seasons/${id}/status`,{seasonStatus})
+export const createRound=(seasonId,data)=>request.post(`/admin/seasons/${seasonId}/rounds`,data)
+export const updateRound=(id,data)=>request.put(`/admin/rounds/${id}`,data)
+export const updateRoundStatus=(id,roundStatus)=>request.put(`/admin/rounds/${id}/status`,{roundStatus})
+export const initStandings=(seasonId)=>request.post(`/admin/seasons/${seasonId}/standings/init`)
+export const updateSeasonRecord=(recordId,data)=>request.put(`/admin/season-records/${recordId}`,data)

@@ -1,2 +1,37 @@
 __pycache__/
 rendered_ball_ticket_doc/
+
+# Microsoft Office temporary files
+~$*
+
+# Backend build output and local configuration
+backend/target/
+backend/.classpath
+backend/.project
+backend/.settings/
+backend/src/main/resources/application-private.yml
+
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE and operating system files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local integration-test databases and runtime files
+.tmp/
+mysql-data/
+*.pid

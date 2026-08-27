@@ -1,0 +1,13 @@
+import request from '../utils/request'
+export const getTicketZones=(matchId)=>request.get(`/matches/${matchId}/ticket-zones`)
+export const getTicketZone=(id)=>request.get(`/match-ticket-zones/${id}`)
+export const getAvailability=(id)=>request.get(`/match-ticket-zones/${id}/availability`)
+export const getAdminTicketZones=(matchId)=>request.get(`/admin/matches/${matchId}/ticket-zones`)
+export const createTicketZone=(matchId,data)=>request.post(`/admin/matches/${matchId}/ticket-zones`,data)
+export const updateTicketZone=(id,data)=>request.put(`/admin/match-ticket-zones/${id}`,data)
+export const updateTicketZoneStatus=(id,zoneStatus)=>request.put(`/admin/match-ticket-zones/${id}/status`,{zoneStatus})
+export const generateInventory=(id)=>request.post(`/admin/match-ticket-zones/${id}/inventory/generate`)
+export const getInventoryLayout=(id)=>request.get(`/admin/match-ticket-zones/${id}/inventory`)
+export const updateInventoryStatus=(id,inventoryStatus)=>request.put(`/admin/match-seat-inventory/${id}/status`,{inventoryStatus})
+export const previewSeatAllocation=(id,ticketCount)=>request.post(`/match-ticket-zones/${id}/seat-allocation/preview`,{ticketCount})
+export const debugSeatAllocation=(id,ticketCount)=>request.post(`/admin/match-ticket-zones/${id}/seat-allocation/debug`,{ticketCount})

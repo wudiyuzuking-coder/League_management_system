@@ -1,0 +1,14 @@
+<script setup>
+import {onMounted,reactive,ref,watch} from 'vue'
+import {useRouter} from 'vue-router'
+import {getClubs} from '../../api/club'
+import {getRounds,getSeasons} from '../../api/league'
+import {getMatches} from '../../api/match'
+const router=useRouter(),rows=ref([]),total=ref(0),seasons=ref([]),rounds=ref([]),clubs=ref([]),loading=ref(false)
+const query=reactive({page:1,size:10,seasonId:null,roundId:null,clubId:null})
+const load=async()=>{loading.value=true;try{const r=(await getMatches(query)).data;rows.value=r.records;total.value=r.total}finally{loading.value=false}}
+watch(()=>query.seasonId,async id=>{query.roundId=null;rounds.value=id?(await getRounds(id)).data:[]})
+onMounted(async()=>{const [s,c]=await Promise.all([getSeasons(),getClubs()]);seasons.value=s.data;clubs.value=c.data.records;await load()})
+</script>
+<template><el-card><template #header><h2>比赛列表</h2></template><el-form inline><el-form-item label="赛季"><el-select v-model="query.seasonId" clearable style="width:180px"><el-option v-for="s in seasons" :key="s.seasonId" :label="s.seasonName" :value="s.seasonId"/></el-select></el-form-item><el-form-item label="轮次"><el-select v-model="query.roundId" clearable style="width:150px"><el-option v-for="r in rounds" :key="r.roundId" :label="r.roundName" :value="r.roundId"/></el-select></el-form-item><el-form-item label="俱乐部"><el-select v-model="query.clubId" clearable filterable style="width:200px"><el-option v-for="c in clubs" :key="c.clubId" :label="c.clubName" :value="c.clubId"/></el-select></el-form-item><el-button type="primary" @click="query.page=1;load()">查询</el-button></el-form><el-table v-loading="loading" :data="rows"><el-table-column label="轮次"><template #default="{row}">{{row.roundName}}</template></el-table-column><el-table-column label="对阵" min-width="220"><template #default="{row}">{{row.homeClubName}} vs {{row.awayClubName}}</template></el-table-column><el-table-column prop="matchTime" label="比赛时间" min-width="170"/><el-table-column prop="stadiumName" label="场馆"/><el-table-column label="比分"><template #default="{row}">{{row.homeScore==null?'—':`${row.homeScore} : ${row.awayScore}`}}</template></el-table-column><el-table-column prop="matchStatus" label="状态"/><el-table-column label="操作"><template #default="{row}"><el-button link type="primary" @click="router.push(`/user/matches/${row.matchId}`)">详情</el-button></template></el-table-column></el-table><el-pagination v-model:current-page="query.page" :total="total" layout="total,prev,pager,next" @current-change="load"/></el-card></template>
+<style scoped>h2{margin:0}.el-pagination{justify-content:flex-end;margin-top:16px}</style>
