@@ -33,5 +33,6 @@ Thumbs.db
 
 # Local integration-test databases and runtime files
 .tmp/
+.tools/
 mysql-data/
 *.pid

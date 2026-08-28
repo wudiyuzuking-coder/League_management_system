@@ -13,7 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController @RequestMapping("/api/admin/refunds") @Profile("dev") @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasRole('EVENT_ADMIN')")
 public class AdminRefundController {
     private final RefundService service;
     @GetMapping public Result<PageResponse<RefundResponse>> list(@Valid RefundQueryRequest query){return Result.success(service.listAdmin(query));}

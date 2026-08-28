@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController @RequestMapping("/api/admin/statistics") @Profile("dev") @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasRole('EVENT_ADMIN')")
 public class AdminStatisticsController {
     private final StatisticsService service;
     @GetMapping("/overview") public Result<OverviewStatisticsResponse> overview(@Valid StatisticsQueryRequest q){return Result.success(service.overview(q));}
