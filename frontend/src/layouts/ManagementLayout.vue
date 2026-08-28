@@ -10,16 +10,21 @@ const router = useRouter()
 const menuActive = computed(() => {
   const path = router.currentRoute.value.path
   if (path.startsWith('/admin/statistics')) return '/admin/statistics'
-  const roots = ['/admin/users','/admin/clubs','/admin/seasons','/admin/matches','/admin/stadiums','/admin/refunds','/admin/checkins','/club/profile','/club/players','/club/coaches','/club/stats','/club/matches','/club/statistics','/checker/matches','/checker/checkins']
+  const roots = ['/admin/users','/admin/clubs','/admin/seasons','/admin/matches','/admin/stadiums','/admin/refunds','/admin/checkins','/club/profile','/club/players','/club/coaches','/club/stats','/club/matches','/club/statistics']
   return roots.find(root => path === root || path.startsWith(`${root}/`)) || path
 })
+const roleLabels = {
+  CLUB: '俱乐部负责人',
+  EVENT_ADMIN: '赛事管理员',
+  ADMIN: '系统管理员',
+}
 const menus = {
   CLUB: [
     ['/club/profile', '俱乐部资料'], ['/club/players', '球员管理'],
     ['/club/coaches', '教练管理'], ['/club/stats', '赛季数据'], ['/club/matches', '本队比赛'], ['/club/statistics', '主场统计'],
   ],
-  CHECKER: [['/checker/matches', '主场比赛'], ['/checker/checkins', '我的检票记录']],
-  ADMIN: [['/admin/users', '用户管理'], ['/admin/clubs', '俱乐部管理'], ['/admin/seasons', '赛季与积分榜'], ['/admin/matches', '比赛管理'], ['/admin/stadiums', '场馆与座位'], ['/admin/refunds', '退票审核'], ['/admin/checkins', '检票记录'], ['/admin/statistics', '统计分析']],
+  EVENT_ADMIN: [['/admin/seasons', '赛季与积分榜'], ['/admin/matches', '比赛管理'], ['/admin/stadiums', '场馆与座位'], ['/admin/refunds', '退票审核'], ['/admin/statistics', '统计分析']],
+  ADMIN: [['/admin/users', '用户管理'], ['/admin/clubs', '俱乐部注册审核']],
 }
 const logout = () => {
   authStore.logout()
@@ -31,7 +36,7 @@ const logout = () => {
   <el-container class="management-layout">
     <el-aside width="220px" class="management-aside">
       <h1>{{ appStore.appName }}</h1>
-      <p>{{ authStore.user?.roleCode }} 角色入口</p>
+      <p>{{ roleLabels[authStore.user?.roleCode] || authStore.user?.roleCode }}入口</p>
       <el-menu router :default-active="menuActive" class="management-menu">
         <el-menu-item v-for="item in menus[authStore.user?.roleCode] || []" :key="item[0]" :index="item[0]">
           {{ item[1] }}
@@ -43,7 +48,7 @@ const logout = () => {
         <span>{{ appStore.currentStage }}</span>
         <div class="management-user">
           <span>{{ authStore.user?.realName }}</span>
-          <el-tag type="success" effect="plain">{{ authStore.user?.roleCode }}</el-tag>
+          <el-tag type="success" effect="plain">{{ roleLabels[authStore.user?.roleCode] || authStore.user?.roleCode }}</el-tag>
           <el-button link type="danger" @click="logout">退出登录</el-button>
         </div>
       </el-header>

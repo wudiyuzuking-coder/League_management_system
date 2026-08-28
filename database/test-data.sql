@@ -135,18 +135,26 @@ SET @match_3 := (SELECT match_id FROM match_info WHERE season_id = @season_id AN
 SET @role_user := (SELECT role_id FROM sys_role WHERE role_code = 'USER');
 SET @role_club := (SELECT role_id FROM sys_role WHERE role_code = 'CLUB');
 SET @role_checker := (SELECT role_id FROM sys_role WHERE role_code = 'CHECKER');
+SET @role_event_admin := (SELECT role_id FROM sys_role WHERE role_code = 'EVENT_ADMIN');
 SET @role_admin := (SELECT role_id FROM sys_role WHERE role_code = 'ADMIN');
 
 INSERT INTO sys_user (username, phone, password_hash, display_name, role_id, club_id, user_status)
 VALUES
     ('demo_user', '13800000001', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示普通用户', @role_user, NULL, 'ENABLED'),
-    ('demo_admin', '13800000002', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示管理员', @role_admin, NULL, 'ENABLED'),
-    ('demo_club', '13800000003', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '潮汐俱乐部管理员', @role_club, @club_a, 'ENABLED'),
-    ('demo_checker', '13800000004', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '潮汐检票员', @role_checker, @club_a, 'ENABLED')
+    ('demo_admin', '13800000002', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示系统管理员', @role_admin, NULL, 'ENABLED'),
+    ('demo_club', '13800000003', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '潮汐俱乐部负责人', @role_club, @club_a, 'ENABLED'),
+    ('demo_event_admin', '13800000005', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示赛事管理员', @role_event_admin, NULL, 'ENABLED')
 ON DUPLICATE KEY UPDATE
     password_hash = VALUES(password_hash), display_name = VALUES(display_name), role_id = VALUES(role_id),
     club_id = VALUES(club_id), user_status = VALUES(user_status);
 SET @demo_admin_id := (SELECT user_id FROM sys_user WHERE username = 'demo_admin');
+
+UPDATE sys_user
+SET display_name = '历史检票员账号',
+    role_id = @role_checker,
+    club_id = @club_a,
+    user_status = 'DISABLED'
+WHERE username = 'demo_checker';
 
 -- 第1场和第3场共用同一物理场馆，但各自拥有独立票区配置和座位库存。
 INSERT INTO match_ticket_zone

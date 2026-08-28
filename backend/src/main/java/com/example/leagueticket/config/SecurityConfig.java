@@ -36,6 +36,23 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/health", "/api/auth/login", "/api/auth/register").permitAll()
                         .requestMatchers("/api/club/**").hasRole("CLUB")
+                        .requestMatchers(
+                                "/api/admin/seasons",
+                                "/api/admin/seasons/**",
+                                "/api/admin/rounds/**",
+                                "/api/admin/season-records/**",
+                                "/api/admin/matches",
+                                "/api/admin/matches/**",
+                                "/api/admin/match-ticket-zones/**",
+                                "/api/admin/match-seat-inventory/**",
+                                "/api/admin/stadiums",
+                                "/api/admin/stadiums/**",
+                                "/api/admin/stadium-zones/**",
+                                "/api/admin/stadium-seats/**",
+                                "/api/admin/refunds",
+                                "/api/admin/refunds/**",
+                                "/api/admin/statistics/**")
+                        .hasRole("EVENT_ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

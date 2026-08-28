@@ -20,7 +20,7 @@ const logout = () => {
       <span class="brand">{{ appStore.appName }}</span>
       <div class="header-actions">
         <span>{{ authStore.user?.realName }}</span>
-        <el-tag effect="plain">USER</el-tag>
+        <el-tag effect="plain">普通用户</el-tag>
         <el-button link type="danger" @click="logout">退出登录</el-button>
       </div>
     </el-header>

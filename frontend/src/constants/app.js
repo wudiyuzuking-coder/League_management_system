@@ -6,6 +6,6 @@ export const AUTH_USER_KEY = 'league_ticket_user'
 export const ROLE_HOME = {
   USER: '/user',
   CLUB: '/club',
-  CHECKER: '/checker',
+  EVENT_ADMIN: '/admin',
   ADMIN: '/admin',
 }

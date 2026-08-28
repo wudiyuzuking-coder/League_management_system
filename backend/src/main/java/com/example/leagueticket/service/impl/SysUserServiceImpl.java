@@ -32,8 +32,9 @@ import java.util.Set;
 public class SysUserServiceImpl implements SysUserService {
 
     private static final Set<String> USER_STATUSES = Set.of("ENABLED", "DISABLED", "LOCKED");
-    private static final Set<String> CLUB_BOUND_ROLES = Set.of("CLUB", "CHECKER");
-    private static final Set<String> UNBOUND_ROLES = Set.of("USER", "ADMIN");
+    private static final Set<String> CLUB_BOUND_ROLES = Set.of("CLUB");
+    private static final Set<String> UNBOUND_ROLES = Set.of("USER", "EVENT_ADMIN", "ADMIN");
+    private static final Set<String> PUBLIC_REGISTER_ROLES = Set.of("USER", "CLUB", "EVENT_ADMIN", "ADMIN");
 
     private final SysUserMapper userMapper;
     private final SysRoleService roleService;
@@ -57,9 +58,12 @@ public class SysUserServiceImpl implements SysUserService {
     @Override
     @Transactional
     public UserResponse register(RegisterRequest request) {
-        SysRole userRole = roleService.getByCode("USER");
-        SysUser user = buildUser(request.username(), request.phone(), request.password(), request.realName(),
-                userRole, null, "ENABLED");
+        String roleCode = normalizeRegisterRole(request.roleCode());
+        SysRole role = roleService.getByCode(roleCode);
+        String displayName = registerDisplayName(roleCode, request);
+        String status = "USER".equals(roleCode) ? "ENABLED" : "DISABLED";
+        SysUser user = buildUser(request.username(), request.phone(), request.password(), displayName,
+                role, null, status);
         userMapper.insert(user);
         return UserResponse.from(userMapper.findById(user.getUserId()));
     }
@@ -176,15 +180,42 @@ public class SysUserServiceImpl implements SysUserService {
         }
     }
 
+    private String normalizeRegisterRole(String roleCode) {
+        if (roleCode == null || roleCode.isBlank()) {
+            throw new BusinessException("请选择注册身份");
+        }
+        String value = roleCode.trim().toUpperCase();
+        if (!PUBLIC_REGISTER_ROLES.contains(value)) {
+            throw new BusinessException("请选择正确的注册身份");
+        }
+        return value;
+    }
+
+    private String registerDisplayName(String roleCode, RegisterRequest request) {
+        return switch (roleCode) {
+            case "USER" -> requiredText(request.realName(), "用户姓名不能为空");
+            case "CLUB" -> requiredText(request.clubName(), "俱乐部名称不能为空");
+            case "EVENT_ADMIN", "ADMIN" -> requiredText(request.employeeNo(), "工号不能为空");
+            default -> throw new BusinessException("请选择正确的注册身份");
+        };
+    }
+
+    private String requiredText(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new BusinessException(message);
+        }
+        return value.trim();
+    }
+
     private void validateRoleClub(String roleCode, Long clubId) {
         if (CLUB_BOUND_ROLES.contains(roleCode) && clubId == null) {
-            throw new BusinessException("clubId is required for CLUB and CHECKER accounts");
+            throw new BusinessException("俱乐部负责人账号必须绑定俱乐部");
         }
         if (UNBOUND_ROLES.contains(roleCode) && clubId != null) {
-            throw new BusinessException("clubId must be empty for USER and ADMIN accounts");
+            throw new BusinessException("普通用户、赛事管理员和系统管理员账号不能绑定俱乐部");
         }
         if (!CLUB_BOUND_ROLES.contains(roleCode) && !UNBOUND_ROLES.contains(roleCode)) {
-            throw new BusinessException("unsupported role code");
+            throw new BusinessException("不支持的角色类型");
         }
     }
 
