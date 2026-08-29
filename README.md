@@ -52,10 +52,10 @@ League_management_system/
 ├─ backend/       Spring Boot 后端
 ├─ frontend/      Vue 3 前端
 ├─ database/      MySQL 8 建表、基础数据和演示数据脚本
-├─ docs/          设计辅助、测试报告与AI使用记录
+├─ docs/          课程要求、测试报告与AI使用记录
+├─ 球赛购票系统需求分析与详细设计书.md
 ├─ README.md      项目运行说明
-├─ .gitignore
-└─ *.doc/*.docx/*.pptx/*.md  课程要求与需求设计资料
+└─ .gitignore
 ```
 
 后端遵循 Controller、Service、Mapper 多层结构。Controller 只负责 HTTP 请求处理和参数校验，不直接访问 Mapper；业务规则统一放入 Service。
@@ -278,6 +278,8 @@ npm run build
 
 - [完整测试报告](docs/test-report/TEST_REPORT.md)
 - [大模型辅助开发使用说明](docs/ai-usage/AI_USAGE.md)
+- [球赛购票系统需求分析与详细设计书](球赛购票系统需求分析与详细设计书.md)
+- [软件课程设计 I 要求整理](docs/course/course-requirements-summary.md)
 - [需求文档索引](docs/requirements/README.md)
 - [设计文档索引](docs/design/README.md)
 
@@ -568,7 +570,7 @@ CHECKER只能处理 `home_club_id`等于当前账号 `clubId` 的主场比赛；
 
 ```text
 电子票UNUSED
-↓ 检票员核验票码、比赛、订单和票据状态
+↓ 后台检票接口核验票码、比赛、订单和票据状态
 有效：UNUSED → USED，写used_at，记录SUCCESS
 无效：电子票状态不变，记录明确失败原因
 ```
