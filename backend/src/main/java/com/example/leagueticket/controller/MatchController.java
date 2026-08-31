@@ -24,8 +24,8 @@ public class MatchController {
     private final StadiumInfoService stadiumService;
     private final StadiumZoneService zoneService;
     private final StadiumSeatService seatService;
-    @GetMapping("/api/matches") public Result<PageResponse<MatchInfo>> matches(@Valid MatchQueryRequest query){return Result.success(matchService.list(query));}
-    @GetMapping("/api/matches/{id}") public Result<MatchInfo> match(@PathVariable Long id){return Result.success(matchService.getById(id));}
+    @GetMapping("/api/matches") public Result<PageResponse<MatchInfo>> matches(@Valid MatchQueryRequest query){return Result.success(matchService.listPublic(query));}
+    @GetMapping("/api/matches/{id}") public Result<MatchInfo> match(@PathVariable Long id){return Result.success(matchService.getPublicById(id));}
     @GetMapping("/api/stadiums") public Result<List<StadiumInfo>> stadiums(){return Result.success(stadiumService.list());}
     @GetMapping("/api/stadiums/{id}") public Result<StadiumInfo> stadium(@PathVariable Long id){return Result.success(stadiumService.getById(id));}
     @GetMapping("/api/stadiums/{stadiumId}/zones") public Result<List<StadiumZone>> zones(@PathVariable Long stadiumId){return Result.success(zoneService.list(stadiumId));}

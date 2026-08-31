@@ -6,6 +6,7 @@ import com.example.leagueticket.entity.*;
 import com.example.leagueticket.exception.BusinessException;
 import com.example.leagueticket.mapper.*;
 import com.example.leagueticket.service.OrderService;
+import com.example.leagueticket.service.SystemTimeService;
 import com.example.leagueticket.vo.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -29,6 +30,7 @@ public class OrderServiceImpl implements OrderService {
     private final PaymentRecordMapper paymentMapper;
     private final ETicketMapper ticketMapper;
     private final SystemConfigMapper configMapper;
+    private final SystemTimeService systemTimeService;
     private final SeatAllocateService seatAllocateService;
     private final ObjectProvider<OrderService> orderServiceProvider;
 
@@ -39,13 +41,13 @@ public class OrderServiceImpl implements OrderService {
         MatchTicketZone zone=zoneMapper.findByIdForUpdate(request.matchZoneId());
         if(zone==null)throw new BusinessException(HttpStatus.NOT_FOUND,"match ticket zone not found");
         MatchInfo match=matchMapper.findById(zone.getMatchId());
-        LocalDateTime now=LocalDateTime.now();validateSale(zone,match,now);
+        LocalDateTime now=systemTimeService.now();validateSale(zone,match,now);
         if(inventoryMapper.countStatus(zone.getMatchZoneId(),"AVAILABLE")<request.ticketCount())
             throw new BusinessException(HttpStatus.CONFLICT,"not enough AVAILABLE seats");
         LocalDateTime expire=now.plusMinutes(configInt("ORDER_PAYMENT_TIMEOUT_MINUTES",15));
-        TicketOrder order=new TicketOrder();order.setOrderNo(orderNo());order.setUserId(userId);order.setMatchId(zone.getMatchId());
+        TicketOrder order=new TicketOrder();order.setOrderNo(orderNo(now));order.setUserId(userId);order.setMatchId(zone.getMatchId());
         order.setMatchZoneId(zone.getMatchZoneId());order.setTicketCount(request.ticketCount());
-        order.setTotalAmount(zone.getTicketPrice().multiply(BigDecimal.valueOf(request.ticketCount())));order.setExpireTime(expire);
+        order.setTotalAmount(zone.getTicketPrice().multiply(BigDecimal.valueOf(request.ticketCount())));order.setExpireTime(expire);order.setCreatedAt(now);
         orderMapper.insert(order);
         SeatAllocationResponse seats=seatAllocateService.selectAndLockSeats(zone.getMatchZoneId(),request.ticketCount(),order.getOrderId(),now,expire);
         for(int i=0;i<seats.inventoryIds().size();i++){
@@ -70,17 +72,17 @@ public class OrderServiceImpl implements OrderService {
         TicketOrder order=requireLocked(orderId);requireOwner(order,userId);
         if("CANCELLED".equals(order.getOrderStatus()))return detail(orderId);
         if(!"PENDING_PAYMENT".equals(order.getOrderStatus()))throw new BusinessException(HttpStatus.CONFLICT,"order status cannot be cancelled");
-        LocalDateTime now=LocalDateTime.now();
+        LocalDateTime now=systemTimeService.now();
         cancelLockedOrder(order,!order.getExpireTime().isAfter(now)?"PAYMENT_TIMEOUT":"USER_CANCELLED",now);return detail(orderId);
     }
 
     @Override @Transactional
     public boolean closeExpiredOrder(Long orderId){
         TicketOrder order=orderMapper.findByIdForUpdate(orderId);if(order==null||!"PENDING_PAYMENT".equals(order.getOrderStatus()))return false;
-        LocalDateTime now=LocalDateTime.now();if(order.getExpireTime().isAfter(now))return false;
+        LocalDateTime now=systemTimeService.now();if(order.getExpireTime().isAfter(now))return false;
         cancelLockedOrder(order,"PAYMENT_TIMEOUT",now);return true;
     }
-    public int closeExpiredBatch(){int closed=0;OrderService proxy=orderServiceProvider.getObject();for(Long id:orderMapper.findExpiredIds(LocalDateTime.now(),100))if(proxy.closeExpiredOrder(id))closed++;return closed;}
+    public int closeExpiredBatch(){int closed=0;OrderService proxy=orderServiceProvider.getObject();for(Long id:orderMapper.findExpiredIds(systemTimeService.now(),100))if(proxy.closeExpiredOrder(id))closed++;return closed;}
 
     private void cancelLockedOrder(TicketOrder order,String reason,LocalDateTime now){
         if(orderMapper.cancelPending(order.getOrderId(),reason,now)!=1)return;
@@ -102,5 +104,5 @@ public class OrderServiceImpl implements OrderService {
     private OrderSummaryResponse summary(TicketOrder o){return new OrderSummaryResponse(o.getOrderId(),o.getOrderNo(),o.getMatchId(),o.getMatchZoneId(),o.getHomeClubName(),o.getAwayClubName(),o.getMatchTime(),o.getStadiumName(),o.getZoneName(),o.getTicketCount(),o.getTotalAmount(),o.getOrderStatus(),o.getExpireTime(),o.getPaidAt(),o.getCancelledAt(),o.getCancelReason(),o.getCreatedAt());}
     private String normalizeStatus(String status){if(status==null||status.isBlank())return null;String value=status.trim().toUpperCase(Locale.ROOT);if(!QUERY_STATUSES.contains(value))throw new BusinessException("invalid orderStatus");return value;}
     private int configInt(String key,int fallback){String v=configMapper.findEnabledValue(key);try{return v==null?fallback:Integer.parseInt(v);}catch(NumberFormatException e){return fallback;}}
-    private String orderNo(){return "LT"+LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"))+UUID.randomUUID().toString().replace("-","").substring(0,8).toUpperCase(Locale.ROOT);}
+    private String orderNo(LocalDateTime now){return "LT"+now.format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"))+UUID.randomUUID().toString().replace("-","").substring(0,8).toUpperCase(Locale.ROOT);}
 }

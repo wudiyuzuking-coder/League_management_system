@@ -25,19 +25,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @EnabledIfEnvironmentVariable(named="RUN_DB_TESTS",matches="true")
 class RefundIntegrationTest {
     @Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired JdbcTemplate jdbc;@Autowired RefundService service;@Autowired ETicketMapper ticketMapper;@Autowired PasswordEncoder passwordEncoder;
-    long zoneId,userId,otherId,adminId,matchId;String user,other,admin;
+    long zoneId,userId,otherId,adminId,eventAdminId,matchId;String user,other,admin,eventAdmin;
 
     @BeforeEach void setup()throws Exception{
         cleanup();long role=id("SELECT role_id FROM sys_role WHERE role_code='USER'"),stadium;String hash=passwordEncoder.encode("123456");
-        jdbc.update("UPDATE sys_user SET password_hash=? WHERE username IN ('demo_user','demo_admin')",hash);
+        jdbc.update("UPDATE sys_user SET password_hash=? WHERE username IN ('demo_user','demo_admin','demo_event_admin')",hash);
         jdbc.update("INSERT INTO sys_user(username,phone,password_hash,display_name,role_id,user_status) VALUES('it12_user2','13900001212',?,'IT12用户2',?,'ENABLED')",hash,role);
-        userId=id("SELECT user_id FROM sys_user WHERE username='demo_user'");otherId=id("SELECT user_id FROM sys_user WHERE username='it12_user2'");adminId=id("SELECT user_id FROM sys_user WHERE username='demo_admin'");
+        userId=id("SELECT user_id FROM sys_user WHERE username='demo_user'");otherId=id("SELECT user_id FROM sys_user WHERE username='it12_user2'");adminId=id("SELECT user_id FROM sys_user WHERE username='demo_admin'");eventAdminId=id("SELECT user_id FROM sys_user WHERE username='demo_event_admin'");
         matchId=id("SELECT match_id FROM match_info WHERE match_status='PUBLISHED' AND match_time>DATE_ADD(NOW(),INTERVAL 2 DAY) ORDER BY match_id LIMIT 1");stadium=id("SELECT stadium_id FROM match_info WHERE match_id="+matchId);
         jdbc.update("INSERT INTO stadium_zone(stadium_id,zone_code,zone_name,sort_order,zone_status) VALUES(?,'IT12','IT12退票区',112,'ACTIVE')",stadium);
         long staticZone=id("SELECT stadium_zone_id FROM stadium_zone WHERE zone_code='IT12'");for(int row=1;row<=3;row++)for(int seat=1;seat<=8;seat++)jdbc.update("INSERT INTO stadium_seat(stadium_id,stadium_zone_id,row_no,row_seq,seat_no,seat_seq,center_distance,seat_status) VALUES(?,?,?,?,?,?,0,'ACTIVE')",stadium,staticZone,row+"排",row,seat+"座",seat);
         jdbc.update("INSERT INTO match_ticket_zone(match_id,stadium_zone_id,created_by,zone_name_snapshot,ticket_price,zone_status,sale_start_time,sale_end_time) VALUES(?,?,?,'IT12退票区',75.00,'ON_SALE',DATE_SUB(NOW(),INTERVAL 1 HOUR),DATE_ADD(NOW(),INTERVAL 12 HOUR))",matchId,staticZone,adminId);zoneId=id("SELECT match_zone_id FROM match_ticket_zone WHERE stadium_zone_id="+staticZone);
         jdbc.update("INSERT INTO match_seat_inventory(match_id,match_zone_id,stadium_seat_id,inventory_status) SELECT ?,?,stadium_seat_id,'AVAILABLE' FROM stadium_seat WHERE stadium_zone_id=?",matchId,zoneId,staticZone);
-        user=login("demo_user");other=login("it12_user2");admin=login("demo_admin");
+        user=login("demo_user");other=login("it12_user2");admin=login("demo_admin");eventAdmin=login("demo_event_admin");
     }
     @AfterEach void after(){cleanup();}
 
@@ -45,7 +45,8 @@ class RefundIntegrationTest {
         long order=paid(2,user);int maxBefore=maxContinuous();
         String body=apply(order,user).andExpect(status().isOk()).andExpect(jsonPath("$.data.refundStatus").value("PENDING")).andReturn().getResponse().getContentAsString();long refund=json.readTree(body).path("data").path("refundId").asLong();
         assertThat(orderStatus(order)).isEqualTo("REFUND_PENDING");assertThat(count("SELECT COUNT(*) FROM order_item WHERE order_id=? AND item_status='PAID'",order)).isEqualTo(2);assertThat(count("SELECT COUNT(*) FROM e_ticket WHERE order_id=? AND ticket_status='UNUSED'",order)).isEqualTo(2);assertThat(count("SELECT COUNT(*) FROM match_seat_inventory i JOIN order_item oi ON oi.inventory_id=i.inventory_id WHERE oi.order_id=? AND i.inventory_status='SOLD'",order)).isEqualTo(2);
-        mvc.perform(post("/api/admin/refunds/{id}/approve",refund).header("Authorization",bearer(admin)).contentType(MediaType.APPLICATION_JSON).content("{\"auditReason\":\"符合退票规则\"}" )).andExpect(status().isOk()).andExpect(jsonPath("$.data.refundStatus").value("APPROVED"));
+        mvc.perform(post("/api/admin/refunds/{id}/approve",refund).header("Authorization",bearer(admin)).contentType(MediaType.APPLICATION_JSON).content("{\"auditReason\":\"系统管理员越权\"}" )).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/refunds/{id}/approve",refund).header("Authorization",bearer(eventAdmin)).contentType(MediaType.APPLICATION_JSON).content("{\"auditReason\":\"符合退票规则\"}" )).andExpect(status().isOk()).andExpect(jsonPath("$.data.refundStatus").value("APPROVED"));
         assertThat(orderStatus(order)).isEqualTo("REFUNDED");assertThat(count("SELECT COUNT(*) FROM order_item WHERE order_id=? AND item_status='REFUNDED'",order)).isEqualTo(2);assertThat(count("SELECT COUNT(*) FROM e_ticket WHERE order_id=? AND ticket_status='REFUNDED'",order)).isEqualTo(2);assertThat(count("SELECT COUNT(*) FROM match_seat_inventory i JOIN order_item oi ON oi.inventory_id=i.inventory_id WHERE oi.order_id=? AND i.inventory_status='AVAILABLE' AND i.lock_order_id IS NULL AND i.locked_at IS NULL AND i.lock_expire_time IS NULL",order)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT refund_amount FROM refund_apply WHERE refund_id=?",java.math.BigDecimal.class,refund)).isEqualByComparingTo("150.00");assertThat(maxContinuous()).isEqualTo(maxBefore);
         mvc.perform(post("/api/match-ticket-zones/{id}/seat-allocation/preview",zoneId).header("Authorization",bearer(user)).contentType(MediaType.APPLICATION_JSON).content("{\"ticketCount\":2}" )).andExpect(status().isOk());
@@ -53,9 +54,9 @@ class RefundIntegrationTest {
     }
 
     @Test void rejectionRestoresOnlyOrder()throws Exception{
-        long order=paid(2,user);long refund=refundId(apply(order,user));mvc.perform(post("/api/admin/refunds/{id}/reject",refund).header("Authorization",bearer(admin)).contentType(MediaType.APPLICATION_JSON).content("{\"auditReason\":\"不符合条件\"}" )).andExpect(status().isOk());
+        long order=paid(2,user);long refund=refundId(apply(order,user));mvc.perform(post("/api/admin/refunds/{id}/reject",refund).header("Authorization",bearer(eventAdmin)).contentType(MediaType.APPLICATION_JSON).content("{\"auditReason\":\"不符合条件\"}" )).andExpect(status().isOk());
         assertThat(orderStatus(order)).isEqualTo("PAID");assertThat(count("SELECT COUNT(*) FROM order_item WHERE order_id=? AND item_status='PAID'",order)).isEqualTo(2);assertThat(count("SELECT COUNT(*) FROM e_ticket WHERE order_id=? AND ticket_status='UNUSED'",order)).isEqualTo(2);assertThat(count("SELECT COUNT(*) FROM match_seat_inventory i JOIN order_item oi ON oi.inventory_id=i.inventory_id WHERE oi.order_id=? AND i.inventory_status='SOLD'",order)).isEqualTo(2);
-        mvc.perform(post("/api/admin/refunds/{id}/reject",refund).header("Authorization",bearer(admin)).contentType(MediaType.APPLICATION_JSON).content("{}" )).andExpect(status().isOk());mvc.perform(post("/api/admin/refunds/{id}/approve",refund).header("Authorization",bearer(admin)).contentType(MediaType.APPLICATION_JSON).content("{}" )).andExpect(status().isConflict());
+        mvc.perform(post("/api/admin/refunds/{id}/reject",refund).header("Authorization",bearer(eventAdmin)).contentType(MediaType.APPLICATION_JSON).content("{}" )).andExpect(status().isOk());mvc.perform(post("/api/admin/refunds/{id}/approve",refund).header("Authorization",bearer(eventAdmin)).contentType(MediaType.APPLICATION_JSON).content("{}" )).andExpect(status().isConflict());
     }
 
     @Test void deadlineUsedTicketAndInvalidOrderAreRejected()throws Exception{
@@ -66,8 +67,8 @@ class RefundIntegrationTest {
 
     @Test void duplicateApplyDoubleApproveAndApproveRejectRemainConsistent()throws Exception{
         long order=paid(2,user);ExecutorService pool=Executors.newFixedThreadPool(2);CyclicBarrier b=new CyclicBarrier(2);try{Future<?>a=pool.submit(()->attempt(()->service.apply(userId,order,new RefundApplyRequest("并发申请")),b)),c=pool.submit(()->attempt(()->service.apply(userId,order,new RefundApplyRequest("并发申请")),b));a.get(15,TimeUnit.SECONDS);c.get(15,TimeUnit.SECONDS);}finally{pool.shutdownNow();}assertThat(count("SELECT COUNT(*) FROM refund_apply WHERE order_id=?",order)).isEqualTo(1);long refund=id("SELECT refund_id FROM refund_apply WHERE order_id="+order);
-        runPair(()->service.approve(adminId,refund,new RefundAuditRequest("通过")),()->service.approve(adminId,refund,new RefundAuditRequest("通过")));assertThat(orderStatus(order)).isEqualTo("REFUNDED");assertThat(count("SELECT COUNT(*) FROM e_ticket WHERE order_id=? AND ticket_status='REFUNDED'",order)).isEqualTo(2);
-        long order2=paid(2,user);long refund2=refundId(apply(order2,user));runPair(()->service.approve(adminId,refund2,new RefundAuditRequest("通过")),()->service.reject(adminId,refund2,new RefundAuditRequest("驳回")));String rs=jdbc.queryForObject("SELECT refund_status FROM refund_apply WHERE refund_id=?",String.class,refund2),os=orderStatus(order2);assertThat(rs+"|"+os).isIn("APPROVED|REFUNDED","REJECTED|PAID");
+        runPair(()->service.approve(eventAdminId,refund,new RefundAuditRequest("通过")),()->service.approve(eventAdminId,refund,new RefundAuditRequest("通过")));assertThat(orderStatus(order)).isEqualTo("REFUNDED");assertThat(count("SELECT COUNT(*) FROM e_ticket WHERE order_id=? AND ticket_status='REFUNDED'",order)).isEqualTo(2);
+        long order2=paid(2,user);long refund2=refundId(apply(order2,user));runPair(()->service.approve(eventAdminId,refund2,new RefundAuditRequest("通过")),()->service.reject(eventAdminId,refund2,new RefundAuditRequest("驳回")));String rs=jdbc.queryForObject("SELECT refund_status FROM refund_apply WHERE refund_id=?",String.class,refund2),os=orderStatus(order2);assertThat(rs+"|"+os).isIn("APPROVED|REFUNDED","REJECTED|PAID");
     }
 
     @Test void approvalAndUsedTransitionCannotCreateMixedState()throws Exception{

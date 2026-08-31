@@ -21,7 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @EnabledIfEnvironmentVariable(named="RUN_DB_TESTS",matches="true")
 class TicketInventoryIntegrationTest {
     @Autowired MockMvc mockMvc;@Autowired ObjectMapper objectMapper;@Autowired JdbcTemplate jdbc;
-    String admin,user,club,checker;long matchA,matchB,activeZone,disabledZone,otherZone;
+    String admin,systemAdmin,user,club;long matchA,matchB,activeZone,disabledZone,otherZone;
 
     @BeforeEach void reset()throws Exception{
         jdbc.update("DELETE FROM match_seat_inventory WHERE match_id IN (SELECT match_id FROM match_info WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name='IT8赛季'))");
@@ -42,14 +42,15 @@ class TicketInventoryIntegrationTest {
         jdbc.update("INSERT INTO round_info(season_id,round_no,round_name,start_date,end_date,round_status) VALUES(?,1,'IT8轮次',CURRENT_DATE,DATE_ADD(CURRENT_DATE,INTERVAL 7 DAY),'PUBLISHED')",season);long round=id("SELECT round_id FROM round_info WHERE season_id="+season);
         jdbc.update("INSERT INTO match_info(season_id,round_id,home_club_id,away_club_id,stadium_id,match_time,match_status,published_at) VALUES(?,?,?,?,?,DATE_ADD(NOW(),INTERVAL 2 DAY),'PUBLISHED',NOW()),(?,?,?,?,?,DATE_ADD(NOW(),INTERVAL 3 DAY),'PUBLISHED',NOW())",season,round,clubA,clubB,stadium,season,round,clubB,clubA,stadium);
         var matches=jdbc.queryForList("SELECT match_id FROM match_info WHERE season_id=? ORDER BY match_id",season);matchA=((Number)matches.get(0).get("match_id")).longValue();matchB=((Number)matches.get(1).get("match_id")).longValue();
-        admin=login("demo_admin");user=login("demo_user");club=login("demo_club");checker=login("demo_checker");
+        admin=login("demo_event_admin");systemAdmin=login("demo_admin");user=login("demo_user");club=login("demo_club");
     }
 
     @Test void ticketZoneValidationCreatorAndPermissions()throws Exception{
         long zone=createZone(matchA,activeZone,admin);
-        long adminId=jdbc.queryForObject("SELECT user_id FROM sys_user WHERE username='demo_admin'",Long.class);
+        long adminId=jdbc.queryForObject("SELECT user_id FROM sys_user WHERE username='demo_event_admin'",Long.class);
         org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("SELECT created_by FROM match_ticket_zone WHERE match_zone_id=?",Long.class,zone)).isEqualTo(adminId);
         createZoneRequest(matchA,activeZone,user,zoneBody(activeZone,100)).andExpect(status().isForbidden());
+        createZoneRequest(matchA,activeZone,systemAdmin,zoneBody(activeZone,100)).andExpect(status().isForbidden());
         createZoneRequest(matchA,activeZone,admin,zoneBody(activeZone,100)).andExpect(status().isConflict());
         createZoneRequest(matchA,disabledZone,admin,zoneBody(disabledZone,100)).andExpect(status().isBadRequest());
         createZoneRequest(matchA,otherZone,admin,zoneBody(otherZone,100)).andExpect(status().isBadRequest());
@@ -77,7 +78,7 @@ class TicketInventoryIntegrationTest {
         long row2Seat3=jdbc.queryForObject("SELECT i.inventory_id FROM match_seat_inventory i JOIN stadium_seat s ON s.stadium_seat_id=i.stadium_seat_id WHERE i.match_zone_id=? AND s.row_seq=2 AND s.seat_seq=3",Long.class,empty);
         inventoryStatus(row2Seat3,"DISABLED",admin).andExpect(status().isOk());
         mockMvc.perform(get("/api/match-ticket-zones/{id}/availability",empty).header("Authorization",bearer(club))).andExpect(status().isOk()).andExpect(jsonPath("$.data.totalSeatCount").value(9)).andExpect(jsonPath("$.data.availableSeatCount").value(8)).andExpect(jsonPath("$.data.disabledSeatCount").value(1)).andExpect(jsonPath("$.data.maxContinuousCount").value(3));
-        mockMvc.perform(get("/api/matches/{id}/ticket-zones",matchA).header("Authorization",bearer(checker))).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].saleAvailable").value(true));
+        mockMvc.perform(get("/api/matches/{id}/ticket-zones",matchA).header("Authorization",bearer(user))).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].saleAvailable").value(true));
         inventoryStatus(row2Seat3,"AVAILABLE",admin).andExpect(status().isOk());
         transition(empty,"CLOSED",admin).andExpect(status().isOk());transition(empty,"ON_SALE",admin).andExpect(status().isBadRequest());
         createZoneRequest(matchB,activeZone,user,zoneBody(activeZone,50)).andExpect(status().isForbidden());

@@ -1,4 +1,5 @@
 import request from '../utils/request'
+export const getStadium=(id)=>request.get(`/stadiums/${id}`)
 export const getAdminStadiums=(params)=>request.get('/admin/stadiums',{params})
 export const getAdminStadium=(id)=>request.get(`/admin/stadiums/${id}`)
 export const createStadium=(data)=>request.post('/admin/stadiums',data)

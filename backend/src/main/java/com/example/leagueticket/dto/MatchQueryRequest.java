@@ -16,6 +16,7 @@ public class MatchQueryRequest {
     private Long awayClubId;
     private Long clubId;
     private String matchStatus;
+    private Boolean publicOnly=false;
     @DateTimeFormat(iso=DateTimeFormat.ISO.DATE_TIME) private LocalDateTime startTime;
     @DateTimeFormat(iso=DateTimeFormat.ISO.DATE_TIME) private LocalDateTime endTime;
 }

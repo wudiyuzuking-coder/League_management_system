@@ -3,6 +3,7 @@ import { useAppStore } from '../stores/app'
 import { useAuthStore } from '../stores/auth'
 import { useRouter } from 'vue-router'
 import { computed } from 'vue'
+import SystemTimeControl from '../components/SystemTimeControl.vue'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
@@ -19,6 +20,7 @@ const logout = () => {
     <el-header class="user-header">
       <span class="brand">{{ appStore.appName }}</span>
       <div class="header-actions">
+        <SystemTimeControl />
         <span>{{ authStore.user?.realName }}</span>
         <el-tag effect="plain">普通用户</el-tag>
         <el-button link type="danger" @click="logout">退出登录</el-button>

@@ -15,6 +15,13 @@ export const updateClubCoachStatus = (id, coachStatus) => request.put(`/club/coa
 export const getClubStats = () => request.get('/club/player-season-stats')
 export const createClubStat = (data) => request.post('/club/player-season-stats', data)
 export const updateClubStat = (id, data) => request.put(`/club/player-season-stats/${id}`, data)
+export const getAvailableEnrollmentSeasons = () => request.get('/club/enrollments/available-seasons')
+export const createClubEnrollment = (data) => request.post('/club/enrollments', data)
+export const getClubEnrollments = () => request.get('/club/enrollments')
+export const getClubEnrollment = (id) => request.get(`/club/enrollments/${id}`)
+export const getClubSchedules = () => request.get('/club/schedules')
+export const getAdminEnrollments = (params) => request.get('/admin/enrollments', { params })
+export const getAdminEnrollment = (id) => request.get(`/admin/enrollments/${id}`)
 
 export const getAdminClubs = (params) => request.get('/admin/clubs', { params })
 export const getAdminClub = (id) => request.get(`/admin/clubs/${id}`)

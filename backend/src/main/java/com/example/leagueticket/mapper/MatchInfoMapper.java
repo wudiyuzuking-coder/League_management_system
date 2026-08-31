@@ -4,6 +4,8 @@ import com.example.leagueticket.dto.MatchQueryRequest;
 import com.example.leagueticket.entity.MatchInfo;
 import org.apache.ibatis.annotations.*;
 import java.util.List;
+import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Mapper
 public interface MatchInfoMapper {
@@ -24,6 +26,7 @@ public interface MatchInfoMapper {
         <if test='q.homeClubId!=null'>AND m.home_club_id=#{q.homeClubId}</if><if test='q.awayClubId!=null'>AND m.away_club_id=#{q.awayClubId}</if>
         <if test='q.clubId!=null'>AND (m.home_club_id=#{q.clubId} OR m.away_club_id=#{q.clubId})</if>
         <if test='q.matchStatus!=null and q.matchStatus!=""'>AND m.match_status=#{q.matchStatus}</if>
+        <if test='q.publicOnly==true'>AND m.match_status IN ('PUBLISHED','IN_PROGRESS','FINISHED')</if>
         <if test='q.startTime!=null'>AND m.match_time&gt;=#{q.startTime}</if><if test='q.endTime!=null'>AND m.match_time&lt;=#{q.endTime}</if>
         </where></script>
         """) long count(@Param("q") MatchQueryRequest query);
@@ -42,6 +45,7 @@ public interface MatchInfoMapper {
         <if test='q.homeClubId!=null'>AND m.home_club_id=#{q.homeClubId}</if><if test='q.awayClubId!=null'>AND m.away_club_id=#{q.awayClubId}</if>
         <if test='q.clubId!=null'>AND (m.home_club_id=#{q.clubId} OR m.away_club_id=#{q.clubId})</if>
         <if test='q.matchStatus!=null and q.matchStatus!=""'>AND m.match_status=#{q.matchStatus}</if>
+        <if test='q.publicOnly==true'>AND m.match_status IN ('PUBLISHED','IN_PROGRESS','FINISHED')</if>
         <if test='q.startTime!=null'>AND m.match_time&gt;=#{q.startTime}</if><if test='q.endTime!=null'>AND m.match_time&lt;=#{q.endTime}</if>
         </where> ORDER BY m.match_time,m.match_id LIMIT #{limit} OFFSET #{offset}</script>
         """;
@@ -52,10 +56,28 @@ public interface MatchInfoMapper {
     @Options(useGeneratedKeys=true,keyProperty="matchId") int insert(MatchInfo match);
     @Update("UPDATE match_info SET season_id=#{seasonId},round_id=#{roundId},home_club_id=#{homeClubId},away_club_id=#{awayClubId},stadium_id=#{stadiumId},match_time=#{matchTime} WHERE match_id=#{matchId}") int updateBasic(MatchInfo match);
     @Update("UPDATE match_info SET match_time=#{matchTime} WHERE match_id=#{matchId}") int updateTime(MatchInfo match);
-    @Update("UPDATE match_info SET match_status='PUBLISHED',published_at=COALESCE(published_at,CURRENT_TIMESTAMP) WHERE match_id=#{id}") int publish(Long id);
+    @Update("UPDATE match_info SET match_status='PUBLISHED',published_at=COALESCE(published_at,#{now}) WHERE match_id=#{id}") int publish(@Param("id")Long id,@Param("now")LocalDateTime now);
     @Update("UPDATE match_info SET match_status=#{status} WHERE match_id=#{id}") int updateStatus(@Param("id") Long id,@Param("status") String status);
     @Update("UPDATE match_info SET home_score=#{homeScore},away_score=#{awayScore} WHERE match_id=#{id}") int updateScore(@Param("id") Long id,@Param("homeScore") Integer homeScore,@Param("awayScore") Integer awayScore);
     @Select("SELECT match_id,season_id,home_club_id,away_club_id,home_score,away_score FROM match_info WHERE season_id=#{seasonId} AND match_status='FINISHED' AND home_score IS NOT NULL AND away_score IS NOT NULL ORDER BY match_id") List<MatchInfo> findFinishedBySeason(Long seasonId);
+    @Select("""
+        <script>SELECT COUNT(*) FROM match_info m WHERE m.match_status IN ('PUBLISHED','IN_PROGRESS')
+        AND DATE(m.match_time)&lt;=#{systemDate}
+        <if test='seasonId!=null'>AND m.season_id=#{seasonId}</if>
+        <if test='reminderType=="TODAY"'>AND DATE(m.match_time)=#{systemDate}</if>
+        <if test='reminderType=="OVERDUE"'>AND DATE(m.match_time)&lt;#{systemDate}</if>
+        </script>
+        """) long countResultReminders(@Param("systemDate") LocalDate systemDate,@Param("seasonId") Long seasonId,@Param("reminderType") String reminderType);
+    @Select("""
+        <script>"""+JOIN_SELECT+"""
+        WHERE m.match_status IN ('PUBLISHED','IN_PROGRESS') AND DATE(m.match_time)&lt;=#{systemDate}
+        <if test='seasonId!=null'>AND m.season_id=#{seasonId}</if>
+        <if test='reminderType=="TODAY"'>AND DATE(m.match_time)=#{systemDate}</if>
+        <if test='reminderType=="OVERDUE"'>AND DATE(m.match_time)&lt;#{systemDate}</if>
+        ORDER BY CASE WHEN DATE(m.match_time)&lt;#{systemDate} THEN 0 ELSE 1 END,m.match_time,m.match_id
+        LIMIT #{limit} OFFSET #{offset}</script>
+        """) List<MatchInfo> findResultReminders(@Param("systemDate") LocalDate systemDate,@Param("seasonId") Long seasonId,
+        @Param("reminderType") String reminderType,@Param("offset") long offset,@Param("limit") int limit);
     @Select("""
         <script>"""+JOIN_SELECT+"""
         WHERE 1=1

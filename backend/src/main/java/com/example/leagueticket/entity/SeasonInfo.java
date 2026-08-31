@@ -10,6 +10,9 @@ public class SeasonInfo {
     private String seasonName;
     private LocalDate startDate;
     private LocalDate endDate;
+    private LocalDateTime registrationStartTime;
+    private LocalDateTime registrationDeadline;
+    private Integer maxClubs;
     private String seasonStatus;
     private String description;
     private LocalDateTime createdAt;

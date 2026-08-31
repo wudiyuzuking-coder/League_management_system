@@ -16,7 +16,7 @@ public interface RefundApplyMapper {
         JOIN stadium_info st ON st.stadium_id=m.stadium_id
         JOIN match_ticket_zone mz ON mz.match_zone_id=o.match_zone_id
         """;
-    @Insert("INSERT INTO refund_apply(refund_no,order_id,applicant_id,reason,refund_amount,refund_status) VALUES(#{refundNo},#{orderId},#{applicantId},#{reason},#{refundAmount},'PENDING')")
+    @Insert("INSERT INTO refund_apply(refund_no,order_id,applicant_id,reason,refund_amount,refund_status,created_at) VALUES(#{refundNo},#{orderId},#{applicantId},#{reason},#{refundAmount},'PENDING',#{createdAt})")
     @Options(useGeneratedKeys=true,keyProperty="refundId") int insert(RefundApply refund);
     @Select("SELECT * FROM refund_apply WHERE refund_id=#{id} FOR UPDATE") RefundApply findByIdForUpdate(Long id);
     @Select("SELECT COUNT(*) FROM refund_apply WHERE order_id=#{orderId}") int countByOrder(Long orderId);

@@ -1,25 +1,81 @@
 # 足球联赛购票系统
 
-本项目是“软件课程设计 I”的足球联赛购票系统，采用前后端分离架构。系统覆盖联赛赛程、俱乐部、场馆与座位、比赛票务、连坐分配、订单、模拟支付、电子票、退票、检票和统计分析。
+本项目是“软件课程设计 I”的足球联赛购票系统，采用前后端分离架构。当前正式提交范围覆盖联赛赛程、俱乐部、场馆与座位、比赛票务、连坐分配、订单、模拟支付、电子票、退票和统计分析。
 
-当前仓库已完成**阶段15：整体联调、体验优化与交付准备**，可按本文从空数据库初始化并演示四类角色完整流程。
+当前仓库已完成**阶段16D：比分录入日期限制与赛果维护提醒**，可按本文从空数据库初始化并演示四类角色完整流程。
 
 ## 项目功能与系统角色
 
-- `USER`：注册登录、浏览赛季/轮次/比赛、连坐预览、购票支付、查看电子票和申请退票。
-- `CLUB`：俱乐部负责人，维护账号绑定俱乐部的资料、球员、教练和球员赛季数据，查看本队比赛、主场票务和统计。
-- `EVENT_ADMIN`：赛事管理员，负责赛季轮次、比赛注册、比分结果录入、场馆座位、票务配置、退票审核和赛事统计。
-- `ADMIN`：系统管理员，负责用户管理、俱乐部注册审核和系统基础数据维护。
+- `USER`：浏览比赛、连坐购票、支付、订单、电子票和退票申请。
+- `CLUB`：维护账号绑定俱乐部的资料、球员、教练和球员赛季数据，提交赛季报名，查看自己的已确认赛程、本队比赛和主场统计。
+- `EVENT_ADMIN`：负责赛季、轮次、自动赛程确认、比赛与赛果维护、场馆、座位、比赛票务、库存、退票审核和运营统计，并只读查看俱乐部报名。
+- `ADMIN`：负责用户管理、俱乐部管理，以及CLUB账号审核、`clubId`绑定和启停。
 
 系统不采用前端菜单隐藏作为权限保障。JWT认证、角色权限和CLUB的俱乐部数据范围均由后端校验。
 
 ## 核心演示流程
 
-购票入场：`USER登录 → 选择比赛票区 → 连坐预览 → 创建订单 → 模拟支付成功 → 获得电子票 → CHECKER核验 → 电子票USED`。
+流程A（购票）：`USER登录 → 浏览比赛 → 查看票区 → 连坐Preview → 创建订单 → 支付 → 查看电子票UNUSED`。
 
-整单退票：`USER购票并支付 → 申请退票 → ADMIN审核通过 → 订单/明细/电子票REFUNDED → 比赛座位恢复AVAILABLE`。
+流程B（退票）：`USER购票并支付 → 申请退票 → EVENT_ADMIN审核通过 → 订单/明细/电子票REFUNDED → 比赛座位恢复AVAILABLE`。
 
-管理员演示准备：进入比赛详情维护状态，在“票务配置”中新增比赛票区、生成一次比赛库存并切换为开售。当前 `test-data.sql` 已直接提供可购买的已发布比赛、开售票区和可用库存。
+流程C（运营）：`EVENT_ADMIN → 比赛管理 → 场馆座位 → 比赛票务与库存 → 退票审核 → 运营统计`。
+
+流程D（账号管理）：`CLUB注册 → DISABLED → ADMIN绑定clubId → ADMIN启用 → CLUB登录并管理自己的俱乐部`。
+
+项目历史版本曾实现独立CHECKER检票模块；当前四角色提交版本未将该模块纳入正式验收范围，相关代码和历史测试保留用于版本追溯。当前演示流程不执行检票，也不把电子票推进为 `USED`。
+
+## 演示系统时间
+
+系统提供统一的演示时间，采用“服务器真实时间 + 全局偏移秒数”模型。默认偏移为0，因此系统时间跟随服务器真实时间；调整到目标时间后，系统时间仍会继续正常流动。任意已登录的正式角色 `USER`、`CLUB`、`EVENT_ADMIN`、`ADMIN` 都可在页面顶部查看、调整并恢复系统时间，未登录请求会被拒绝。
+
+调整以后会立即影响全系统的售票窗口、下单与锁座到期时间、支付、订单超时释放、退票截止以及现有比赛业务时间记录。订单超时调度器仍由服务器真实时钟按固定频率触发，但任务内部使用统一系统时间判断哪些订单已经过期。
+
+## CLUB赛季报名（阶段16B）
+
+赛季比赛阶段继续使用日期级闭区间 `start_date ~ end_date`。EVENT_ADMIN创建或修改新赛季时必须设置报名开始时间、报名截止时间和1至20的俱乐部上限；比赛阶段开始边界为 `start_date 00:00:00`，它必须至少晚于报名开始一个月，报名截止必须至少提前七天。
+
+CLUB只能报名状态为 `DRAFT`、当前统一系统时间位于 `[registration_start_time, registration_deadline)` 且仍有名额的赛季。旧赛季报名字段为NULL时不会进入可报名列表。赛季区间按日期闭区间判断冲突，不能通过比赛时间反推。
+
+报名使用JWT绑定的 `clubId` 和该俱乐部唯一的 `home_stadium_id`。主场必须启用并具有至少一个ACTIVE区域和ACTIVE座位；阵容至少11名ACTIVE球员、至少1名ACTIVE教练，人员必须属于当前俱乐部。每位球员记录 `STARTER` 或 `SUBSTITUTE`，不限制首发恰好11人。报名成功状态只有 `SUBMITTED`，不包含人工批准或拒绝。
+
+主要接口：
+
+- CLUB：`GET /api/club/enrollments/available-seasons`、`POST /api/club/enrollments`、`GET /api/club/enrollments`、`GET /api/club/enrollments/{id}`。
+- EVENT_ADMIN：`GET /api/admin/enrollments`、`GET /api/admin/enrollments/{id}`，均为只读。
+- 已有数据库升级：执行 `database/migrations/phase16b_club_season_enrollment.sql`，再由人工为需要开放报名的历史赛季回填明确的报名时间和容量。
+
+## 自动双循环排赛与确认（阶段16C）
+
+当DRAFT赛季报名达到 `max_clubs` 时，报名事务提交后自动尝试生成赛程；报名未满但统一系统时间到达 `registration_deadline` 后，每分钟一次的Scheduler扫描也会尝试生成。EVENT_ADMIN还可调用人工补偿接口，但不能绕过满额或截止资格。生成失败不会回滚已经合法提交的报名。
+
+排赛按 `club_id ASC` 使用确定性的Circle Method。N支球队生成 `N × (N - 1)` 场比赛；偶数队为 `2 × (N - 1)` 轮，奇数队内部加入不落库的BYE并生成 `2N` 轮。第二循环严格反转主客场，每轮同一球队至多一场。各轮均匀分布在赛季日期闭区间内，相邻轮至少间隔6天，开球时间读取 `AUTO_SCHEDULE_DEFAULT_KICKOFF_TIME`（默认19:30）。场馆使用报名表保存的主场快照。
+
+自动生成的轮次和比赛保持 `DRAFT`，不创建票区、库存，也不自动发布。`season_schedule_batch` 独立保存 `GENERATED → CONFIRMED` 状态，`season_schedule_match` 追溯批次内比赛；每赛季唯一批次保证Scheduler、满额事件和人工请求重复触发时不会生成第二套。确认只代表EVENT_ADMIN接受赛程，确认时幂等初始化报名球队的零积分记录，比赛仍可沿用原DRAFT编辑/发布流程。
+
+主要接口：
+
+- EVENT_ADMIN：`POST /api/admin/seasons/{seasonId}/schedule/generate`、`GET /api/admin/seasons/{seasonId}/schedule`、`GET /api/admin/schedules`、`POST /api/admin/seasons/{seasonId}/schedule/confirm`。
+- CLUB：`GET /api/club/schedules`，只返回与JWT绑定clubId有关的CONFIRMED批次比赛。
+- 已有数据库升级：执行 `database/migrations/phase16c_auto_schedule.sql`；无需重建已有数据库。
+
+## 比分日期限制与赛果维护提醒（阶段16D）
+
+比分仍沿用原状态流程：只有 `IN_PROGRESS` 或 `FINISHED` 比赛可维护比分；`IN_PROGRESS` 先保存比分，再由EVENT_ADMIN显式将比赛推进为 `FINISHED`，此时重算积分榜；`FINISHED` 更正比分后立即重算。阶段16D只增加日期级校验：`SystemTimeService.now().toLocalDate() >= matchTime.toLocalDate()`。因此比赛当天即使尚未到具体开球时刻也可录入，比赛日期之前则返回409且不写比分、不改变积分榜。`DRAFT`、`PUBLISHED`、`CANCELLED` 仍按原状态机拒绝比分录入。
+
+EVENT_ADMIN通过 `GET /api/admin/matches/result-reminders` 查看待维护赛果，可按 `seasonId`、`reminderType`（`TODAY`/`OVERDUE`）分页筛选。提醒由现有 `match_info` 数据和Java传入的统一系统日期动态计算：仅包含比赛日期已到的 `PUBLISHED`、`IN_PROGRESS`；`DRAFT`、`FINISHED`、`CANCELLED` 不包含。`daysOverdue` 是系统日期与比赛日期之差，逾期比赛优先并按比赛时间升序排列。比赛完成后自动从查询结果消失，系统时间调整或回拨后前端重新请求即可得到新结果。
+
+本阶段没有新增提醒表、字段、状态、Scheduler、消息中心或推送机制。前端EVENT_ADMIN菜单显示“赛果待维护”数量并进入独立列表，列表的维护按钮复用原比赛状态和比分维护页面。
+
+后端接口：
+
+- `GET /api/system-time`：读取系统时间、服务器真实时间和偏移秒数。
+- `PUT /api/system-time`：提交 `targetTime`，按目标时间重新计算全局偏移。
+- `POST /api/system-time/reset`：将偏移恢复为0。
+
+每次调整或重置都会复用 `operation_log` 记录操作者、调整前后系统时间、offset变化和操作发生的真实时间。
+
+> 系统时间调整功能仅用于课程设计演示环境，不适用于生产环境。真实生产系统不应向普通用户开放全局时间修改权限。
 
 ## 技术栈
 
@@ -68,6 +124,15 @@ League_management_system/
 - npm 10 或更高版本
 - MySQL 8.0.16 或更高版本（需要数据库实际执行 `CHECK` 约束）
 
+在 Windows PowerShell 中可先确认 Node.js 与 npm 已正确安装并加入 `PATH`：
+
+```powershell
+node -v
+npm -v
+```
+
+如果命令无法识别，请重新打开终端；仍无效时检查 Node.js 安装目录（通常为 `C:\Program Files\nodejs`）是否已加入用户或系统 `PATH`。当前前端使用 Vite 7，Node.js 必须满足上面的版本要求。
+
 `local` Profile仅用于无需数据库的健康检查；认证与俱乐部管理接口必须使用 `dev` Profile连接已经初始化的 `league_ticket` 数据库。
 
 ## 初始化数据库
@@ -80,9 +145,40 @@ mysql --default-character-set=utf8mb4 -u root -p -e "source database/seed.sql"
 mysql --default-character-set=utf8mb4 -u root -p -e "source database/test-data.sql"
 ```
 
-- `schema.sql`：创建数据库、25张正式业务表、外键、唯一约束、`CHECK` 约束和必要索引。
+若当前 MySQL 客户端不能通过 `-e "source ..."` 导入，可在 Windows `cmd.exe` 中使用输入重定向：
+
+```bat
+mysql --default-character-set=utf8mb4 -u root -p < database\schema.sql
+mysql --default-character-set=utf8mb4 -u root -p < database\seed.sql
+mysql --default-character-set=utf8mb4 -u root -p < database\test-data.sql
+```
+
+PowerShell 不直接支持上述 `<` 语法，可使用管道：
+
+```powershell
+Get-Content -Raw database/schema.sql | mysql --default-character-set=utf8mb4 -u root -p
+Get-Content -Raw database/seed.sql | mysql --default-character-set=utf8mb4 -u root -p
+Get-Content -Raw database/test-data.sql | mysql --default-character-set=utf8mb4 -u root -p
+```
+
+如果 `where.exe mysql` 找不到客户端，可将 MySQL 的 `bin` 目录加入 `PATH`，或用实际安装路径完整调用。例如 MySQL 8.0 的常见路径为：
+
+```powershell
+where.exe mysql
+& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" --version
+```
+
+在 `cmd.exe` 中结合完整路径与重定向时，命令形式为：
+
+```bat
+"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" --default-character-set=utf8mb4 -u root -p < database\schema.sql
+```
+
+以上重定向与PowerShell管道形式已在本项目隔离的 MySQL 8.0.44 环境验证。
+
+- `schema.sql`：创建数据库、30张正式业务表、外键、唯一约束、`CHECK` 约束和必要索引。
 - `seed.sql`：写入四个固定角色、基础权限、角色权限关系和系统参数；设计为可重复执行。
-- `test-data.sql`：写入课程设计演示所需的最小赛季、轮次、俱乐部、场馆、静态座位、比赛、比赛库存和测试账号。初始密码字段是不可登录标记，必须使用下述显式初始化方式转换为BCrypt。
+- `test-data.sql`：写入课程设计演示所需的最小赛季、轮次、俱乐部、场馆、静态座位、比赛、比赛库存和测试账号。它只应用于空库、隔离开发库或专用测试库；已有数据环境导入前必须备份并核对主键、唯一键和演示数据覆盖风险。初始密码字段是不可登录标记，必须使用下述显式初始化方式转换为BCrypt。
 
 如使用 MySQL Workbench，可依次打开并完整执行以上三个文件。`schema.sql` 不会删除已有数据库或表，建议首次执行使用空数据库环境。
 
@@ -203,6 +299,8 @@ http://localhost:8080/api/health
 
 需要连接开发数据库时启用 `dev` Profile。`application-dev.yml` 使用以下环境变量：`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`，可选连接池参数为 `DB_MAX_POOL_SIZE` 和 `DB_MIN_IDLE`。
 
+根目录 [`.env.example`](.env.example) 汇总了开发环境变量示例。Spring Boot 不会自动读取根目录 `.env`；可以按下例在终端设置，或由IDE启动配置/本地环境加载。真实密码和JWT密钥只放在本机 `.env` 或环境变量中，不要提交到Git。
+
 ```powershell
 $env:SPRING_PROFILES_ACTIVE="dev"
 $env:DB_URL="jdbc:mysql://localhost:3306/league_ticket?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
@@ -253,6 +351,13 @@ http://localhost:5173
 
 Vite 开发服务器会将 `/api` 请求代理到 `http://localhost:8080`。
 
+## 常见启动问题
+
+- 数据库连接失败：确认 MySQL 已启动，`league_ticket` 已初始化，并核对 `DB_URL`、端口、账号、密码及 `allowPublicKeyRetrieval=true` 等连接参数。使用 `dev` Profile 时不能依赖 `local` Profile 的无数据库健康检查配置。
+- `JWT_SECRET` 未设置或长度不足：为开发环境设置至少32字节的随机密钥，重新启动后端；不要把真实密钥写入仓库。
+- 端口8080被占用：在 PowerShell 运行 `Get-NetTCPConnection -LocalPort 8080`，或在 `cmd.exe` 运行 `netstat -ano | findstr :8080`，根据PID定位占用进程。请人工确认进程后停止冲突服务，或在本地启动配置中显式改用其他端口；不要直接自动终止未知系统进程。若改端口，还需同步前端 Vite 代理目标。
+- `node` 或 `npm` 无法识别：执行 `node -v`、`npm -v`，确认安装版本与 `PATH` 后重新打开终端。
+
 ## 构建与测试
 
 后端：
@@ -281,9 +386,11 @@ npm run build
 - [需求文档索引](docs/requirements/README.md)
 - [设计文档索引](docs/design/README.md)
 
-阶段15最终验收使用隔离 MySQL 8.0.44：`clean test` 与 `clean package` 均执行61项测试，`Failures=0`、`Errors=0`、`Skipped=0`；前端生产构建成功。真实JAR与Vue环境已完成“购票并入场”和“购票并退票”两条完整流程。
+当前四角色版本使用隔离 MySQL 8.0.44 验收：阶段16A测试基线为63项（原57项正式测试全部保留，新增6项系统时间测试），`Failures=0`、`Errors=0`、`Skipped=0`；`clean test`、不跳过测试的 `clean package` 和前端生产构建均成功。真实JAR与Vue环境已完成购票支付、整单退票、CLUB账号绑定启用、运营统计和统一演示时间流程。
 
 ## 实现与设计说明
+
+以下阶段说明是项目演进记录。阶段13曾实现独立CHECKER检票模块，其中出现的CHECKER、检票接口和历史权限描述仅用于版本追溯，不代表当前四角色提交版本的正式角色或验收流程。对应旧集成测试已归档至 `docs/legacy-tests/checkin/`。
 
 阶段1已包含：
 
@@ -298,7 +405,7 @@ npm run build
 
 阶段2已增加：
 
-- 25张正式业务表及完整数据库约束和索引
+- 阶段2形成25张业务表；阶段16B新增3张独立报名表，阶段16C新增2张赛程批次关系表，当前共30张正式业务表及完整数据库约束和索引
 - 系统角色、基础权限、角色授权和系统配置
 - 可用于课程设计演示的最小测试数据
 

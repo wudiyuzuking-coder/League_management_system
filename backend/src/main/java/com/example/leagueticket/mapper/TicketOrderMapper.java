@@ -15,7 +15,7 @@ public interface TicketOrderMapper {
         JOIN stadium_info st ON st.stadium_id=m.stadium_id
         JOIN match_ticket_zone mz ON mz.match_zone_id=o.match_zone_id
         """;
-    @Insert("INSERT INTO ticket_order(order_no,user_id,match_id,match_zone_id,ticket_count,total_amount,order_status,expire_time,cancel_reason) VALUES(#{orderNo},#{userId},#{matchId},#{matchZoneId},#{ticketCount},#{totalAmount},'PENDING_PAYMENT',#{expireTime},NULL)")
+    @Insert("INSERT INTO ticket_order(order_no,user_id,match_id,match_zone_id,ticket_count,total_amount,order_status,expire_time,cancel_reason,created_at) VALUES(#{orderNo},#{userId},#{matchId},#{matchZoneId},#{ticketCount},#{totalAmount},'PENDING_PAYMENT',#{expireTime},NULL,#{createdAt})")
     @Options(useGeneratedKeys=true,keyProperty="orderId") int insert(TicketOrder order);
     @Select(DETAIL_SELECT+" WHERE o.order_id=#{id}") TicketOrder findDetail(Long id);
     @Select("SELECT * FROM ticket_order WHERE order_id=#{id} FOR UPDATE") TicketOrder findByIdForUpdate(Long id);

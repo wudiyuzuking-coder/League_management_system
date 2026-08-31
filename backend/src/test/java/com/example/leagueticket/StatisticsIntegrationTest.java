@@ -32,15 +32,15 @@ class StatisticsIntegrationTest {
     @Autowired PasswordEncoder encoder;
 
     long seasonId, matchA, matchB, emptyMatch, clubA, clubB;
-    String adminToken, clubToken, userToken, checkerToken;
+    String eventAdminToken, adminToken, clubToken, userToken;
 
     @BeforeEach
     void setup() throws Exception {
         cleanup();
-        jdbc.update("UPDATE sys_user SET password_hash=?,user_status='ENABLED' WHERE username IN ('demo_user','demo_admin','demo_club','demo_checker')", encoder.encode("123456"));
+        jdbc.update("UPDATE sys_user SET password_hash=?,user_status='ENABLED' WHERE username IN ('demo_user','demo_admin','demo_club','demo_event_admin')", encoder.encode("123456"));
         long adminId = id("SELECT user_id FROM sys_user WHERE username='demo_admin'");
+        long eventAdminId = id("SELECT user_id FROM sys_user WHERE username='demo_event_admin'");
         long userId = id("SELECT user_id FROM sys_user WHERE username='demo_user'");
-        long checkerId = id("SELECT user_id FROM sys_user WHERE username='demo_checker'");
         clubA = id("SELECT club_id FROM sys_user WHERE username='demo_club'");
         clubB = id("SELECT club_id FROM club_info WHERE club_id<>" + clubA + " ORDER BY club_id LIMIT 1");
         long stadiumId = id("SELECT stadium_id FROM stadium_info ORDER BY stadium_id LIMIT 1");
@@ -58,8 +58,8 @@ class StatisticsIntegrationTest {
         for (int seat = 1; seat <= 10; seat++) {
             jdbc.update("INSERT INTO stadium_seat(stadium_id,stadium_zone_id,row_no,row_seq,seat_no,seat_seq,center_distance,seat_status) VALUES(?,?,'1排',1,?,?,0,'ACTIVE')", stadiumId, stadiumZoneId, seat + "座", seat);
         }
-        long zoneA = matchZone(matchA, stadiumZoneId, adminId, new BigDecimal("100.00"));
-        long zoneB = matchZone(matchB, stadiumZoneId, adminId, new BigDecimal("50.00"));
+        long zoneA = matchZone(matchA, stadiumZoneId, eventAdminId, new BigDecimal("100.00"));
+        long zoneB = matchZone(matchB, stadiumZoneId, eventAdminId, new BigDecimal("50.00"));
         jdbc.update("INSERT INTO match_seat_inventory(match_id,match_zone_id,stadium_seat_id,inventory_status) SELECT ?,?,stadium_seat_id,CASE WHEN seat_seq<=8 THEN 'SOLD' ELSE 'AVAILABLE' END FROM stadium_seat WHERE stadium_zone_id=?", matchA, zoneA, stadiumZoneId);
         jdbc.update("INSERT INTO match_seat_inventory(match_id,match_zone_id,stadium_seat_id,inventory_status) SELECT ?,?,stadium_seat_id,CASE WHEN seat_seq<=2 THEN 'SOLD' ELSE 'AVAILABLE' END FROM stadium_seat WHERE stadium_zone_id=? AND seat_seq<=5", matchB, zoneB, stadiumZoneId);
 
@@ -75,29 +75,29 @@ class StatisticsIntegrationTest {
         payment(paidA2, "400.00", "A2", "2026-08-20 11:00:00");
         payment(refundedA, "200.00", "AR", "2026-08-20 12:00:00");
         payment(paidB, "100.00", "B1", "2026-08-21 10:00:00");
-        jdbc.update("INSERT INTO refund_apply(refund_no,order_id,applicant_id,reason,refund_amount,refund_status,auditor_id,audit_remark,audit_time,created_at) VALUES('IT14-R-AR',?,?, '统计退票',200.00,'APPROVED',?,'通过','2026-08-20 15:00:00','2026-08-19 15:00:00')", refundedA, userId, adminId);
-        addOtherStatusRefunds(userId, adminId);
+        jdbc.update("INSERT INTO refund_apply(refund_no,order_id,applicant_id,reason,refund_amount,refund_status,auditor_id,audit_remark,audit_time,created_at) VALUES('IT14-R-AR',?,?, '统计退票',200.00,'APPROVED',?,'通过','2026-08-20 15:00:00','2026-08-19 15:00:00')", refundedA, userId, eventAdminId);
+        addOtherStatusRefunds(userId, eventAdminId);
 
-        insertCheckins(matchA, checkerId, 6);
-        insertCheckins(matchB, checkerId, 1);
+        insertCheckins(matchA, adminId, 6);
+        insertCheckins(matchB, adminId, 1);
         for (String result : new String[]{"CODE_NOT_FOUND", "WRONG_MATCH", "ORDER_INVALID", "TICKET_USED", "TICKET_REFUNDED", "TICKET_VOID"}) {
-            jdbc.update("INSERT INTO checkin_record(match_id,ticket_id,scanned_ticket_code,checker_id,check_result,check_time,remark) VALUES(?,NULL,?,?,?,'2026-09-10 20:00:00','IT14统计异常')", matchA, "IT14-" + result, checkerId, result);
+            jdbc.update("INSERT INTO checkin_record(match_id,ticket_id,scanned_ticket_code,checker_id,check_result,check_time,remark) VALUES(?,NULL,?,?,?,'2026-09-10 20:00:00','IT14统计异常')", matchA, "IT14-" + result, adminId, result);
         }
-        adminToken = login("demo_admin"); clubToken = login("demo_club"); userToken = login("demo_user"); checkerToken = login("demo_checker");
+        eventAdminToken = login("demo_event_admin"); adminToken = login("demo_admin"); clubToken = login("demo_club"); userToken = login("demo_user");
     }
 
     @AfterEach void after() { cleanup(); }
 
     @Test
     void overviewAndMatchStatisticsUseConfirmedDefinitions() throws Exception {
-        mvc.perform(get("/api/admin/statistics/overview").queryParam("seasonId", String.valueOf(seasonId)).header("Authorization", bearer(adminToken)))
+        mvc.perform(get("/api/admin/statistics/overview").queryParam("seasonId", String.valueOf(seasonId)).header("Authorization", bearer(eventAdminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalMatches").value(3))
                 .andExpect(jsonPath("$.data.totalOrders").value(4)).andExpect(jsonPath("$.data.paidOrders").value(3))
                 .andExpect(jsonPath("$.data.refundedOrders").value(1)).andExpect(jsonPath("$.data.validTicketsSold").value(10))
                 .andExpect(jsonPath("$.data.checkedInTickets").value(7)).andExpect(jsonPath("$.data.grossSalesAmount").value(1100.00))
                 .andExpect(jsonPath("$.data.refundAmount").value(200.00)).andExpect(jsonPath("$.data.netSalesAmount").value(900.00))
                 .andExpect(jsonPath("$.data.averageAttendanceRate").value(26.67));
-        mvc.perform(get("/api/admin/statistics/matches/{id}", matchA).header("Authorization", bearer(adminToken)))
+        mvc.perform(get("/api/admin/statistics/matches/{id}", matchA).header("Authorization", bearer(eventAdminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalSeatCount").value(10))
                 .andExpect(jsonPath("$.data.validSoldCount").value(8)).andExpect(jsonPath("$.data.refundedCount").value(2))
                 .andExpect(jsonPath("$.data.checkedInCount").value(6)).andExpect(jsonPath("$.data.ticketSaleRate").value(80.00))
@@ -107,18 +107,18 @@ class StatisticsIntegrationTest {
 
     @Test
     void popularTrendRefundAndCheckinAggregationsAreExact() throws Exception {
-        mvc.perform(get("/api/admin/statistics/popular-matches").queryParam("seasonId", String.valueOf(seasonId)).queryParam("limit", "3").header("Authorization", bearer(adminToken)))
+        mvc.perform(get("/api/admin/statistics/popular-matches").queryParam("seasonId", String.valueOf(seasonId)).queryParam("limit", "3").header("Authorization", bearer(eventAdminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data[0].matchId").value(matchA)).andExpect(jsonPath("$.data[1].matchId").value(matchB));
-        mvc.perform(get("/api/admin/statistics/sales-trend").queryParam("seasonId", String.valueOf(seasonId)).header("Authorization", bearer(adminToken)))
+        mvc.perform(get("/api/admin/statistics/sales-trend").queryParam("seasonId", String.valueOf(seasonId)).header("Authorization", bearer(eventAdminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data[0].statDate").value("2026-08-20"))
                 .andExpect(jsonPath("$.data[0].grossSalesAmount").value(1000.00)).andExpect(jsonPath("$.data[0].refundAmount").value(200.00))
                 .andExpect(jsonPath("$.data[0].netSalesAmount").value(800.00)).andExpect(jsonPath("$.data[0].ticketsSold").value(10))
                 .andExpect(jsonPath("$.data[1].grossSalesAmount").value(100.00)).andExpect(jsonPath("$.data[1].ticketsSold").value(2));
-        mvc.perform(get("/api/admin/statistics/refunds").queryParam("startTime", "2026-08-01T00:00:00").queryParam("endTime", "2026-08-31T23:59:59").header("Authorization", bearer(adminToken)))
+        mvc.perform(get("/api/admin/statistics/refunds").queryParam("startTime", "2026-08-01T00:00:00").queryParam("endTime", "2026-08-31T23:59:59").header("Authorization", bearer(eventAdminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalApplications").value(3)).andExpect(jsonPath("$.data.pendingCount").value(1))
                 .andExpect(jsonPath("$.data.approvedCount").value(1)).andExpect(jsonPath("$.data.rejectedCount").value(1))
                 .andExpect(jsonPath("$.data.approvedRefundAmount").value(200.00)).andExpect(jsonPath("$.data.refundRate").value(16.67));
-        mvc.perform(get("/api/admin/statistics/checkins").queryParam("seasonId", String.valueOf(seasonId)).header("Authorization", bearer(adminToken)))
+        mvc.perform(get("/api/admin/statistics/checkins").queryParam("seasonId", String.valueOf(seasonId)).header("Authorization", bearer(eventAdminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalAttempts").value(13)).andExpect(jsonPath("$.data.successCount").value(7))
                 .andExpect(jsonPath("$.data.failedCount").value(6)).andExpect(jsonPath("$.data.successRate").value(53.85))
                 .andExpect(jsonPath("$.data.codeNotFoundCount").value(1)).andExpect(jsonPath("$.data.wrongMatchCount").value(1))
@@ -135,21 +135,21 @@ class StatisticsIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(2)).andReturn().getResponse().getContentAsString();
         for (JsonNode row : json.readTree(body).path("data").path("records")) assertThat(row.path("homeClubId").asLong()).isEqualTo(clubA);
         mvc.perform(get("/api/admin/statistics/overview").header("Authorization", bearer(userToken))).andExpect(status().isForbidden());
-        mvc.perform(get("/api/admin/statistics/overview").header("Authorization", bearer(checkerToken))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/statistics/overview").header("Authorization", bearer(adminToken))).andExpect(status().isForbidden());
         mvc.perform(get("/api/admin/statistics/overview").header("Authorization", bearer(clubToken))).andExpect(status().isForbidden());
     }
 
     @Test
     void zeroDenominatorsAndPaginationDoNotFail() throws Exception {
-        mvc.perform(get("/api/admin/statistics/matches/{id}", emptyMatch).header("Authorization", bearer(adminToken)))
+        mvc.perform(get("/api/admin/statistics/matches/{id}", emptyMatch).header("Authorization", bearer(eventAdminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalSeatCount").value(0))
                 .andExpect(jsonPath("$.data.ticketSaleRate").value(0.00)).andExpect(jsonPath("$.data.attendanceRate").value(0.00));
-        mvc.perform(get("/api/admin/statistics/matches").queryParam("seasonId", String.valueOf(seasonId)).queryParam("page", "2").queryParam("size", "2").header("Authorization", bearer(adminToken)))
+        mvc.perform(get("/api/admin/statistics/matches").queryParam("seasonId", String.valueOf(seasonId)).queryParam("page", "2").queryParam("size", "2").header("Authorization", bearer(eventAdminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(3)).andExpect(jsonPath("$.data.records.length()").value(1));
-        mvc.perform(get("/api/admin/statistics/refunds").queryParam("seasonId", String.valueOf(seasonId)).queryParam("startTime", "2035-01-01T00:00:00").header("Authorization", bearer(adminToken)))
+        mvc.perform(get("/api/admin/statistics/refunds").queryParam("seasonId", String.valueOf(seasonId)).queryParam("startTime", "2035-01-01T00:00:00").header("Authorization", bearer(eventAdminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalApplications").value(0))
                 .andExpect(jsonPath("$.data.successfulPaidOrders").value(0)).andExpect(jsonPath("$.data.refundRate").value(0.00));
-        mvc.perform(get("/api/admin/statistics/checkins").queryParam("seasonId", String.valueOf(seasonId)).queryParam("startTime", "2035-01-01T00:00:00").header("Authorization", bearer(adminToken)))
+        mvc.perform(get("/api/admin/statistics/checkins").queryParam("seasonId", String.valueOf(seasonId)).queryParam("startTime", "2035-01-01T00:00:00").header("Authorization", bearer(eventAdminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalAttempts").value(0))
                 .andExpect(jsonPath("$.data.successCount").value(0)).andExpect(jsonPath("$.data.successRate").value(0.00));
     }

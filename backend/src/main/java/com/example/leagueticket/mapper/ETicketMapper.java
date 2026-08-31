@@ -16,7 +16,7 @@ public interface ETicketMapper {
         JOIN club_info hc ON hc.club_id=m.home_club_id JOIN club_info ac ON ac.club_id=m.away_club_id
         JOIN stadium_info st ON st.stadium_id=m.stadium_id
         """;
-    @Insert("INSERT INTO e_ticket(ticket_code,order_id,item_id,ticket_status) VALUES(#{ticketCode},#{orderId},#{itemId},'UNUSED')")
+    @Insert("INSERT INTO e_ticket(ticket_code,order_id,item_id,ticket_status,issued_at) VALUES(#{ticketCode},#{orderId},#{itemId},'UNUSED',#{issuedAt})")
     @Options(useGeneratedKeys=true,keyProperty="ticketId") int insert(ETicket ticket);
     @Select(DETAIL_SELECT+" WHERE t.order_id=#{orderId} ORDER BY t.ticket_id") List<ETicket> findByOrder(Long orderId);
     @Select(DETAIL_SELECT+" WHERE t.ticket_id=#{ticketId} AND o.user_id=#{userId}")

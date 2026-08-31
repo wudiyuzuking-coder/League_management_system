@@ -2,15 +2,21 @@
 import { useAppStore } from '../stores/app'
 import { useAuthStore } from '../stores/auth'
 import { useRouter } from 'vue-router'
-import { computed } from 'vue'
+import { computed,onMounted,ref,watch } from 'vue'
+import SystemTimeControl from '../components/SystemTimeControl.vue'
+import {useSystemTimeStore} from '../stores/systemTime'
+import {getResultReminders} from '../api/match'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const router = useRouter()
+const systemTimeStore=useSystemTimeStore(),resultReminderCount=ref(0)
+const loadReminderCount=async()=>{if(authStore.user?.roleCode!=='EVENT_ADMIN')return;try{resultReminderCount.value=(await getResultReminders({page:1,size:1})).data.total}catch{resultReminderCount.value=0}}
 const menuActive = computed(() => {
   const path = router.currentRoute.value.path
   if (path.startsWith('/admin/statistics')) return '/admin/statistics'
-  const roots = ['/admin/users','/admin/clubs','/admin/seasons','/admin/matches','/admin/stadiums','/admin/refunds','/admin/checkins','/club/profile','/club/players','/club/coaches','/club/stats','/club/matches','/club/statistics']
+  if (path.startsWith('/admin/matches/result-reminders')) return '/admin/matches/result-reminders'
+  const roots = ['/admin/users','/admin/clubs','/admin/seasons','/admin/enrollments','/admin/schedules','/admin/matches','/admin/stadiums','/admin/refunds','/admin/checkins','/club/profile','/club/players','/club/coaches','/club/enrollments','/club/schedules','/club/stats','/club/matches','/club/statistics']
   return roots.find(root => path === root || path.startsWith(`${root}/`)) || path
 })
 const roleLabels = {
@@ -22,14 +28,18 @@ const menus = {
   CLUB: [
     ['/club/profile', '俱乐部资料'], ['/club/players', '球员管理'],
     ['/club/coaches', '教练管理'], ['/club/stats', '赛季数据'], ['/club/matches', '本队比赛'], ['/club/statistics', '主场统计'],
+    ['/club/enrollments', '赛季报名'], ['/club/schedules', '已确认赛程'],
   ],
-  EVENT_ADMIN: [['/admin/seasons', '赛季与积分榜'], ['/admin/matches', '比赛管理'], ['/admin/stadiums', '场馆与座位'], ['/admin/refunds', '退票审核'], ['/admin/statistics', '统计分析']],
+  EVENT_ADMIN: [['/admin/seasons', '赛季与积分榜'], ['/admin/enrollments', '赛季报名'], ['/admin/schedules', '赛程管理'], ['/admin/matches', '比赛管理'], ['/admin/matches/result-reminders', '赛果待维护'], ['/admin/stadiums', '场馆与座位'], ['/admin/refunds', '退票审核'], ['/admin/statistics', '统计分析']],
   ADMIN: [['/admin/users', '用户管理'], ['/admin/clubs', '俱乐部注册审核']],
 }
 const logout = () => {
   authStore.logout()
   router.replace('/login')
 }
+const menuLabel=item=>item[0]==='/admin/matches/result-reminders'?`${item[1]}（${resultReminderCount.value}）`:item[1]
+onMounted(loadReminderCount)
+watch(()=>systemTimeStore.revision,loadReminderCount)
 </script>
 
 <template>
@@ -39,13 +49,14 @@ const logout = () => {
       <p>{{ roleLabels[authStore.user?.roleCode] || authStore.user?.roleCode }}入口</p>
       <el-menu router :default-active="menuActive" class="management-menu">
         <el-menu-item v-for="item in menus[authStore.user?.roleCode] || []" :key="item[0]" :index="item[0]">
-          {{ item[1] }}
+          {{ menuLabel(item) }}
         </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
       <el-header class="management-header">
         <span>{{ appStore.currentStage }}</span>
+        <SystemTimeControl />
         <div class="management-user">
           <span>{{ authStore.user?.realName }}</span>
           <el-tag type="success" effect="plain">{{ roleLabels[authStore.user?.roleCode] || authStore.user?.roleCode }}</el-tag>

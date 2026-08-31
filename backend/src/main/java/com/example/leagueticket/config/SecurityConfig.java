@@ -51,6 +51,10 @@ public class SecurityConfig {
                                 "/api/admin/stadium-seats/**",
                                 "/api/admin/refunds",
                                 "/api/admin/refunds/**",
+                                "/api/admin/enrollments",
+                                "/api/admin/enrollments/**",
+                                "/api/admin/schedules",
+                                "/api/admin/schedules/**",
                                 "/api/admin/statistics/**")
                         .hasRole("EVENT_ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

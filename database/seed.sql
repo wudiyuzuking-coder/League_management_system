@@ -67,7 +67,7 @@ WHERE r.role_code = 'EVENT_ADMIN';
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.role_id, p.permission_id
 FROM sys_role r
-JOIN sys_permission p ON p.permission_code IN ('USER_MANAGE', 'CLUB_MANAGE_SELF', 'STATISTICS_VIEW')
+JOIN sys_permission p ON p.permission_code IN ('USER_MANAGE', 'CLUB_MANAGE_SELF')
 WHERE r.role_code = 'ADMIN';
 
 INSERT INTO sys_config (config_key, config_value, value_type, description, config_status)
@@ -75,9 +75,11 @@ VALUES
     ('ORDER_PAYMENT_TIMEOUT_MINUTES', '15', 'INTEGER', '待支付订单和锁座的超时时长（分钟）', 'ENABLED'),
     ('SALE_STOP_BEFORE_MINUTES', '30', 'INTEGER', '比赛开始前停止售票的时间（分钟）', 'ENABLED'),
     ('REFUND_STOP_BEFORE_HOURS', '24', 'INTEGER', '比赛开始前停止申请退票的时间（小时）', 'ENABLED'),
-    ('MAX_TICKETS_PER_ORDER', '4', 'INTEGER', '单笔订单最大购票张数', 'ENABLED')
+    ('MAX_TICKETS_PER_ORDER', '4', 'INTEGER', '单笔订单最大购票张数', 'ENABLED'),
+    ('SYSTEM_TIME_OFFSET_SECONDS', '0', 'INTEGER', '课程演示系统时间相对服务器真实时间的偏移秒数', 'ENABLED'),
+    ('AUTO_SCHEDULE_DEFAULT_KICKOFF_TIME', '19:30', 'STRING', '自动排赛默认开球时间（HH:mm）', 'ENABLED')
 ON DUPLICATE KEY UPDATE
-    config_value = VALUES(config_value),
+    config_value = IF(config_key = 'SYSTEM_TIME_OFFSET_SECONDS', config_value, VALUES(config_value)),
     value_type = VALUES(value_type),
     description = VALUES(description),
     config_status = VALUES(config_status);

@@ -138,8 +138,13 @@ public class SysUserServiceImpl implements SysUserService {
     @Override
     @Transactional
     public void updateStatus(Long userId, String userStatus) {
-        getById(userId);
+        SysUser user = getById(userId);
         validateStatus(userStatus);
+        if ("ENABLED".equals(userStatus)
+                && "CLUB".equals(user.getRoleCode())
+                && user.getClubId() == null) {
+            throw new BusinessException(HttpStatus.CONFLICT, "CLUB账号启用前必须先绑定俱乐部");
+        }
         userMapper.updateStatus(userId, userStatus);
     }
 

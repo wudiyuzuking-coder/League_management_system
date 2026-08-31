@@ -3,10 +3,14 @@
 
 USE league_ticket;
 
-INSERT INTO season_info (season_name, start_date, end_date, season_status, description)
-VALUES ('2026演示赛季', '2026-08-01', '2027-05-31', 'ACTIVE', '软件课程设计演示赛季')
-ON DUPLICATE KEY UPDATE season_status = VALUES(season_status), description = VALUES(description);
+INSERT INTO season_info (season_name, start_date, end_date, registration_start_time, registration_deadline, max_clubs, season_status, description)
+VALUES ('2026演示赛季', '2026-08-01', '2027-05-31', '2026-06-01 00:00:00', '2026-07-25 00:00:00', 4, 'ACTIVE', '软件课程设计演示赛季')
+ON DUPLICATE KEY UPDATE registration_start_time=VALUES(registration_start_time),registration_deadline=VALUES(registration_deadline),max_clubs=VALUES(max_clubs),season_status=VALUES(season_status),description=VALUES(description);
 SET @season_id := (SELECT season_id FROM season_info WHERE season_name = '2026演示赛季');
+
+INSERT INTO season_info (season_name, start_date, end_date, registration_start_time, registration_deadline, max_clubs, season_status, description)
+VALUES ('2027报名演示赛季', '2027-10-01', '2028-05-31', '2026-08-01 00:00:00', '2027-09-24 00:00:00', 4, 'DRAFT', '阶段16B CLUB赛季报名演示')
+ON DUPLICATE KEY UPDATE registration_start_time=VALUES(registration_start_time),registration_deadline=VALUES(registration_deadline),max_clubs=VALUES(max_clubs),season_status=VALUES(season_status),description=VALUES(description);
 
 INSERT INTO round_info (season_id, round_no, round_name, start_date, end_date, round_status)
 VALUES
@@ -78,12 +82,51 @@ INSERT INTO coach_info (club_id, coach_name, title, nationality, description, co
 SELECT @club_a, '陈教练', 'HEAD_COACH', '中国', '课程设计演示教练', 'ACTIVE'
 WHERE NOT EXISTS (SELECT 1 FROM coach_info WHERE club_id = @club_a AND coach_name = '陈教练' AND title = 'HEAD_COACH');
 
+INSERT INTO coach_info (club_id, coach_name, title, nationality, description, coach_status)
+SELECT x.club_id, CONCAT(x.prefix,'演示主教练'), 'HEAD_COACH', '中国', '自动排赛演示教练', 'ACTIVE'
+FROM (
+    SELECT @club_b club_id, '苏州园林' prefix UNION ALL
+    SELECT @club_c, '杭州星火' UNION ALL
+    SELECT @club_d, '苏州远航'
+) x
+WHERE NOT EXISTS (SELECT 1 FROM coach_info c WHERE c.club_id=x.club_id AND c.title='HEAD_COACH');
+
 INSERT INTO player_info (club_id, player_name, shirt_no, position, nationality, player_status)
 VALUES
     (@club_a, '演示前锋甲', 9, 'FORWARD', '中国', 'ACTIVE'),
     (@club_b, '演示门将乙', 1, 'GOALKEEPER', '中国', 'ACTIVE')
 ON DUPLICATE KEY UPDATE
     player_name = VALUES(player_name), position = VALUES(position), nationality = VALUES(nationality), player_status = VALUES(player_status);
+
+INSERT INTO player_info (club_id, player_name, shirt_no, position, nationality, birth_date, player_status)
+VALUES
+    (@club_a,'演示门将1',1,'GOALKEEPER','中国','1998-01-10','ACTIVE'),
+    (@club_a,'演示后卫2',2,'DEFENDER','中国','1999-02-11','ACTIVE'),
+    (@club_a,'演示后卫3',3,'DEFENDER','中国','2000-03-12','ACTIVE'),
+    (@club_a,'演示后卫4',4,'DEFENDER','中国','2001-04-13','ACTIVE'),
+    (@club_a,'演示后卫5',5,'DEFENDER','中国','1997-05-14','ACTIVE'),
+    (@club_a,'演示中场6',6,'MIDFIELDER','中国','1998-06-15','ACTIVE'),
+    (@club_a,'演示中场7',7,'MIDFIELDER','中国','1999-07-16','ACTIVE'),
+    (@club_a,'演示中场8',8,'MIDFIELDER','中国','2000-08-17','ACTIVE'),
+    (@club_a,'演示前锋10',10,'FORWARD','中国','2001-09-18','ACTIVE'),
+    (@club_a,'演示前锋11',11,'FORWARD','中国','1998-10-19','ACTIVE')
+ON DUPLICATE KEY UPDATE player_name=VALUES(player_name),position=VALUES(position),nationality=VALUES(nationality),birth_date=VALUES(birth_date),player_status=VALUES(player_status);
+
+INSERT INTO player_info (club_id, player_name, shirt_no, position, nationality, birth_date, player_status)
+SELECT c.club_id,CONCAT(c.prefix,'演示球员',n.no),n.no,
+       CASE WHEN n.no=1 THEN 'GOALKEEPER' WHEN n.no<=5 THEN 'DEFENDER' WHEN n.no<=8 THEN 'MIDFIELDER' ELSE 'FORWARD' END,
+       '中国','2000-01-01','ACTIVE'
+FROM (
+    SELECT @club_b club_id,'苏州园林' prefix UNION ALL
+    SELECT @club_c,'杭州星火' UNION ALL
+    SELECT @club_d,'苏州远航'
+) c
+CROSS JOIN (
+    SELECT 1 no UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
+    UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
+) n
+WHERE 1=1
+ON DUPLICATE KEY UPDATE player_name=VALUES(player_name),position=VALUES(position),nationality=VALUES(nationality),birth_date=VALUES(birth_date),player_status=VALUES(player_status);
 
 INSERT INTO club_season_record (season_id, club_id, played, wins, draws, losses, goals_for, goals_against, points, ranking)
 VALUES

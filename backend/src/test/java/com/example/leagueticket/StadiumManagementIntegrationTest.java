@@ -21,14 +21,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @EnabledIfEnvironmentVariable(named="RUN_DB_TESTS",matches="true")
 class StadiumManagementIntegrationTest {
     @Autowired MockMvc mockMvc;@Autowired ObjectMapper objectMapper;@Autowired JdbcTemplate jdbc;
-    String admin,user,club;
-    @BeforeEach void reset()throws Exception{jdbc.update("DELETE FROM stadium_seat WHERE stadium_id IN (SELECT stadium_id FROM stadium_info WHERE stadium_name LIKE 'IT7%')");jdbc.update("DELETE FROM stadium_zone WHERE stadium_id IN (SELECT stadium_id FROM stadium_info WHERE stadium_name LIKE 'IT7%')");jdbc.update("DELETE FROM stadium_info WHERE stadium_name LIKE 'IT7%'");admin=login("demo_admin");user=login("demo_user");club=login("demo_club");}
+    String admin,systemAdmin,user,club;
+    @BeforeEach void reset()throws Exception{jdbc.update("DELETE FROM stadium_seat WHERE stadium_id IN (SELECT stadium_id FROM stadium_info WHERE stadium_name LIKE 'IT7%')");jdbc.update("DELETE FROM stadium_zone WHERE stadium_id IN (SELECT stadium_id FROM stadium_info WHERE stadium_name LIKE 'IT7%')");jdbc.update("DELETE FROM stadium_info WHERE stadium_name LIKE 'IT7%'");admin=login("demo_event_admin");systemAdmin=login("demo_admin");user=login("demo_user");club=login("demo_club");}
 
     @Test void stadiumCrudValidationAndPermission()throws Exception{
         long id=createStadium("IT7中心场",100);
         createStadiumRequest("IT7中心场",100,admin).andExpect(status().isConflict());
         createStadiumRequest("IT7零容量",0,admin).andExpect(status().isBadRequest());
         createStadiumRequest("IT7用户越权",100,user).andExpect(status().isForbidden());
+        createStadiumRequest("IT7系统管理员越权",100,systemAdmin).andExpect(status().isForbidden());
         mockMvc.perform(put("/api/admin/stadiums/{id}",id).header("Authorization",bearer(admin)).contentType(MediaType.APPLICATION_JSON).content(json(stadium("IT7中心场更新",120)))).andExpect(status().isOk()).andExpect(jsonPath("$.data.capacity").value(120));
         mockMvc.perform(put("/api/admin/stadiums/{id}/status",id).header("Authorization",bearer(admin)).contentType(MediaType.APPLICATION_JSON).content("{\"stadiumStatus\":\"DISABLED\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.data.stadiumStatus").value("DISABLED"));
         mockMvc.perform(get("/api/stadiums").header("Authorization",bearer(club))).andExpect(status().isOk());

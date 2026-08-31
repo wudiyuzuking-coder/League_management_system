@@ -3,6 +3,7 @@ package com.example.leagueticket;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import com.example.leagueticket.service.SystemTimeService;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -21,10 +25,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest @AutoConfigureMockMvc @ActiveProfiles("dev")
 @EnabledIfEnvironmentVariable(named="RUN_DB_TESTS",matches="true")
 class MatchManagementIntegrationTest {
-    @Autowired MockMvc mockMvc; @Autowired ObjectMapper objectMapper; @Autowired JdbcTemplate jdbc;
-    String admin,user,club; long seasonId,otherSeasonId,roundId,otherRoundId,clubA,clubB,clubC,stadiumA,stadiumB;
+    @Autowired MockMvc mockMvc; @Autowired ObjectMapper objectMapper; @Autowired JdbcTemplate jdbc; @Autowired SystemTimeService systemTimeService;
+    String admin,systemAdmin,user,club; long seasonId,otherSeasonId,roundId,otherRoundId,clubA,clubB,clubC,stadiumA,stadiumB;
 
     @BeforeEach void reset() throws Exception {
+        long offset=Duration.between(systemTimeService.realNow(),LocalDateTime.of(2036,2,3,12,0)).getSeconds();
+        jdbc.update("INSERT INTO sys_config(config_key,config_value,value_type,description,config_status) VALUES('SYSTEM_TIME_OFFSET_SECONDS',?,'INTEGER','test','ENABLED') ON DUPLICATE KEY UPDATE config_value=VALUES(config_value),config_status='ENABLED'",Long.toString(offset));
         jdbc.update("DELETE FROM club_season_record WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT6%')");
         jdbc.update("DELETE FROM match_info WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT6%')");
         jdbc.update("DELETE FROM round_info WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT6%')");
@@ -35,13 +41,18 @@ class MatchManagementIntegrationTest {
         jdbc.update("INSERT INTO round_info(season_id,round_no,round_name,start_date,end_date,round_status) VALUES(?,1,'IT6其他轮','2037-02-01','2037-02-03','PUBLISHED')",otherSeasonId);otherRoundId=id("SELECT round_id FROM round_info WHERE season_id="+otherSeasonId+" AND round_no=1");
         var clubs=jdbc.queryForList("SELECT club_id,home_stadium_id FROM club_info WHERE home_stadium_id IS NOT NULL ORDER BY club_id LIMIT 3");
         clubA=((Number)clubs.get(0).get("club_id")).longValue();stadiumA=((Number)clubs.get(0).get("home_stadium_id")).longValue();clubB=((Number)clubs.get(1).get("club_id")).longValue();stadiumB=((Number)clubs.get(1).get("home_stadium_id")).longValue();clubC=((Number)clubs.get(2).get("club_id")).longValue();
-        admin=login("demo_admin");user=login("demo_user");club=login("demo_club");
+        admin=login("demo_event_admin");systemAdmin=login("demo_admin");user=login("demo_user");club=login("demo_club");
     }
+
+    @AfterEach void resetSystemTime(){jdbc.update("UPDATE sys_config SET config_value='0',config_status='ENABLED' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");}
 
     @Test void createValidationFilteringAndPermissions() throws Exception {
         long matchId=create(seasonId,roundId,clubA,clubB,stadiumA,"2036-02-01T19:30:00");
-        mockMvc.perform(get("/api/matches?clubId="+clubA).header("Authorization",bearer(club))).andExpect(status().isOk()).andExpect(jsonPath("$.data.records[*].matchId",hasItem((int)matchId)));
+        mockMvc.perform(get("/api/matches?clubId="+clubA).header("Authorization",bearer(club))).andExpect(status().isOk()).andExpect(jsonPath("$.data.records[*].matchId",not(hasItem((int)matchId))));
+        mockMvc.perform(get("/api/matches/{id}",matchId).header("Authorization",bearer(user))).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/admin/matches?seasonId="+seasonId+"&clubId="+clubA).header("Authorization",bearer(admin))).andExpect(status().isOk()).andExpect(jsonPath("$.data.records[*].matchId",hasItem((int)matchId)));
         createRequest(seasonId,roundId,clubA,clubC,stadiumA,"2036-02-02T19:30:00",user).andExpect(status().isForbidden());
+        createRequest(seasonId,roundId,clubA,clubC,stadiumA,"2036-02-02T19:30:00",systemAdmin).andExpect(status().isForbidden());
         createRequest(seasonId,roundId,clubA,clubA,stadiumA,"2036-02-02T19:30:00",admin).andExpect(status().isBadRequest());
         createRequest(seasonId,otherRoundId,clubA,clubC,stadiumA,"2036-02-02T19:30:00",admin).andExpect(status().isBadRequest());
         createRequest(seasonId,roundId,clubA,clubC,stadiumA,"2036-02-10T19:30:00",admin).andExpect(status().isBadRequest());

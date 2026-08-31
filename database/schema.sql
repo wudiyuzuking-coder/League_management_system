@@ -62,6 +62,9 @@ CREATE TABLE season_info (
     season_name VARCHAR(80) NOT NULL COMMENT '赛季名称',
     start_date DATE NOT NULL COMMENT '开始日期',
     end_date DATE NOT NULL COMMENT '结束日期',
+    registration_start_time DATETIME NULL COMMENT '报名开始时间，历史赛季可为空',
+    registration_deadline DATETIME NULL COMMENT '报名截止时间，历史赛季可为空',
+    max_clubs INT UNSIGNED NULL COMMENT '最大报名俱乐部数，历史赛季可为空',
     season_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '赛季状态',
     description VARCHAR(500) NULL COMMENT '赛季说明',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -69,6 +72,8 @@ CREATE TABLE season_info (
     PRIMARY KEY (season_id),
     CONSTRAINT uq_season_name UNIQUE (season_name),
     CONSTRAINT ck_season_dates CHECK (end_date >= start_date),
+    CONSTRAINT ck_season_registration_dates CHECK (registration_deadline IS NULL OR registration_start_time IS NULL OR registration_deadline >= registration_start_time),
+    CONSTRAINT ck_season_max_clubs CHECK (max_clubs IS NULL OR max_clubs BETWEEN 1 AND 20),
     CONSTRAINT ck_season_status CHECK (season_status IN ('DRAFT', 'ACTIVE', 'FINISHED'))
 ) ENGINE=InnoDB COMMENT='联赛赛季';
 
@@ -245,6 +250,56 @@ CREATE TABLE club_season_record (
     KEY idx_club_record_ranking (season_id, points, ranking)
 ) ENGINE=InnoDB COMMENT='俱乐部赛季战绩';
 
+CREATE TABLE club_season_enrollment (
+    enrollment_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '赛季报名主键',
+    season_id BIGINT UNSIGNED NOT NULL COMMENT '报名赛季',
+    club_id BIGINT UNSIGNED NOT NULL COMMENT '报名俱乐部',
+    stadium_id BIGINT UNSIGNED NOT NULL COMMENT '报名时确认的默认主场',
+    enrollment_status VARCHAR(16) NOT NULL DEFAULT 'SUBMITTED' COMMENT '报名状态',
+    submitted_at DATETIME NOT NULL COMMENT '按统一系统时间记录的提交时间',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (enrollment_id),
+    CONSTRAINT uq_enrollment_season_club UNIQUE (season_id, club_id),
+    CONSTRAINT fk_enrollment_season FOREIGN KEY (season_id) REFERENCES season_info (season_id),
+    CONSTRAINT fk_enrollment_club FOREIGN KEY (club_id) REFERENCES club_info (club_id),
+    CONSTRAINT fk_enrollment_stadium FOREIGN KEY (stadium_id) REFERENCES stadium_info (stadium_id),
+    CONSTRAINT ck_enrollment_status CHECK (enrollment_status IN ('SUBMITTED')),
+    KEY idx_enrollment_admin_filter (season_id, club_id, enrollment_status, submitted_at)
+) ENGINE=InnoDB COMMENT='俱乐部赛季报名';
+
+CREATE TABLE club_season_enrollment_player (
+    enrollment_player_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '报名球员关系主键',
+    enrollment_id BIGINT UNSIGNED NOT NULL COMMENT '赛季报名',
+    player_id BIGINT UNSIGNED NOT NULL COMMENT '报名球员',
+    lineup_role VARCHAR(16) NOT NULL COMMENT '阵容角色',
+    player_name_snapshot VARCHAR(80) NOT NULL COMMENT '报名时球员姓名快照',
+    shirt_no_snapshot INT UNSIGNED NULL COMMENT '报名时球衣号码快照',
+    position_snapshot VARCHAR(20) NOT NULL COMMENT '报名时位置快照',
+    birth_date_snapshot DATE NULL COMMENT '报名时出生日期快照',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (enrollment_player_id),
+    CONSTRAINT uq_enrollment_player UNIQUE (enrollment_id, player_id),
+    CONSTRAINT uq_enrollment_shirt UNIQUE (enrollment_id, shirt_no_snapshot),
+    CONSTRAINT fk_enrollment_player_enrollment FOREIGN KEY (enrollment_id) REFERENCES club_season_enrollment (enrollment_id) ON DELETE CASCADE,
+    CONSTRAINT fk_enrollment_player_player FOREIGN KEY (player_id) REFERENCES player_info (player_id),
+    CONSTRAINT ck_enrollment_lineup_role CHECK (lineup_role IN ('STARTER', 'SUBSTITUTE')),
+    CONSTRAINT ck_enrollment_player_position CHECK (position_snapshot IN ('GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'FORWARD'))
+) ENGINE=InnoDB COMMENT='赛季报名球员阵容及快照';
+
+CREATE TABLE club_season_enrollment_coach (
+    enrollment_coach_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '报名教练关系主键',
+    enrollment_id BIGINT UNSIGNED NOT NULL COMMENT '赛季报名',
+    coach_id BIGINT UNSIGNED NOT NULL COMMENT '报名教练',
+    coach_name_snapshot VARCHAR(80) NOT NULL COMMENT '报名时教练姓名快照',
+    title_snapshot VARCHAR(50) NOT NULL COMMENT '报名时教练职务快照',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (enrollment_coach_id),
+    CONSTRAINT uq_enrollment_coach UNIQUE (enrollment_id, coach_id),
+    CONSTRAINT fk_enrollment_coach_enrollment FOREIGN KEY (enrollment_id) REFERENCES club_season_enrollment (enrollment_id) ON DELETE CASCADE,
+    CONSTRAINT fk_enrollment_coach_coach FOREIGN KEY (coach_id) REFERENCES coach_info (coach_id)
+) ENGINE=InnoDB COMMENT='赛季报名教练及快照';
+
 CREATE TABLE sys_user (
     user_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户主键',
     username VARCHAR(50) NOT NULL COMMENT '登录用户名',
@@ -286,6 +341,29 @@ CREATE TABLE operation_log (
     KEY idx_operation_log_module_time (module_name, created_at)
 ) ENGINE=InnoDB COMMENT='后台操作日志';
 
+CREATE TABLE season_schedule_batch (
+    batch_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自动排赛批次主键',
+    season_id BIGINT UNSIGNED NOT NULL COMMENT '所属赛季',
+    batch_status VARCHAR(16) NOT NULL DEFAULT 'GENERATED' COMMENT '批次状态',
+    trigger_type VARCHAR(16) NOT NULL COMMENT '触发方式',
+    club_count INT UNSIGNED NOT NULL COMMENT '参赛俱乐部数',
+    round_count INT UNSIGNED NOT NULL COMMENT '生成轮次数',
+    match_count INT UNSIGNED NOT NULL COMMENT '生成比赛数',
+    generated_at DATETIME NOT NULL COMMENT '按统一系统时间记录的生成时间',
+    confirmed_at DATETIME NULL COMMENT '按统一系统时间记录的确认时间',
+    confirmed_by BIGINT UNSIGNED NULL COMMENT '确认赛事管理员',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (batch_id),
+    CONSTRAINT uq_schedule_batch_season UNIQUE (season_id),
+    CONSTRAINT fk_schedule_batch_season FOREIGN KEY (season_id) REFERENCES season_info (season_id),
+    CONSTRAINT fk_schedule_batch_confirmer FOREIGN KEY (confirmed_by) REFERENCES sys_user (user_id) ON DELETE SET NULL,
+    CONSTRAINT ck_schedule_batch_status CHECK (batch_status IN ('GENERATED', 'CONFIRMED')),
+    CONSTRAINT ck_schedule_trigger_type CHECK (trigger_type IN ('FULL', 'DEADLINE', 'MANUAL')),
+    CONSTRAINT ck_schedule_counts CHECK (club_count >= 2 AND round_count > 0 AND match_count > 0),
+    KEY idx_schedule_batch_status_time (batch_status, generated_at)
+) ENGINE=InnoDB COMMENT='赛季自动排赛批次及确认状态';
+
 CREATE TABLE match_info (
     match_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '比赛主键',
     season_id BIGINT UNSIGNED NOT NULL COMMENT '赛季',
@@ -317,6 +395,16 @@ CREATE TABLE match_info (
     KEY idx_match_home_time (home_club_id, match_time),
     KEY idx_match_away_time (away_club_id, match_time)
 ) ENGINE=InnoDB COMMENT='比赛信息；不对赛季主客队组合设置唯一约束';
+
+CREATE TABLE season_schedule_match (
+    batch_id BIGINT UNSIGNED NOT NULL COMMENT '自动排赛批次',
+    match_id BIGINT UNSIGNED NOT NULL COMMENT '自动生成比赛',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (batch_id, match_id),
+    CONSTRAINT uq_schedule_match UNIQUE (match_id),
+    CONSTRAINT fk_schedule_match_batch FOREIGN KEY (batch_id) REFERENCES season_schedule_batch (batch_id) ON DELETE CASCADE,
+    CONSTRAINT fk_schedule_match_match FOREIGN KEY (match_id) REFERENCES match_info (match_id) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='自动排赛批次与比赛关系';
 
 CREATE TABLE match_ticket_zone (
     match_zone_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '单场比赛票区主键',

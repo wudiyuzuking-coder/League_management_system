@@ -23,6 +23,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRecordMapper paymentMapper;
     private final ETicketMapper ticketMapper;
     private final OrderService orderService;
+    private final SystemTimeService systemTimeService;
 
     @Override
     @Transactional(noRollbackFor=OrderExpiredException.class)
@@ -42,7 +43,7 @@ public class PaymentServiceImpl implements PaymentService {
             return new PaymentResponse(payment(success),orderService.detailOwned(userId,orderId),true);
         }
         if(!"PENDING_PAYMENT".equals(order.getOrderStatus()))throw new BusinessException(HttpStatus.CONFLICT,"order status cannot be paid");
-        LocalDateTime now=LocalDateTime.now();
+        LocalDateTime now=systemTimeService.now();
         if(!order.getExpireTime().isAfter(now)){
             orderService.closeExpiredOrder(orderId);
             throw new OrderExpiredException();
@@ -53,7 +54,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BusinessException(HttpStatus.CONFLICT,"order payment data is inconsistent");
 
         PaymentRecord payment=new PaymentRecord();
-        payment.setPaymentNo(code("PAY",32));payment.setOrderId(orderId);payment.setPayAmount(order.getTotalAmount());payment.setPayMethod(method);
+        payment.setPaymentNo(code("PAY",32,now));payment.setOrderId(orderId);payment.setPayAmount(order.getTotalAmount());payment.setPayMethod(method);payment.setCreatedAt(now);
         if(paymentMapper.insert(payment)!=1)throw new BusinessException(HttpStatus.CONFLICT,"failed to create payment record");
         if("FAILED".equals(result)){
             if(paymentMapper.finish(payment.getPaymentId(),"FAILED",null,null)!=1)throw new BusinessException(HttpStatus.CONFLICT,"failed to record simulated payment result");
@@ -61,13 +62,13 @@ public class PaymentServiceImpl implements PaymentService {
             return new PaymentResponse(payment(payment),orderService.detailOwned(userId,orderId),false);
         }
 
-        String tradeNo=code("SIM",64);
+        String tradeNo=code("SIM",64,now);
         if(paymentMapper.finish(payment.getPaymentId(),"SUCCESS",tradeNo,now)!=1||orderMapper.markPaid(orderId,now)!=1||
                 itemMapper.markPaid(orderId)!=expected||inventoryMapper.markSoldByOrder(orderId)!=expected)
             throw new BusinessException(HttpStatus.CONFLICT,"payment state update was incomplete and has been rolled back");
         for(OrderItem item:itemMapper.findByOrder(orderId)){
             if(!"PAID".equals(item.getItemStatus()))throw new BusinessException(HttpStatus.CONFLICT,"paid item state is inconsistent");
-            ETicket ticket=new ETicket();ticket.setTicketCode(code("ET",64));ticket.setOrderId(orderId);ticket.setItemId(item.getItemId());
+            ETicket ticket=new ETicket();ticket.setTicketCode(code("ET",64,now));ticket.setOrderId(orderId);ticket.setItemId(item.getItemId());ticket.setIssuedAt(now);
             if(ticketMapper.insert(ticket)!=1)throw new BusinessException(HttpStatus.CONFLICT,"electronic ticket generation failed and payment was rolled back");
         }
         if(ticketMapper.findByOrder(orderId).size()!=expected)throw new BusinessException(HttpStatus.CONFLICT,"electronic ticket generation was incomplete and payment was rolled back");
@@ -75,5 +76,5 @@ public class PaymentServiceImpl implements PaymentService {
         return new PaymentResponse(payment(success),orderService.detailOwned(userId,orderId),false);
     }
     private static PaymentSummaryResponse payment(PaymentRecord p){return new PaymentSummaryResponse(p.getPaymentId(),p.getPaymentNo(),p.getOrderId(),p.getPayAmount(),p.getPayMethod(),p.getPayStatus(),p.getThirdPartyTradeNo(),p.getPayTime(),p.getCreatedAt());}
-    private static String code(String prefix,int max){String value=prefix+LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"))+UUID.randomUUID().toString().replace("-","").toUpperCase(Locale.ROOT);return value.substring(0,Math.min(max,value.length()));}
+    private static String code(String prefix,int max,LocalDateTime now){String value=prefix+now.format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"))+UUID.randomUUID().toString().replace("-","").toUpperCase(Locale.ROOT);return value.substring(0,Math.min(max,value.length()));}
 }

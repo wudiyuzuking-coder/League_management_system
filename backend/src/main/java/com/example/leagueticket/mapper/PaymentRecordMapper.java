@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @Mapper
 public interface PaymentRecordMapper {
-    @Insert("INSERT INTO payment_record(payment_no,order_id,pay_amount,pay_method,pay_status) VALUES(#{paymentNo},#{orderId},#{payAmount},#{payMethod},'CREATED')")
+    @Insert("INSERT INTO payment_record(payment_no,order_id,pay_amount,pay_method,pay_status,created_at) VALUES(#{paymentNo},#{orderId},#{payAmount},#{payMethod},'CREATED',#{createdAt})")
     @Options(useGeneratedKeys=true,keyProperty="paymentId") int insert(PaymentRecord payment);
     @Update("UPDATE payment_record SET pay_status=#{status},third_party_trade_no=#{tradeNo},pay_time=#{payTime} WHERE payment_id=#{id} AND pay_status='CREATED'")
     int finish(@Param("id")Long id,@Param("status")String status,@Param("tradeNo")String tradeNo,@Param("payTime")LocalDateTime payTime);

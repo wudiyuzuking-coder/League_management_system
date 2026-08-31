@@ -5,6 +5,7 @@ import com.example.leagueticket.entity.*;
 import com.example.leagueticket.exception.BusinessException;
 import com.example.leagueticket.mapper.*;
 import com.example.leagueticket.service.RefundService;
+import com.example.leagueticket.service.SystemTimeService;
 import com.example.leagueticket.vo.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -26,6 +27,7 @@ public class RefundServiceImpl implements RefundService {
     private final PaymentRecordMapper paymentMapper;
     private final MatchInfoMapper matchMapper;
     private final SystemConfigMapper configMapper;
+    private final SystemTimeService systemTimeService;
 
     @Override @Transactional
     public RefundResponse apply(Long userId,Long orderId,RefundApplyRequest request){
@@ -33,7 +35,8 @@ public class RefundServiceImpl implements RefundService {
         if(!"PAID".equals(order.getOrderStatus()))throw new BusinessException(HttpStatus.CONFLICT,"only a PAID order can request a refund");
         MatchInfo match=matchMapper.findById(order.getMatchId());if(match==null)throw new BusinessException(HttpStatus.NOT_FOUND,"match not found");
         LocalDateTime deadline=match.getMatchTime().minusHours(configInt("REFUND_STOP_BEFORE_HOURS",24));
-        if(!LocalDateTime.now().isBefore(deadline))throw new BusinessException(HttpStatus.CONFLICT,"refund deadline has passed");
+        LocalDateTime now=systemTimeService.now();
+        if(!now.isBefore(deadline))throw new BusinessException(HttpStatus.CONFLICT,"refund deadline has passed");
         int expected=order.getTicketCount();
         if(itemMapper.countByOrder(orderId)!=expected||itemMapper.countStatusByOrder(orderId,"PAID")!=expected)
             throw new BusinessException(HttpStatus.CONFLICT,"order item states do not allow a refund");
@@ -42,7 +45,7 @@ public class RefundServiceImpl implements RefundService {
             throw new BusinessException(HttpStatus.CONFLICT,"all electronic tickets must be UNUSED");
         if(paymentMapper.findSuccessByOrder(orderId)==null)throw new BusinessException(HttpStatus.CONFLICT,"successful payment record not found");
         if(refundMapper.countByOrder(orderId)>0)throw new BusinessException(HttpStatus.CONFLICT,"a refund application already exists for this order");
-        RefundApply refund=new RefundApply();refund.setRefundNo(number());refund.setOrderId(orderId);refund.setApplicantId(userId);
+        RefundApply refund=new RefundApply();refund.setRefundNo(number(now));refund.setOrderId(orderId);refund.setApplicantId(userId);refund.setCreatedAt(now);
         refund.setReason(request.reason().trim());refund.setRefundAmount(order.getTotalAmount());
         if(refundMapper.insert(refund)!=1||orderMapper.markRefundPending(orderId)!=1)
             throw new BusinessException(HttpStatus.CONFLICT,"failed to create complete refund application");
@@ -64,7 +67,7 @@ public class RefundServiceImpl implements RefundService {
         int expected=order.getTicketCount();List<ETicket> tickets=ticketMapper.findByOrderForUpdate(order.getOrderId());
         if(tickets.size()!=expected||tickets.stream().anyMatch(t->!"UNUSED".equals(t.getTicketStatus())))throw new BusinessException(HttpStatus.CONFLICT,"all electronic tickets must remain UNUSED before approval");
         if(itemMapper.countStatusByOrder(order.getOrderId(),"PAID")!=expected||inventoryMapper.countSoldByOrder(order.getOrderId())!=expected)throw new BusinessException(HttpStatus.CONFLICT,"refund business data is inconsistent");
-        LocalDateTime now=LocalDateTime.now();String remark=trim(request.auditReason());
+        LocalDateTime now=systemTimeService.now();String remark=trim(request.auditReason());
         if(refundMapper.audit(refundId,"APPROVED",adminId,remark,now)!=1||orderMapper.markRefunded(order.getOrderId())!=1||
                 itemMapper.markRefunded(order.getOrderId())!=expected||ticketMapper.markRefunded(order.getOrderId())!=expected||
                 inventoryMapper.releaseSoldByOrder(order.getOrderId())!=expected)
@@ -78,7 +81,7 @@ public class RefundServiceImpl implements RefundService {
         if("REJECTED".equals(refund.getRefundStatus()))return detail(refundId);
         if(!"PENDING".equals(refund.getRefundStatus()))throw new BusinessException(HttpStatus.CONFLICT,"an APPROVED refund cannot be rejected");
         TicketOrder order=requireOrderForUpdate(refund.getOrderId());if(!"REFUND_PENDING".equals(order.getOrderStatus()))throw new BusinessException(HttpStatus.CONFLICT,"order is not awaiting refund review");
-        LocalDateTime now=LocalDateTime.now();
+        LocalDateTime now=systemTimeService.now();
         if(refundMapper.audit(refundId,"REJECTED",adminId,trim(request.auditReason()),now)!=1||orderMapper.restorePaid(order.getOrderId())!=1)
             throw new BusinessException(HttpStatus.CONFLICT,"refund rejection was incomplete and has been rolled back");
         return detail(refundId);
@@ -93,5 +96,5 @@ public class RefundServiceImpl implements RefundService {
     private String trim(String value){return value==null||value.isBlank()?null:value.trim();}
     private void validateRange(RefundQueryRequest q){if(q.getStartTime()!=null&&q.getEndTime()!=null&&q.getEndTime().isBefore(q.getStartTime()))throw new BusinessException("endTime must not be before startTime");}
     private int configInt(String key,int fallback){String v=configMapper.findEnabledValue(key);try{return v==null?fallback:Integer.parseInt(v);}catch(NumberFormatException ignored){return fallback;}}
-    private String number(){String v="RF"+LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"))+UUID.randomUUID().toString().replace("-","").toUpperCase(Locale.ROOT);return v.substring(0,32);}
+    private String number(LocalDateTime now){String v="RF"+now.format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"))+UUID.randomUUID().toString().replace("-","").toUpperCase(Locale.ROOT);return v.substring(0,32);}
 }
