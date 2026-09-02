@@ -15,6 +15,9 @@ public interface ClubInfoMapper {
     @Select("SELECT * FROM club_info WHERE club_id=#{clubId} LIMIT 1")
     ClubInfo findById(Long clubId);
 
+    @Select("SELECT * FROM club_info WHERE club_id=#{clubId} AND club_status='ACTIVE' LIMIT 1")
+    ClubInfo findActiveById(Long clubId);
+
     @Select("SELECT COUNT(*) FROM club_info WHERE club_name=#{clubName} AND (#{excludeId} IS NULL OR club_id != #{excludeId})")
     int countByName(@Param("clubName") String clubName, @Param("excludeId") Long excludeId);
 

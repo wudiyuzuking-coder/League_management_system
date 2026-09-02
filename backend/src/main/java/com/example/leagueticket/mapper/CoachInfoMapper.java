@@ -18,6 +18,9 @@ public interface CoachInfoMapper {
     @Select("SELECT * FROM coach_info WHERE club_id=#{clubId} ORDER BY coach_id")
     List<CoachInfo> findByClubId(Long clubId);
 
+    @Select("SELECT * FROM coach_info WHERE club_id=#{clubId} AND coach_status='ACTIVE' ORDER BY coach_name,coach_id")
+    List<CoachInfo> findActiveByClubId(Long clubId);
+
     @Insert("""
             INSERT INTO coach_info (club_id,coach_name,title,nationality,description,coach_status)
             VALUES (#{clubId},#{coachName},#{title},#{nationality},#{description},#{coachStatus})

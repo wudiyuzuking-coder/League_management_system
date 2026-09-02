@@ -30,7 +30,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        SysUser user = userService.findByUsername(request.username());
+        SysUser user = userService.findByPhone(request.phone().trim());
         if (user == null) {
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "user not found");
         }
@@ -42,7 +42,7 @@ public class AuthServiceImpl implements AuthService {
         }
         AuthenticatedUser principal = userService.loadAuthenticatedUser(user.getUserId());
         userMapper.updateLastLogin(user.getUserId());
-        return new LoginResponse(jwtService.createToken(principal), user.getUserId(), user.getUsername(),
+        return new LoginResponse(jwtService.createToken(principal), user.getUserId(), user.getUsername(), user.getPhone(),
                 user.getRealName(), user.getRoleCode(), user.getClubId());
     }
 
@@ -50,6 +50,7 @@ public class AuthServiceImpl implements AuthService {
     public CurrentUserResponse currentUser(AuthenticatedUser principal) {
         SysUser user = userService.getById(principal.userId());
         return new CurrentUserResponse(user.getUserId(), user.getUsername(), user.getPhone(), user.getRealName(),
-                user.getRoleCode(), user.getClubId(), principal.permissions());
+                user.getEmployeeNo(), user.getAvatarUrl(), user.getRoleCode(), user.getClubId(),
+                user.getUserStatus(), principal.permissions());
     }
 }

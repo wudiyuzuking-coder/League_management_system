@@ -52,7 +52,7 @@ class SystemTimeIntegrationTest {
         jdbc.update("UPDATE sys_user SET password_hash=?,user_status='ENABLED' WHERE username IN ('demo_user','demo_club','demo_event_admin','demo_admin')",hash);
         Long clubId=jdbc.queryForObject("SELECT MIN(club_id) FROM club_info",Long.class);
         jdbc.update("UPDATE sys_user SET club_id=? WHERE username='demo_club'",clubId);
-        userToken=login("demo_user");clubToken=login("demo_club");eventAdminToken=login("demo_event_admin");adminToken=login("demo_admin");
+        userToken=loginByPhone("13800000001");clubToken=loginByPhone("13800000003");eventAdminToken=loginByPhone("13800000005");adminToken=loginByPhone("13800000002");
     }
 
     @AfterEach
@@ -112,8 +112,8 @@ class SystemTimeIntegrationTest {
     void concurrentAdjustmentsKeepOneReadableOffset() throws Exception {
         long userId=id("SELECT user_id FROM sys_user WHERE username='demo_user'");
         long adminId=id("SELECT user_id FROM sys_user WHERE username='demo_admin'");
-        AuthenticatedUser user=new AuthenticatedUser(userId,"demo_user","演示普通用户","USER",null,List.of(),List.of());
-        AuthenticatedUser admin=new AuthenticatedUser(adminId,"demo_admin","演示管理员","ADMIN",null,List.of(),List.of());
+        AuthenticatedUser user=new AuthenticatedUser(userId,"demo_user","13800000001","演示普通用户",null,"USER",null,"ENABLED",List.of(),List.of());
+        AuthenticatedUser admin=new AuthenticatedUser(adminId,"demo_admin","13800000002","演示管理员","SA0001","ADMIN",null,"ENABLED",List.of(),List.of());
         LocalDateTime real=systemTimeService.realNow();LocalDateTime a=real.plusDays(30),b=real.minusDays(30);
         ExecutorService pool=Executors.newFixedThreadPool(2);CyclicBarrier barrier=new CyclicBarrier(2);
         try{
@@ -146,6 +146,11 @@ class SystemTimeIntegrationTest {
         assertThat(orderService.closeExpiredBatch()).isGreaterThanOrEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT order_status FROM ticket_order WHERE order_id=?",String.class,orderId)).isEqualTo("CANCELLED");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM match_seat_inventory WHERE match_zone_id=? AND inventory_status='AVAILABLE'",Integer.class,zoneId)).isEqualTo(8);
+
+        setTime(userToken,businessNow.plusHours(2)).andExpect(status().isOk());
+        mvc.perform(get("/api/match-ticket-zones/{id}",zoneId).header("Authorization",bearer(userToken)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.saleAvailable").value(false));
+        createOrder().andExpect(status().isConflict());
     }
 
     @Test
@@ -178,7 +183,7 @@ class SystemTimeIntegrationTest {
     private ResultActions applyRefund(long orderId) throws Exception{return mvc.perform(post("/api/orders/{id}/refund",orderId).header("Authorization",bearer(userToken)).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"IT16A时间测试\"}"));}
     private JsonNode getTime(String token) throws Exception{return json.readTree(mvc.perform(get("/api/system-time").header("Authorization",bearer(token))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("data");}
     private ResultActions setTime(String token,LocalDateTime target) throws Exception{return mvc.perform(put("/api/system-time").header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("targetTime",target.truncatedTo(ChronoUnit.SECONDS)))));}
-    private String login(String username) throws Exception{String body=mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("username",username,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();return json.readTree(body).path("data").path("token").asText();}
+    private String loginByPhone(String phone) throws Exception{String body=mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("phone",phone,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();return json.readTree(body).path("data").path("token").asText();}
     private void cleanupScenario(){
         if(originalMatchTime!=null&&matchId!=null)jdbc.update("UPDATE match_info SET match_time=? WHERE match_id=?",originalMatchTime,matchId);
         jdbc.update("DELETE FROM refund_apply WHERE order_id IN (SELECT order_id FROM ticket_order WHERE match_zone_id IN (SELECT match_zone_id FROM match_ticket_zone WHERE stadium_zone_id IN (SELECT stadium_zone_id FROM stadium_zone WHERE zone_code='IT16A')))");

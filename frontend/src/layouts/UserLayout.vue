@@ -3,12 +3,13 @@ import { useAppStore } from '../stores/app'
 import { useAuthStore } from '../stores/auth'
 import { useRouter } from 'vue-router'
 import { computed } from 'vue'
+import { UserFilled } from '@element-plus/icons-vue'
 import SystemTimeControl from '../components/SystemTimeControl.vue'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const router = useRouter()
-const menuActive = computed(() => ['/user/seasons','/user/matches','/user/orders','/user/tickets','/user/refunds'].find(root => router.currentRoute.value.path === root || router.currentRoute.value.path.startsWith(`${root}/`)) || router.currentRoute.value.path)
+const menuActive = computed(() => ['/user/profile','/user/seasons','/user/matches','/user/orders','/user/tickets','/user/refunds'].find(root => router.currentRoute.value.path === root || router.currentRoute.value.path.startsWith(`${root}/`)) || router.currentRoute.value.path)
 const logout = () => {
   authStore.logout()
   router.replace('/login')
@@ -21,13 +22,15 @@ const logout = () => {
       <span class="brand">{{ appStore.appName }}</span>
       <div class="header-actions">
         <SystemTimeControl />
-        <span>{{ authStore.user?.realName }}</span>
+        <el-avatar :size="32" :src="authStore.user?.avatarUrl || undefined" :icon="UserFilled" />
+        <span>{{ authStore.user?.username }}</span>
         <el-tag effect="plain">普通用户</el-tag>
         <el-button link type="danger" @click="logout">退出登录</el-button>
       </div>
     </el-header>
     <el-main>
       <el-menu router mode="horizontal" :default-active="menuActive" class="user-menu">
+        <el-menu-item index="/user/profile">账号资料</el-menu-item>
         <el-menu-item index="/user/seasons">联赛赛季</el-menu-item>
         <el-menu-item index="/user/matches">比赛列表</el-menu-item>
         <el-menu-item index="/user/orders">我的订单</el-menu-item>

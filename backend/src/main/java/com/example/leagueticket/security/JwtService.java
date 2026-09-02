@@ -32,9 +32,9 @@ public class JwtService {
     public String createToken(AuthenticatedUser user) {
         Instant now = Instant.now();
         return Jwts.builder()
-                .subject(user.username())
-                .claim("userId", user.userId())
+                .subject(String.valueOf(user.userId()))
                 .claim("username", user.username())
+                .claim("phone", user.phone())
                 .claim("roleCode", user.roleCode())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(expiration)))

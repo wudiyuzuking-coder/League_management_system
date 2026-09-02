@@ -37,7 +37,7 @@ class SeatAllocationIntegrationTest {
         jdbc.update("INSERT INTO match_ticket_zone(match_id,stadium_zone_id,created_by,zone_name_snapshot,ticket_price,zone_status,sale_start_time,sale_end_time) VALUES(?,?,?,'IT9连坐测试区',99,'ON_SALE',DATE_SUB(NOW(),INTERVAL 1 HOUR),DATE_ADD(NOW(),INTERVAL 1 DAY))",matchId,staticZone,adminId);
         matchZoneId=jdbc.queryForObject("SELECT match_zone_id FROM match_ticket_zone WHERE stadium_zone_id=?",Long.class,staticZone);
         jdbc.update("INSERT INTO match_seat_inventory(match_id,match_zone_id,stadium_seat_id,inventory_status) SELECT ?,?,stadium_seat_id,'AVAILABLE' FROM stadium_seat WHERE stadium_zone_id=?",matchId,matchZoneId,staticZone);
-        admin=login("demo_event_admin");systemAdmin=login("demo_admin");user=login("demo_user");club=login("demo_club");
+        admin=loginByPhone("13800000005");systemAdmin=loginByPhone("13800000002");user=loginByPhone("13800000001");club=loginByPhone("13800000003");
     }
 
     @Test void previewRolesDebugPermissionValidationAndNoSideEffects()throws Exception{
@@ -70,6 +70,6 @@ class SeatAllocationIntegrationTest {
     }
 
     private org.springframework.test.web.servlet.ResultActions preview(int count,String token)throws Exception{return mockMvc.perform(post("/api/match-ticket-zones/{id}/seat-allocation/preview",matchZoneId).header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json(Map.of("ticketCount",count))));}
-    private String login(String username)throws Exception{String body=mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json(Map.of("username",username,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();JsonNode n=objectMapper.readTree(body);return n.path("data").path("token").asText();}
+    private String loginByPhone(String phone)throws Exception{String body=mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json(Map.of("phone",phone,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();JsonNode n=objectMapper.readTree(body);return n.path("data").path("token").asText();}
     private String bearer(String token){return "Bearer "+token;}private String json(Object value)throws Exception{return objectMapper.writeValueAsString(value);}
 }

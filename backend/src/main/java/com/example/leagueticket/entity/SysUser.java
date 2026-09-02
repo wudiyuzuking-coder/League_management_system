@@ -11,6 +11,8 @@ public class SysUser {
     private String phone;
     private String passwordHash;
     private String realName;
+    private String employeeNo;
+    private String avatarUrl;
     private Long roleId;
     private String roleCode;
     private Long clubId;

@@ -35,4 +35,5 @@ Thumbs.db
 .tmp/
 .tools/
 mysql-data/
+uploads/
 *.pid

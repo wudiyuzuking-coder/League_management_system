@@ -51,7 +51,7 @@ class MatchResultReminderIntegrationTest {
         roundId=id("SELECT round_id FROM round_info WHERE season_id="+seasonId);
         var clubs=jdbc.queryForList("SELECT club_id,home_stadium_id FROM club_info WHERE club_status='ACTIVE' AND home_stadium_id IS NOT NULL ORDER BY club_id LIMIT 2");
         clubA=((Number)clubs.get(0).get("club_id")).longValue();stadiumA=((Number)clubs.get(0).get("home_stadium_id")).longValue();clubB=((Number)clubs.get(1).get("club_id")).longValue();
-        eventAdmin=login("demo_event_admin");user=login("demo_user");club=login("demo_club");admin=login("demo_admin");
+        eventAdmin=loginByPhone("13800000005");user=loginByPhone("13800000001");club=loginByPhone("13800000003");admin=loginByPhone("13800000002");
     }
 
     @AfterEach void cleanup(){jdbc.update("UPDATE sys_config SET config_value='0',config_status='ENABLED' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");cleanupData();jdbc.update("DELETE FROM operation_log WHERE module_name='SYSTEM_TIME'");}
@@ -119,7 +119,7 @@ class MatchResultReminderIntegrationTest {
     private ResultActions score(long id,int home,int away)throws Exception{return mvc.perform(put("/api/admin/matches/{id}/score",id).header("Authorization",bearer(eventAdmin)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("homeScore",home,"awayScore",away))));}
     private ResultActions reminders(String token)throws Exception{return mvc.perform(get("/api/admin/matches/result-reminders?size=100&seasonId="+seasonId).header("Authorization",bearer(token)));}
     private void setTime(String time)throws Exception{mvc.perform(put("/api/system-time").header("Authorization",bearer(eventAdmin)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("targetTime",LocalDateTime.parse(time))))).andExpect(status().isOk());}
-    private String login(String username)throws Exception{JsonNode body=json.readTree(mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("username",username,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());return body.path("data").path("token").asText();}
+    private String loginByPhone(String phone)throws Exception{JsonNode body=json.readTree(mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("phone",phone,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());return body.path("data").path("token").asText();}
     private void cleanupData(){jdbc.update("DELETE FROM club_season_record WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name='IT16D赛季')");jdbc.update("DELETE FROM match_info WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name='IT16D赛季')");jdbc.update("DELETE FROM round_info WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name='IT16D赛季')");jdbc.update("DELETE FROM season_info WHERE season_name='IT16D赛季'");}
     private long id(String sql){return jdbc.queryForObject(sql,Long.class);}
     private static String bearer(String token){return "Bearer "+token;}

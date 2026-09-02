@@ -30,16 +30,22 @@ const validateConfirm = (_rule, value, callback) => {
   if (value !== form.password) callback(new Error('两次输入的密码不一致'))
   else callback()
 }
+const validateEmployeeNo = (_rule, value, callback) => {
+  if (!['EVENT_ADMIN', 'ADMIN'].includes(form.roleCode)) return callback()
+  const pattern = form.roleCode === 'EVENT_ADMIN' ? /^EA\d{4}$/ : /^SA\d{4}$/
+  if (!value) callback(new Error('请输入工号'))
+  else if (!pattern.test(value)) callback(new Error(form.roleCode === 'EVENT_ADMIN' ? '工号格式应为EA0001' : '工号格式应为SA0001'))
+  else callback()
+}
 const rules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 4, max: 50, message: '用户名长度为4到50个字符', trigger: 'blur' },
-    { pattern: /^[A-Za-z0-9_]+$/, message: '只能使用字母、数字和下划线', trigger: 'blur' },
+    { required: true, message: '请输入昵称', trigger: 'blur' },
+    { min: 2, max: 50, message: '昵称长度为2到50个字符', trigger: 'blur' },
   ],
   roleCode: [{ required: true, message: '请选择注册身份', trigger: 'change' }],
   realName: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
   clubName: [{ required: true, message: '请输入俱乐部名字', trigger: 'blur' }],
-  employeeNo: [{ required: true, message: '请输入工号', trigger: 'blur' }],
+  employeeNo: [{ validator: validateEmployeeNo, trigger: 'blur' }],
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1\d{10}$/, message: '请输入11位手机号', trigger: 'blur' },
@@ -77,7 +83,10 @@ const submit = async () => {
     }
     if (form.roleCode === 'USER') payload.realName = form.realName
     else if (form.roleCode === 'CLUB') payload.clubName = form.clubName
-    else payload.employeeNo = form.employeeNo
+    else {
+      payload.realName = form.realName
+      payload.employeeNo = form.employeeNo
+    }
     await authStore.register(payload)
     ElMessage.success(form.roleCode === 'USER' ? '注册成功，请登录' : '注册成功，请等待系统管理员启用账号')
     await router.replace('/login')
@@ -101,7 +110,7 @@ const submit = async () => {
       </template>
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <div class="form-grid">
-          <el-form-item label="用户名" prop="username"><el-input v-model="form.username" /></el-form-item>
+          <el-form-item label="昵称" prop="username"><el-input v-model="form.username" placeholder="昵称允许与其他用户相同" /></el-form-item>
           <el-form-item label="手机号" prop="phone"><el-input v-model="form.phone" /></el-form-item>
           <el-form-item label="密码" prop="password"><el-input v-model="form.password" type="password" show-password /></el-form-item>
           <el-form-item label="确认密码" prop="confirmPassword"><el-input v-model="form.confirmPassword" type="password" show-password /></el-form-item>
@@ -114,8 +123,10 @@ const submit = async () => {
         <div v-if="form.roleCode" class="form-grid">
           <el-form-item v-if="form.roleCode === 'USER'" label="姓名" prop="realName" required><el-input v-model="form.realName" /></el-form-item>
           <el-form-item v-else-if="form.roleCode === 'CLUB'" label="俱乐部名字" prop="clubName" required><el-input v-model="form.clubName" /></el-form-item>
-          <el-form-item v-else label="工号" prop="employeeNo" required><el-input v-model="form.employeeNo" /></el-form-item>
-          <span />
+          <template v-else>
+            <el-form-item label="姓名" prop="realName" required><el-input v-model="form.realName" /></el-form-item>
+            <el-form-item label="工号" prop="employeeNo" required><el-input v-model="form.employeeNo" :placeholder="form.roleCode === 'EVENT_ADMIN' ? 'EA0001' : 'SA0001'" /></el-form-item>
+          </template>
         </div>
         <el-button v-if="form.roleCode" class="auth-submit" type="primary" :loading="loading" @click="submit">注册</el-button>
       </el-form>

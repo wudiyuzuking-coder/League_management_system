@@ -302,10 +302,12 @@ CREATE TABLE club_season_enrollment_coach (
 
 CREATE TABLE sys_user (
     user_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户主键',
-    username VARCHAR(50) NOT NULL COMMENT '登录用户名',
-    phone VARCHAR(20) NULL COMMENT '手机号',
+    username VARCHAR(50) NOT NULL COMMENT '昵称/展示名称，允许重复',
+    phone VARCHAR(20) NULL COMMENT '唯一登录手机号',
     password_hash VARCHAR(255) NOT NULL COMMENT '密码哈希；阶段2演示数据为不可登录标记',
     display_name VARCHAR(80) NOT NULL COMMENT '显示名称',
+    employee_no VARCHAR(16) NULL COMMENT '管理人员工号；EVENT_ADMIN为EA加4位数字，ADMIN为SA加4位数字',
+    avatar_url VARCHAR(255) NULL COMMENT '用户头像访问路径',
     role_id BIGINT UNSIGNED NOT NULL COMMENT '角色',
     club_id BIGINT UNSIGNED NULL COMMENT '俱乐部账号或检票员所属俱乐部',
     user_status VARCHAR(16) NOT NULL DEFAULT 'ENABLED' COMMENT '用户状态',
@@ -313,11 +315,12 @@ CREATE TABLE sys_user (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (user_id),
-    CONSTRAINT uq_sys_user_username UNIQUE (username),
     CONSTRAINT uq_sys_user_phone UNIQUE (phone),
+    CONSTRAINT uq_sys_user_employee_no UNIQUE (employee_no),
     CONSTRAINT fk_sys_user_role FOREIGN KEY (role_id) REFERENCES sys_role (role_id),
     CONSTRAINT fk_sys_user_club FOREIGN KEY (club_id) REFERENCES club_info (club_id) ON DELETE SET NULL,
     CONSTRAINT ck_sys_user_status CHECK (user_status IN ('ENABLED', 'DISABLED', 'LOCKED')),
+    KEY idx_sys_user_username (username),
     KEY idx_sys_user_role_status (role_id, user_status),
     KEY idx_sys_user_club (club_id)
 ) ENGINE=InnoDB COMMENT='系统用户与后台账号';

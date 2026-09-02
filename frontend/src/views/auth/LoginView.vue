@@ -8,9 +8,12 @@ const router = useRouter()
 const authStore = useAuthStore()
 const formRef = ref()
 const loading = ref(false)
-const form = reactive({ username: '', password: '' })
+const form = reactive({ phone: '', password: '' })
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1\d{10}$/, message: '请输入11位手机号', trigger: 'blur' },
+  ],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
@@ -36,12 +39,12 @@ const submit = async () => {
         <div class="auth-heading">
           <span class="auth-kicker">LEAGUE TICKET</span>
           <h1>足球联赛购票系统</h1>
-          <p>使用系统账号登录</p>
+          <p>使用手机号登录</p>
         </div>
       </template>
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @keyup.enter="submit">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" autocomplete="username" placeholder="请输入用户名" />
+        <el-form-item label="手机号" prop="phone">
+          <el-input v-model="form.phone" autocomplete="tel" placeholder="请输入手机号" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
           <el-input v-model="form.password" type="password" show-password autocomplete="current-password" placeholder="请输入密码" />

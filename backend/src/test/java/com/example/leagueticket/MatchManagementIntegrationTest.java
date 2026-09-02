@@ -41,7 +41,7 @@ class MatchManagementIntegrationTest {
         jdbc.update("INSERT INTO round_info(season_id,round_no,round_name,start_date,end_date,round_status) VALUES(?,1,'IT6其他轮','2037-02-01','2037-02-03','PUBLISHED')",otherSeasonId);otherRoundId=id("SELECT round_id FROM round_info WHERE season_id="+otherSeasonId+" AND round_no=1");
         var clubs=jdbc.queryForList("SELECT club_id,home_stadium_id FROM club_info WHERE home_stadium_id IS NOT NULL ORDER BY club_id LIMIT 3");
         clubA=((Number)clubs.get(0).get("club_id")).longValue();stadiumA=((Number)clubs.get(0).get("home_stadium_id")).longValue();clubB=((Number)clubs.get(1).get("club_id")).longValue();stadiumB=((Number)clubs.get(1).get("home_stadium_id")).longValue();clubC=((Number)clubs.get(2).get("club_id")).longValue();
-        admin=login("demo_event_admin");systemAdmin=login("demo_admin");user=login("demo_user");club=login("demo_club");
+        admin=loginByPhone("13800000005");systemAdmin=loginByPhone("13800000002");user=loginByPhone("13800000001");club=loginByPhone("13800000003");
     }
 
     @AfterEach void resetSystemTime(){jdbc.update("UPDATE sys_config SET config_value='0',config_status='ENABLED' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");}
@@ -102,6 +102,6 @@ class MatchManagementIntegrationTest {
     private org.springframework.test.web.servlet.ResultActions score(long id,Integer home,Integer away,String token)throws Exception{return mockMvc.perform(put("/api/admin/matches/{id}/score",id).header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json(Map.of("homeScore",home,"awayScore",away))));}
     private Map<String,Object> match(long s,long r,long h,long a,long st,String time){Map<String,Object> m=new LinkedHashMap<>();m.put("seasonId",s);m.put("roundId",r);m.put("homeClubId",h);m.put("awayClubId",a);m.put("stadiumId",st);m.put("matchTime",time);return m;}
     private long id(String sql){return jdbc.queryForObject(sql,Long.class);}
-    private String login(String username)throws Exception{String body=mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json(Map.of("username",username,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();JsonNode n=objectMapper.readTree(body);return n.path("data").path("token").asText();}
+    private String loginByPhone(String phone)throws Exception{String body=mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json(Map.of("phone",phone,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();JsonNode n=objectMapper.readTree(body);return n.path("data").path("token").asText();}
     private String bearer(String token){return "Bearer "+token;} private String json(Object value)throws Exception{return objectMapper.writeValueAsString(value);}
 }

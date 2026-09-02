@@ -49,9 +49,9 @@ class ClubManagementIntegrationTest {
 
     @Test
     void clubAdministrationAndClubSelfScopeWork() throws Exception {
-        String admin = login("demo_admin");
-        String club = login("demo_club");
-        String user = login("demo_user");
+        String admin = loginByPhone("13800000002");
+        String club = loginByPhone("13800000003");
+        String user = loginByPhone("13800000001");
 
         mockMvc.perform(post("/api/admin/clubs").header("Authorization", bearer(admin))
                         .contentType(MediaType.APPLICATION_JSON).content(json(clubBody("IT4新俱乐部", "新城"))))
@@ -79,8 +79,8 @@ class ClubManagementIntegrationTest {
 
     @Test
     void playerRulesAndCrossClubScopeAreEnforced() throws Exception {
-        String club = login("demo_club");
-        String admin = login("demo_admin");
+        String club = loginByPhone("13800000003");
+        String admin = loginByPhone("13800000002");
         Long clubA = clubIdFor("demo_club");
         Long clubB = otherClubId(clubA);
 
@@ -111,8 +111,8 @@ class ClubManagementIntegrationTest {
 
     @Test
     void coachRulesAndCrossClubScopeAreEnforced() throws Exception {
-        String club = login("demo_club");
-        String admin = login("demo_admin");
+        String club = loginByPhone("13800000003");
+        String admin = loginByPhone("13800000002");
         Long clubA = clubIdFor("demo_club");
         Long clubB = otherClubId(clubA);
 
@@ -138,8 +138,8 @@ class ClubManagementIntegrationTest {
 
     @Test
     void playerSeasonStatRulesAndAdminScopeWork() throws Exception {
-        String club = login("demo_club");
-        String admin = login("demo_admin");
+        String club = loginByPhone("13800000003");
+        String admin = loginByPhone("13800000002");
         Long clubA = clubIdFor("demo_club");
         Long clubB = otherClubId(clubA);
         Long seasonId = jdbcTemplate.queryForObject("SELECT MIN(season_id) FROM season_info", Long.class);
@@ -192,9 +192,9 @@ class ClubManagementIntegrationTest {
         return jdbcTemplate.queryForObject("SELECT club_id FROM club_info WHERE club_id != ? ORDER BY club_id LIMIT 1", Long.class, clubId);
     }
 
-    private String login(String username) throws Exception {
+    private String loginByPhone(String phone) throws Exception {
         String response = mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("username", username, "password", PASSWORD))))
+                        .content(json(Map.of("phone", phone, "password", PASSWORD))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         JsonNode root = objectMapper.readTree(response);
         return root.path("data").path("token").asText();

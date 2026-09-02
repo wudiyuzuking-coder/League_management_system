@@ -60,6 +60,15 @@ public interface MatchInfoMapper {
     @Update("UPDATE match_info SET match_status=#{status} WHERE match_id=#{id}") int updateStatus(@Param("id") Long id,@Param("status") String status);
     @Update("UPDATE match_info SET home_score=#{homeScore},away_score=#{awayScore} WHERE match_id=#{id}") int updateScore(@Param("id") Long id,@Param("homeScore") Integer homeScore,@Param("awayScore") Integer awayScore);
     @Select("SELECT match_id,season_id,home_club_id,away_club_id,home_score,away_score FROM match_info WHERE season_id=#{seasonId} AND match_status='FINISHED' AND home_score IS NOT NULL AND away_score IS NOT NULL ORDER BY match_id") List<MatchInfo> findFinishedBySeason(Long seasonId);
+    @Select(JOIN_SELECT+" WHERE (m.home_club_id=#{clubId} OR m.away_club_id=#{clubId}) " +
+            "AND m.match_status='FINISHED' ORDER BY m.match_time DESC,m.match_id DESC LIMIT #{limit}")
+    List<MatchInfo> findRecentPublicByClub(@Param("clubId") Long clubId,@Param("limit") int limit);
+    @Select(JOIN_SELECT+" WHERE (m.home_club_id=#{clubId} OR m.away_club_id=#{clubId}) " +
+            "AND m.match_status='PUBLISHED' AND m.match_time>=#{systemNow} " +
+            "ORDER BY m.match_time,m.match_id LIMIT #{limit}")
+    List<MatchInfo> findUpcomingPublicByClub(@Param("clubId") Long clubId,
+                                             @Param("systemNow") LocalDateTime systemNow,
+                                             @Param("limit") int limit);
     @Select("""
         <script>SELECT COUNT(*) FROM match_info m WHERE m.match_status IN ('PUBLISHED','IN_PROGRESS')
         AND DATE(m.match_time)&lt;=#{systemDate}

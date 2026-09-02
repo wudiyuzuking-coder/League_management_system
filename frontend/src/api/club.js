@@ -1,6 +1,7 @@
 import request from '../utils/request'
 
 export const getClubs = (params={page:1,size:100}) => request.get('/clubs', { params })
+export const getUserClubDetail = (clubId) => request.get(`/user/clubs/${clubId}`)
 
 export const getClubProfile = () => request.get('/club/profile')
 export const updateClubProfile = (data) => request.put('/club/profile', data)

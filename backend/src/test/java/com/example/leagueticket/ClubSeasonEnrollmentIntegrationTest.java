@@ -40,7 +40,7 @@ class ClubSeasonEnrollmentIntegrationTest {
         List<Long> clubs=jdbc.queryForList("SELECT club_id FROM club_info WHERE home_stadium_id IS NOT NULL AND club_status='ACTIVE' ORDER BY club_id LIMIT 3",Long.class);
         clubA=clubs.get(0);clubB=clubs.get(1);clubC=clubs.get(2);ensureRoster(clubA,60);ensureRoster(clubB,40);ensureRoster(clubC,20);
         jdbc.update("UPDATE sys_user SET password_hash=?,club_id=?,user_status='ENABLED' WHERE username='demo_club'",encoder.encode("123456"),clubA);
-        clubToken=login("demo_club");eventToken=login("demo_event_admin");userToken=login("demo_user");
+        clubToken=loginByPhone("13800000003");eventToken=loginByPhone("13800000005");userToken=loginByPhone("13800000001");
     }
     @AfterEach void tearDown(){jdbc.update("UPDATE sys_config SET config_value='0' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");cleanup();}
 
@@ -119,7 +119,7 @@ class ClubSeasonEnrollmentIntegrationTest {
     private long stadium(long club){return jdbc.queryForObject("SELECT home_stadium_id FROM club_info WHERE club_id=?",Long.class,club);}
     private void ensureRoster(long club,int first){jdbc.update("UPDATE player_info SET birth_date='2000-01-01' WHERE club_id=? AND birth_date IS NULL",club);for(int i=0;i<11;i++){int shirt=first+i;jdbc.update("INSERT INTO player_info(club_id,player_name,shirt_no,position,nationality,birth_date,player_status) VALUES(?,?,?,?,?,'2000-01-01','ACTIVE') ON DUPLICATE KEY UPDATE player_status='ACTIVE',birth_date='2000-01-01'",club,"IT16B球员"+club+"-"+shirt,shirt,i==0?"GOALKEEPER":i<5?"DEFENDER":i<8?"MIDFIELDER":"FORWARD","中国");}jdbc.update("INSERT INTO coach_info(club_id,coach_name,title,coach_status) SELECT ?,?,'HEAD_COACH','ACTIVE' WHERE NOT EXISTS(SELECT 1 FROM coach_info WHERE club_id=? AND coach_name=?)",club,"IT16B教练"+club,club,"IT16B教练"+club);}
     private int countEnrollments(long season){return jdbc.queryForObject("SELECT COUNT(*) FROM club_season_enrollment WHERE season_id=?",Integer.class,season);}
-    private String login(String username)throws Exception{return response(mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("username",username,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("data").path("token").asText();}
+    private String loginByPhone(String phone)throws Exception{return response(mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("phone",phone,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("data").path("token").asText();}
     private JsonNode response(String value)throws Exception{return json.readTree(value);} private static String bearer(String token){return "Bearer "+token;}
     private void cleanup(){jdbc.update("DELETE FROM club_season_enrollment_player WHERE enrollment_id IN (SELECT enrollment_id FROM club_season_enrollment WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT16B%'))");jdbc.update("DELETE FROM club_season_enrollment_coach WHERE enrollment_id IN (SELECT enrollment_id FROM club_season_enrollment WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT16B%'))");jdbc.update("DELETE FROM club_season_enrollment WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT16B%')");jdbc.update("DELETE FROM season_info WHERE season_name LIKE 'IT16B%'");}
 }

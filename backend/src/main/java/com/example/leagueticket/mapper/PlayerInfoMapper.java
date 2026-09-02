@@ -18,6 +18,10 @@ public interface PlayerInfoMapper {
     @Select("SELECT * FROM player_info WHERE club_id=#{clubId} ORDER BY shirt_no,player_id")
     List<PlayerInfo> findByClubId(Long clubId);
 
+    @Select("SELECT * FROM player_info WHERE club_id=#{clubId} AND player_status='ACTIVE' " +
+            "ORDER BY shirt_no IS NULL,shirt_no,player_name,player_id")
+    List<PlayerInfo> findActiveByClubId(Long clubId);
+
     @Select("SELECT COUNT(*) FROM player_info WHERE club_id=#{clubId} AND shirt_no=#{shirtNo} AND (#{excludeId} IS NULL OR player_id != #{excludeId})")
     int countShirtNo(@Param("clubId") Long clubId, @Param("shirtNo") Integer shirtNo, @Param("excludeId") Long excludeId);
 

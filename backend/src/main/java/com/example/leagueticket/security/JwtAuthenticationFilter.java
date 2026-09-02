@@ -33,7 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(header) && header.startsWith("Bearer ")) {
             try {
                 Claims claims = jwtService.parseToken(header.substring(7));
-                Long userId = claims.get("userId", Long.class);
+                Long userId = Long.valueOf(claims.getSubject());
                 AuthenticatedUser principal = userService.loadAuthenticatedUser(userId);
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(principal, null, principal.authorities());

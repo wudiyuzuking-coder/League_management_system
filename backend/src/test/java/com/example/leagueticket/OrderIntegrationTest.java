@@ -38,7 +38,7 @@ class OrderIntegrationTest {
         jdbc.update("INSERT INTO match_ticket_zone(match_id,stadium_zone_id,created_by,zone_name_snapshot,ticket_price,zone_status,sale_start_time,sale_end_time) VALUES(?,?,?,'IT10订单区',88.50,'ON_SALE',DATE_SUB(NOW(),INTERVAL 1 HOUR),DATE_ADD(NOW(),INTERVAL 12 HOUR))",match,staticZone,admin);
         zoneId=id("SELECT match_zone_id FROM match_ticket_zone WHERE stadium_zone_id="+staticZone);
         jdbc.update("INSERT INTO match_seat_inventory(match_id,match_zone_id,stadium_seat_id,inventory_status) SELECT ?,?,stadium_seat_id,'AVAILABLE' FROM stadium_seat WHERE stadium_zone_id=?",match,zoneId,staticZone);
-        userA=login("demo_user");userB=login("it10_user2");club=login("demo_club");
+        userA=loginByPhone("13800000001");userB=loginByPhone("13900001010");club=loginByPhone("13800000003");
     }
     @AfterEach void after(){jdbc.execute("DROP TRIGGER IF EXISTS it10_fail_item");cleanup();}
 
@@ -113,7 +113,7 @@ class OrderIntegrationTest {
     private ResultActions create(int n,String token)throws Exception{return mvc.perform(post("/api/orders").header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("matchZoneId",zoneId,"ticketCount",n))));}
     private ResultActions cancel(long id,String token)throws Exception{return mvc.perform(post("/api/orders/{id}/cancel",id).header("Authorization",bearer(token)));}
     private ResultActions preview(int n,String token)throws Exception{return mvc.perform(post("/api/match-ticket-zones/{id}/seat-allocation/preview",zoneId).header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content("{\"ticketCount\":"+n+"}"));}
-    private String login(String username)throws Exception{String body=mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("username",username,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();return json.readTree(body).path("data").path("token").asText();}
+    private String loginByPhone(String phone)throws Exception{String body=mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("phone",phone,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();return json.readTree(body).path("data").path("token").asText();}
     private String bearer(String token){return "Bearer "+token;}private long id(String sql){return jdbc.queryForObject(sql,Long.class);}
     private void cleanup(){
         jdbc.execute("DROP TRIGGER IF EXISTS it10_fail_item");

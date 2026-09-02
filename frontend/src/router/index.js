@@ -14,11 +14,13 @@ const routes = [
   {
     path:'/user',component:UserLayout,meta:{requiresAuth:true,roles:['USER']},children:[
       {path:'',redirect:'/user/seasons'},
+      {path:'profile',name:'user-account-profile',component:view('shared/AccountProfile')},
       {path:'seasons',name:'user-seasons',component:view('user/UserSeasons')},
       {path:'seasons/:id/rounds',name:'user-rounds',component:view('user/UserRounds')},
       {path:'seasons/:id/standings',name:'user-standings',component:view('user/UserStandings')},
       {path:'matches',name:'user-matches',component:view('user/UserMatches')},
       {path:'matches/:id',name:'user-match-detail',component:view('user/UserMatchDetail')},
+      {path:'clubs/:clubId',name:'user-club-detail',component:view('user/UserClubDetail')},
       {path:'orders',name:'user-orders',component:view('user/UserOrders')},
       {path:'orders/:id',name:'user-order-detail',component:view('user/UserOrderDetail')},
       {path:'tickets',name:'user-tickets',component:view('user/UserTickets')},
@@ -31,6 +33,7 @@ const routes = [
     path: '/club', component: ManagementLayout, meta: { requiresAuth: true, roles: ['CLUB'] },
     children: [
       { path: '', redirect: '/club/profile' },
+      { path: 'account', name: 'club-account-profile', component: view('shared/AccountProfile') },
       { path: 'profile', name: 'club-profile', component: view('club/ClubProfile') },
       { path: 'players', name: 'club-players', component: view('club/ClubPlayers') },
       { path: 'coaches', name: 'club-coaches', component: view('club/ClubCoaches') },
@@ -46,6 +49,7 @@ const routes = [
     path: '/admin', component: ManagementLayout, meta: { requiresAuth: true, roles: ['ADMIN', 'EVENT_ADMIN'] },
     children: [
       { path: '', redirect: () => (useAuthStore(pinia).user?.roleCode === 'EVENT_ADMIN' ? '/admin/matches' : '/admin/users') },
+      { path: 'account', name: 'admin-account-profile', component: view('shared/AccountProfile') },
       { path: 'users', name: 'admin-users', component: view('admin/AdminUsers'), meta: { roles: ['ADMIN'] } },
       { path: 'clubs', name: 'admin-clubs', component: view('admin/AdminClubList'), meta: { roles: ['ADMIN'] } },
       { path: 'clubs/:id', name: 'admin-club-detail', component: view('admin/AdminClubDetail'), meta: { roles: ['ADMIN'] } },

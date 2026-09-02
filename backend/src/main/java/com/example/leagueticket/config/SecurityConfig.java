@@ -34,7 +34,8 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/health", "/api/auth/login", "/api/auth/register").permitAll()
+                        .requestMatchers("/api/health", "/api/auth/login", "/api/auth/register", "/uploads/**").permitAll()
+                        .requestMatchers("/api/user/**").hasRole("USER")
                         .requestMatchers("/api/club/**").hasRole("CLUB")
                         .requestMatchers(
                                 "/api/admin/seasons",

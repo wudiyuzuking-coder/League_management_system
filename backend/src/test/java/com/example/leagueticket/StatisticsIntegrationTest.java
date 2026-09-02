@@ -83,7 +83,7 @@ class StatisticsIntegrationTest {
         for (String result : new String[]{"CODE_NOT_FOUND", "WRONG_MATCH", "ORDER_INVALID", "TICKET_USED", "TICKET_REFUNDED", "TICKET_VOID"}) {
             jdbc.update("INSERT INTO checkin_record(match_id,ticket_id,scanned_ticket_code,checker_id,check_result,check_time,remark) VALUES(?,NULL,?,?,?,'2026-09-10 20:00:00','IT14统计异常')", matchA, "IT14-" + result, adminId, result);
         }
-        eventAdminToken = login("demo_event_admin"); adminToken = login("demo_admin"); clubToken = login("demo_club"); userToken = login("demo_user");
+        eventAdminToken = loginByPhone("13800000005"); adminToken = loginByPhone("13800000002"); clubToken = loginByPhone("13800000003"); userToken = loginByPhone("13800000001");
     }
 
     @AfterEach void after() { cleanup(); }
@@ -197,8 +197,8 @@ class StatisticsIntegrationTest {
         jdbc.update("INSERT INTO refund_apply(refund_no,order_id,applicant_id,reason,refund_amount,refund_status,created_at) VALUES('IT14-R-RP',?,?,'待审核统计',0,'PENDING','2026-08-20 16:00:00')", pendingOrder, user);
         jdbc.update("INSERT INTO refund_apply(refund_no,order_id,applicant_id,reason,refund_amount,refund_status,auditor_id,audit_remark,audit_time,created_at) VALUES('IT14-R-RR',?,?,'拒绝统计',0,'REJECTED',?,'拒绝','2026-08-20 17:00:00','2026-08-20 16:30:00')", rejectedOrder, user, admin);
     }
-    private String login(String username) throws Exception {
-        String body = mvc.perform(post("/api/auth/login").contentType("application/json").content(json.writeValueAsString(Map.of("username", username, "password", "123456"))))
+    private String loginByPhone(String phone) throws Exception {
+        String body = mvc.perform(post("/api/auth/login").contentType("application/json").content(json.writeValueAsString(Map.of("phone", phone, "password", "123456"))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         return json.readTree(body).path("data").path("token").asText();
     }

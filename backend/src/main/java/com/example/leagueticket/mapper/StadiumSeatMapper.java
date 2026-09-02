@@ -16,4 +16,36 @@ public interface StadiumSeatMapper {
     @Update("UPDATE stadium_seat SET seat_status=#{status} WHERE stadium_seat_id=#{id}") int updateStatus(@Param("id") Long id,@Param("status") String status);
     @Select("SELECT COUNT(*) FROM stadium_seat WHERE stadium_id=#{stadiumId}") long countTotal(Long stadiumId);
     @Select("SELECT COUNT(*) FROM stadium_seat WHERE stadium_id=#{stadiumId} AND seat_status=#{status}") long countStatus(@Param("stadiumId") Long stadiumId,@Param("status") String status);
+    @Select("""
+        SELECT z.stadium_zone_id,
+          COUNT(s.stadium_seat_id) physical_seat_count,
+          SUM(CASE WHEN s.seat_status='ACTIVE' THEN 1 ELSE 0 END) active_physical_seat_count,
+          COUNT(DISTINCT s.row_seq) row_count,
+          MIN(s.seat_seq) min_seat_no,
+          MAX(s.seat_seq) max_seat_no
+        FROM stadium_zone z LEFT JOIN stadium_seat s ON s.stadium_zone_id=z.stadium_zone_id
+        WHERE z.stadium_id=#{stadiumId}
+        GROUP BY z.stadium_zone_id
+        """) List<ZoneSeatSummary> findZoneSummariesByStadium(Long stadiumId);
+
+    class ZoneSeatSummary {
+        private Long stadiumZoneId;
+        private long physicalSeatCount;
+        private long activePhysicalSeatCount;
+        private int rowCount;
+        private Integer minSeatNo;
+        private Integer maxSeatNo;
+        public Long getStadiumZoneId(){return stadiumZoneId;}
+        public void setStadiumZoneId(Long value){stadiumZoneId=value;}
+        public long getPhysicalSeatCount(){return physicalSeatCount;}
+        public void setPhysicalSeatCount(long value){physicalSeatCount=value;}
+        public long getActivePhysicalSeatCount(){return activePhysicalSeatCount;}
+        public void setActivePhysicalSeatCount(long value){activePhysicalSeatCount=value;}
+        public int getRowCount(){return rowCount;}
+        public void setRowCount(int value){rowCount=value;}
+        public Integer getMinSeatNo(){return minSeatNo;}
+        public void setMinSeatNo(Integer value){minSeatNo=value;}
+        public Integer getMaxSeatNo(){return maxSeatNo;}
+        public void setMaxSeatNo(Integer value){maxSeatNo=value;}
+    }
 }

@@ -27,6 +27,9 @@ watch(()=>props.matchId,load);onMounted(load)
             <el-descriptions-item label="销售时间">{{z.saleStartTime}} 至 {{z.saleEndTime}}</el-descriptions-item>
             <el-descriptions-item label="余票">{{z.availableSeatCount}} / {{z.totalSeatCount}}</el-descriptions-item>
             <el-descriptions-item label="最大连坐数">{{z.maxContinuousCount}}</el-descriptions-item>
+            <el-descriptions-item label="场馆座位结构">{{z.rowCount}}排，物理座位{{z.physicalSeatCount}}个（ACTIVE {{z.activePhysicalSeatCount}}个）</el-descriptions-item>
+            <el-descriptions-item v-if="z.minSeatNo!=null" label="每排座号范围">{{z.minSeatNo}} 至 {{z.maxSeatNo}}</el-descriptions-item>
+            <el-descriptions-item label="当前可购买">{{z.saleAvailable?'是':'否'}}</el-descriptions-item>
           </el-descriptions>
           <div class="check-row">
             <el-select v-model="counts[z.matchZoneId]" style="width:90px"><el-option v-for="n in 4" :key="n" :label="`${n}张`" :value="n"/></el-select>

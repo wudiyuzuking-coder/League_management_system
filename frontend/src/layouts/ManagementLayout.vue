@@ -6,6 +6,7 @@ import { computed,onMounted,ref,watch } from 'vue'
 import SystemTimeControl from '../components/SystemTimeControl.vue'
 import {useSystemTimeStore} from '../stores/systemTime'
 import {getResultReminders} from '../api/match'
+import { UserFilled } from '@element-plus/icons-vue'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
@@ -16,7 +17,7 @@ const menuActive = computed(() => {
   const path = router.currentRoute.value.path
   if (path.startsWith('/admin/statistics')) return '/admin/statistics'
   if (path.startsWith('/admin/matches/result-reminders')) return '/admin/matches/result-reminders'
-  const roots = ['/admin/users','/admin/clubs','/admin/seasons','/admin/enrollments','/admin/schedules','/admin/matches','/admin/stadiums','/admin/refunds','/admin/checkins','/club/profile','/club/players','/club/coaches','/club/enrollments','/club/schedules','/club/stats','/club/matches','/club/statistics']
+  const roots = ['/admin/account','/admin/users','/admin/clubs','/admin/seasons','/admin/enrollments','/admin/schedules','/admin/matches','/admin/stadiums','/admin/refunds','/admin/checkins','/club/account','/club/profile','/club/players','/club/coaches','/club/enrollments','/club/schedules','/club/stats','/club/matches','/club/statistics']
   return roots.find(root => path === root || path.startsWith(`${root}/`)) || path
 })
 const roleLabels = {
@@ -26,12 +27,12 @@ const roleLabels = {
 }
 const menus = {
   CLUB: [
-    ['/club/profile', '俱乐部资料'], ['/club/players', '球员管理'],
+    ['/club/account', '账号资料'], ['/club/profile', '俱乐部资料'], ['/club/players', '球员管理'],
     ['/club/coaches', '教练管理'], ['/club/stats', '赛季数据'], ['/club/matches', '本队比赛'], ['/club/statistics', '主场统计'],
     ['/club/enrollments', '赛季报名'], ['/club/schedules', '已确认赛程'],
   ],
-  EVENT_ADMIN: [['/admin/seasons', '赛季与积分榜'], ['/admin/enrollments', '赛季报名'], ['/admin/schedules', '赛程管理'], ['/admin/matches', '比赛管理'], ['/admin/matches/result-reminders', '赛果待维护'], ['/admin/stadiums', '场馆与座位'], ['/admin/refunds', '退票审核'], ['/admin/statistics', '统计分析']],
-  ADMIN: [['/admin/users', '用户管理'], ['/admin/clubs', '俱乐部注册审核']],
+  EVENT_ADMIN: [['/admin/account', '账号资料'], ['/admin/seasons', '赛季与积分榜'], ['/admin/enrollments', '赛季报名'], ['/admin/schedules', '赛程管理'], ['/admin/matches', '比赛管理'], ['/admin/matches/result-reminders', '赛果待维护'], ['/admin/stadiums', '场馆与座位'], ['/admin/refunds', '退票审核'], ['/admin/statistics', '统计分析']],
+  ADMIN: [['/admin/account', '账号资料'], ['/admin/users', '用户管理'], ['/admin/clubs', '俱乐部注册审核']],
 }
 const logout = () => {
   authStore.logout()
@@ -58,7 +59,8 @@ watch(()=>systemTimeStore.revision,loadReminderCount)
         <span>{{ appStore.currentStage }}</span>
         <SystemTimeControl />
         <div class="management-user">
-          <span>{{ authStore.user?.realName }}</span>
+          <el-avatar :size="32" :src="authStore.user?.avatarUrl || undefined" :icon="UserFilled" />
+          <span>{{ authStore.user?.username }}</span>
           <el-tag type="success" effect="plain">{{ roleLabels[authStore.user?.roleCode] || authStore.user?.roleCode }}</el-tag>
           <el-button link type="danger" @click="logout">退出登录</el-button>
         </div>

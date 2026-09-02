@@ -12,7 +12,7 @@ import com.example.leagueticket.vo.PageResponse;
 import com.example.leagueticket.vo.UserResponse;
 
 public interface SysUserService {
-    SysUser findByUsername(String username);
+    SysUser findByPhone(String phone);
     SysUser getById(Long userId);
     UserResponse register(RegisterRequest request);
     AuthenticatedUser loadAuthenticatedUser(Long userId);

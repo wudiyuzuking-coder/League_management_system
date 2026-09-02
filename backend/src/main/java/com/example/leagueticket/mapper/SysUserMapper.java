@@ -15,7 +15,7 @@ public interface SysUserMapper {
 
     String BASE_COLUMNS = """
             u.user_id, u.username, u.phone, u.password_hash,
-            u.display_name AS real_name, u.role_id, r.role_code,
+            u.display_name AS real_name, u.employee_no, u.avatar_url, u.role_id, r.role_code,
             u.club_id, u.user_status, u.last_login_at, u.created_at, u.updated_at
             """;
 
@@ -34,23 +34,23 @@ public interface SysUserMapper {
             </script>
             """;
 
-    @Select("SELECT " + BASE_COLUMNS + " FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE u.username=#{username} LIMIT 1")
-    SysUser findByUsername(String username);
+    @Select("SELECT " + BASE_COLUMNS + " FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE u.phone=#{phone} LIMIT 1")
+    SysUser findByPhone(String phone);
 
     @Select("SELECT " + BASE_COLUMNS + " FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE u.user_id=#{userId} LIMIT 1")
     SysUser findById(Long userId);
 
-    @Select("SELECT COUNT(*) FROM sys_user WHERE username=#{username} AND (#{excludeId} IS NULL OR user_id != #{excludeId})")
-    int countByUsername(@Param("username") String username, @Param("excludeId") Long excludeId);
-
     @Select("SELECT COUNT(*) FROM sys_user WHERE phone=#{phone} AND (#{excludeId} IS NULL OR user_id != #{excludeId})")
     int countByPhone(@Param("phone") String phone, @Param("excludeId") Long excludeId);
 
+    @Select("SELECT COUNT(*) FROM sys_user WHERE employee_no=#{employeeNo} AND (#{excludeId} IS NULL OR user_id != #{excludeId})")
+    int countByEmployeeNo(@Param("employeeNo") String employeeNo, @Param("excludeId") Long excludeId);
+
     @Insert("""
             INSERT INTO sys_user
-                (username, phone, password_hash, display_name, role_id, club_id, user_status)
+                (username, phone, password_hash, display_name, employee_no, role_id, club_id, user_status)
             VALUES
-                (#{username}, #{phone}, #{passwordHash}, #{realName}, #{roleId}, #{clubId}, #{userStatus})
+                (#{username}, #{phone}, #{passwordHash}, #{realName}, #{employeeNo}, #{roleId}, #{clubId}, #{userStatus})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "userId")
     int insert(SysUser user);
@@ -58,15 +58,19 @@ public interface SysUserMapper {
     @Update("UPDATE sys_user SET last_login_at=CURRENT_TIMESTAMP WHERE user_id=#{userId}")
     int updateLastLogin(Long userId);
 
-    @Update("UPDATE sys_user SET display_name=#{realName}, phone=#{phone} WHERE user_id=#{userId}")
-    int updateProfile(@Param("userId") Long userId, @Param("realName") String realName, @Param("phone") String phone);
+    @Update("UPDATE sys_user SET username=#{username}, display_name=#{realName}, phone=#{phone} WHERE user_id=#{userId}")
+    int updateProfile(@Param("userId") Long userId, @Param("username") String username,
+                      @Param("realName") String realName, @Param("phone") String phone);
+
+    @Update("UPDATE sys_user SET avatar_url=#{avatarUrl} WHERE user_id=#{userId}")
+    int updateAvatarUrl(@Param("userId") Long userId, @Param("avatarUrl") String avatarUrl);
 
     @Update("UPDATE sys_user SET password_hash=#{passwordHash} WHERE user_id=#{userId}")
     int updatePassword(@Param("userId") Long userId, @Param("passwordHash") String passwordHash);
 
     @Update("""
             UPDATE sys_user
-            SET display_name=#{realName}, phone=#{phone}, role_id=#{roleId}, club_id=#{clubId}, user_status=#{userStatus}
+            SET username=#{username}, display_name=#{realName}, phone=#{phone}, employee_no=#{employeeNo}, role_id=#{roleId}, club_id=#{clubId}, user_status=#{userStatus}
             WHERE user_id=#{userId}
             """)
     int updateByAdmin(SysUser user);

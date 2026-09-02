@@ -2,7 +2,7 @@
 
 本项目是“软件课程设计 I”的足球联赛购票系统，采用前后端分离架构。当前正式提交范围覆盖联赛赛程、俱乐部、场馆与座位、比赛票务、连坐分配、订单、模拟支付、电子票、退票和统计分析。
 
-当前仓库已完成**阶段16D：比分录入日期限制与赛果维护提醒**，可按本文从空数据库初始化并演示四类角色完整流程。
+当前仓库已完成**阶段19：最终需求审计、全系统E2E与版本冻结**，可按本文从空数据库初始化并演示四类角色完整流程。阶段19没有新增业务功能，只验证并统一需求、代码、数据库、权限、测试、文档、演示流程与Git交付范围。
 
 ## 项目功能与系统角色
 
@@ -15,7 +15,7 @@
 
 ## 核心演示流程
 
-流程A（购票）：`USER登录 → 浏览比赛 → 查看票区 → 连坐Preview → 创建订单 → 支付 → 查看电子票UNUSED`。
+流程A（购票）：`USER手机号登录 → 浏览比赛 → 点击主队/客队查看俱乐部阵容、教练、积分与近期赛程 → 返回比赛详情查看场馆、票区、票价与余票 → 连坐Preview → 创建订单 → 支付 → 查看电子票UNUSED`。
 
 流程B（退票）：`USER购票并支付 → 申请退票 → EVENT_ADMIN审核通过 → 订单/明细/电子票REFUNDED → 比赛座位恢复AVAILABLE`。
 
@@ -66,6 +66,45 @@ CLUB只能报名状态为 `DRAFT`、当前统一系统时间位于 `[registratio
 EVENT_ADMIN通过 `GET /api/admin/matches/result-reminders` 查看待维护赛果，可按 `seasonId`、`reminderType`（`TODAY`/`OVERDUE`）分页筛选。提醒由现有 `match_info` 数据和Java传入的统一系统日期动态计算：仅包含比赛日期已到的 `PUBLISHED`、`IN_PROGRESS`；`DRAFT`、`FINISHED`、`CANCELLED` 不包含。`daysOverdue` 是系统日期与比赛日期之差，逾期比赛优先并按比赛时间升序排列。比赛完成后自动从查询结果消失，系统时间调整或回拨后前端重新请求即可得到新结果。
 
 本阶段没有新增提醒表、字段、状态、Scheduler、消息中心或推送机制。前端EVENT_ADMIN菜单显示“赛果待维护”数量并进入独立列表，列表的维护按钮复用原比赛状态和比分维护页面。
+
+## 管理人员工号与账号字段（阶段17A）
+
+阶段17B以后，`phone`是全系统唯一的登录凭证；`username`是允许重复、允许本人和ADMIN修改的昵称，不再作为身份键。`realName`是人员真实姓名，`employeeNo`是管理人员工号，`clubId`只用于CLUB账号绑定俱乐部。数据库继续以`display_name`承载后端`realName`字段，并以独立的`employee_no VARCHAR(16) NULL UNIQUE`保存工号；昵称、姓名和工号不互相代替。
+
+`EVENT_ADMIN`工号必须匹配`EA`加4位数字（如`EA0001`），`ADMIN`必须匹配`SA`加4位数字（如`SA0001`）。USER和CLUB不得设置工号。公开管理账号申请、ADMIN后台创建和编辑均复用同一Service校验；重复工号返回409。管理账号启用前必须具有真实姓名和与角色匹配的合法工号，CLUB原有“绑定clubId后才可启用”规则保持不变。
+
+阶段17A以前创建的管理账号可能仍为`employee_no=NULL`。数据库为历史兼容保留NULL，但此类账号在启用或通过后台编辑前必须人工补齐；系统不会根据username、姓名或其他字段猜测工号。已有数据库执行`database/migrations/phase17a_employee_no.sql`升级，脚本只明确回填`demo_event_admin → EA0001`和`demo_admin → SA0001`，其他历史管理账号保持NULL。
+
+CLUB公开申请的`clubName`当前仍暂存于`display_name`，这是后续账号申请资料规范化的已知技术债；阶段17A未新增复杂申请资料表，也未改变CLUB审核流程。
+
+## 手机号登录与昵称（阶段17B）
+
+`POST /api/auth/login`只接受`phone + password`，不提供username回退登录。手机号沿用项目既有的11位格式校验和全局UNIQUE约束；重复手机号在注册、后台创建或编辑时返回409。新账号手机号必填，历史数据仍保持数据库字段可空以兼容迁移，但任何角色启用前都必须具有合法手机号。
+
+JWT的`sub`已由username改为稳定的`userId`。username、phone、roleCode仅可作为Token签发时的快照；过滤器每次按`sub`中的userId重新读取当前账号、角色、权限与clubId，业务归属和数据权限不依赖昵称。用户改昵称后原Token继续有效并返回新昵称；本项目原本已允许本人修改手机号，因此继续保留该能力，新手机号必须唯一，修改后旧手机号不能登录、新手机号可以登录。阶段17B升级后旧版username-sub Token预期失效，用户需要重新登录。
+
+已有阶段17A数据库执行`database/migrations/phase17b_phone_login.sql`升级：先审计空手机号和重复手机号，再移除`uq_sys_user_username`并增加普通索引`idx_sys_user_username`；`uq_sys_user_phone`保持不变。脚本不新增表，数据库仍为30张表。
+
+## 用户资料与头像（阶段17C）
+
+四类正式角色统一使用账号资料页，可修改昵称、手机号和真实姓名；`EVENT_ADMIN`、`ADMIN`只读展示独立工号，`CLUB`只读展示绑定的`clubId`。资料页和顶部栏共用当前用户状态，资料更新、头像上传或移除后立即刷新，昵称和头像在页面重载后仍保持。
+
+`sys_user.avatar_url`只保存相对访问路径，不保存图片二进制。开发和课程演示环境默认把文件写入项目外部可配置目录`APP_UPLOAD_DIR`（未设置时为`./uploads`），头像位于其`avatars`子目录并通过`/uploads/avatars/**`访问；运行时目录已加入Git忽略。上传接口为`POST /api/profile/avatar`，移除接口为`DELETE /api/profile/avatar`，读取图片无需登录，修改操作必须登录且始终作用于JWT中的当前`userId`。
+
+仅允许JPEG、PNG且单文件最大2MB。后端同时校验扩展名、Content-Type和图片真实内容，拒绝空文件、伪造图片、格式不一致及超限文件；保存名使用UUID，不采用用户原文件名，并将路径限制在固定头像目录中。已有数据库执行`database/migrations/phase17c_user_avatar.sql`即可增加可空字段，历史账号默认继续使用系统默认头像。
+
+> 本地文件系统方案仅用于开发和课程演示。生产环境应改用对象存储或受控文件服务，并配套访问域名、病毒扫描、生命周期和备份策略。
+
+## USER俱乐部详情与比赛购票信息链（阶段18A）
+
+USER可从比赛列表或比赛详情分别进入主队、客队的公开俱乐部详情。详情仅展示俱乐部与主场基础信息、ACTIVE球员、ACTIVE教练、当前或最近正式赛季积分、最近5场已结束公开比赛、未来5场已发布比赛，以及基于`SystemTimeService`计算的下一场比赛剩余天数；不返回账号、手机号、工号、报名快照、锁座信息或球员出生日期等私有/技术字段。
+
+比赛详情补全场馆地址和容量，并按票区展示票价、销售时间、余票、最大连续座位数、物理座位数、有效座位数、排数与座号范围。是否可购买由后端结合比赛状态、销售窗口、统一系统时间和库存共同判断；连坐Preview与正式下单继续复用原有算法及交易链路，阶段18A没有修改数据库结构、座位分配排序、订单、支付或退票状态机。
+
+主要USER接口：
+
+- `GET /api/user/clubs/{clubId}`：安全的俱乐部公开聚合详情，仅允许USER访问。
+- `GET /api/ticket-zones/match/{matchId}`、`GET /api/ticket-zones/{id}`：返回面向购票者的安全票区与座位结构摘要，不暴露内部锁座/售出明细。
 
 后端接口：
 
@@ -297,6 +336,16 @@ mvn spring-boot:run
 http://localhost:8080/api/health
 ```
 
+生产JAR启动前先按下文设置`SPRING_PROFILES_ACTIVE=dev`、数据库、JWT和上传目录环境变量，然后执行：
+
+```powershell
+cd backend
+.\mvnw.cmd clean package
+java -jar target\league-ticket-backend-0.0.1-SNAPSHOT.jar
+```
+
+阶段19已用上述可执行JAR连接全新隔离MySQL 8实例实测启动成功，`/api/health`、手机号登录和核心业务接口均正常；最终运行不依赖IDE临时classpath。
+
 需要连接开发数据库时启用 `dev` Profile。`application-dev.yml` 使用以下环境变量：`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`，可选连接池参数为 `DB_MAX_POOL_SIZE` 和 `DB_MIN_IDLE`。
 
 根目录 [`.env.example`](.env.example) 汇总了开发环境变量示例。Spring Boot 不会自动读取根目录 `.env`；可以按下例在终端设置，或由IDE启动配置/本地环境加载。真实密码和JWT密钥只放在本机 `.env` 或环境变量中，不要提交到Git。
@@ -324,16 +373,16 @@ $env:DEMO_PASSWORD="123456"
 
 ## JWT与演示账号
 
-登录成功返回仅有一个Access Token，不实现Refresh Token。Token默认有效期2小时，至少携带 `userId`、`username` 和 `roleCode`，前端通过 `Authorization: Bearer <token>` 发送。
+登录成功返回仅有一个Access Token，不实现Refresh Token。Token默认有效期2小时，`sub`为稳定的`userId`，并可携带`username`、`phone`和`roleCode`快照；后端授权会按userId重新加载账号。前端通过 `Authorization: Bearer <token>` 发送。阶段17B上线前签发的旧Token需要重新登录。
 
 完成上述密码初始化后，可使用统一演示密码 `123456`：
 
-| 角色 | 用户名 | 前端入口 |
-|---|---|---|
-| USER | `demo_user` | `/user` |
-| CLUB | `demo_club` | `/club` |
-| EVENT_ADMIN | `demo_event_admin` | `/admin` |
-| ADMIN | `demo_admin` | `/admin` |
+| 角色 | 登录手机号 | 昵称 | 姓名/名称 | 工号 | 前端入口 |
+|---|---|---|---|---|---|
+| USER | `13800000001` | `demo_user` | 演示普通用户 | — | `/user` |
+| CLUB | `13800000003` | `demo_club` | 潮汐俱乐部负责人 | — | `/club` |
+| EVENT_ADMIN | `13800000005` | `demo_event_admin` | 演示赛事管理员 | `EA0001` | `/admin` |
+| ADMIN | `13800000002` | `demo_admin` | 演示系统管理员 | `SA0001` | `/admin` |
 
 ## 启动前端
 
@@ -386,7 +435,29 @@ npm run build
 - [需求文档索引](docs/requirements/README.md)
 - [设计文档索引](docs/design/README.md)
 
-当前四角色版本使用隔离 MySQL 8.0.44 验收：阶段16A测试基线为63项（原57项正式测试全部保留，新增6项系统时间测试），`Failures=0`、`Errors=0`、`Skipped=0`；`clean test`、不跳过测试的 `clean package` 和前端生产构建均成功。真实JAR与Vue环境已完成购票支付、整单退票、CLUB账号绑定启用、运营统计和统一演示时间流程。
+当前四角色版本使用全新隔离 MySQL 8.0.44 完成阶段19最终验收：共107项测试，`Failures=0`、`Errors=0`、`Skipped=0`；`clean test`、不跳过测试的 `clean package`、可执行JAR真实启动和前端生产构建均成功。空库初始化及数据脚本二次执行保持30表、4角色、4演示账号；四角色真实HTTP权限、核心E2E、15项数据一致性和浏览器主流程均已复核。完整证据见[阶段19最终审计](docs/PHASE19_FINAL_AUDIT.md)和[测试报告](docs/test-report/TEST_REPORT.md)。
+
+## 推荐答辩演示顺序（8–12分钟）
+
+1. **系统时间**：展示当前系统时间、调整和恢复真实时间，说明报名、售票、退票和比分限制共用`SystemTimeService`。
+2. **ADMIN账号审核**：演示CLUB申请账号，ADMIN绑定`clubId`并启用；同时展示EVENT_ADMIN管理账号的姓名、手机号和EA工号分列。
+3. **CLUB报名**：登录CLUB，查看球员、教练和默认主场，选择不少于11名球员及1名教练提交赛季报名。
+4. **自动排赛**：用最后一个CLUB报名触发，或将系统时间跳到截止时间；展示4队双循环生成6轮12场，EVENT_ADMIN确认后CLUB看到自己的6场。
+5. **USER购票**：手机号登录，查看比赛双方俱乐部、阵容、教练和战绩，再查看场馆、票区、票价与余票，执行2座连坐Preview、下单和支付。
+6. **退票**：USER申请整单退票，EVENT_ADMIN审核通过，展示电子票变为`REFUNDED`且座位恢复`AVAILABLE`。
+7. **比分与提醒**：跳转系统时间，先展示比赛日前录分返回409，再在比赛当天录入并结束比赛，展示积分榜更新和提醒消失。
+8. **统计**：展示EVENT_ADMIN运营总览、比赛、俱乐部、热门比赛、销售趋势和退票统计。
+
+## 已知延期/非当前范围
+
+- 独立CHECKER和检票是历史模块，代码与旧测试保留用于追溯，但不在正式角色、菜单、演示账号和本次验收范围内。
+- 场馆当前采用通用`stadium/stadium_zone/stadium_seat`模型，未强制“东/西/南/北 × VIP/普通”固定八区模板，也未增加长边/宽边每排座位数字段；通用模型已满足当前场馆、座位和购票演示。
+- 主场未保存VIP/普通默认价格；当前正式价格按比赛票区存于`match_ticket_zone.ticket_price`。
+- `coach_info`没有出生日期或出生年，因此教练年龄未实现；报名仍要求至少1名有效教练。
+- 旧需求中的“管理人员必须先由ADMIN预登记姓名/工号才可本人注册”尚未实现。当前采用经安全校验的双入口：公开申请后保持`DISABLED`等待ADMIN启用，或由ADMIN后台直接创建；该差异记录为`CONFLICT_REMAINS`，本阶段不改变稳定账号流程。
+- 短信验证码、找回密码、OAuth、云对象存储、点球/加时、AI排赛/推荐、评论、收藏、手工点座和球员转会均不属于当前正式范围。
+
+上述项目不影响当前正式验收范围，也不会为了让旧待办表面清零而在冻结阶段强行实现。
 
 ## 实现与设计说明
 

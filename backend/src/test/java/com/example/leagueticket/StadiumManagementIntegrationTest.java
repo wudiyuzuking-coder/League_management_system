@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class StadiumManagementIntegrationTest {
     @Autowired MockMvc mockMvc;@Autowired ObjectMapper objectMapper;@Autowired JdbcTemplate jdbc;
     String admin,systemAdmin,user,club;
-    @BeforeEach void reset()throws Exception{jdbc.update("DELETE FROM stadium_seat WHERE stadium_id IN (SELECT stadium_id FROM stadium_info WHERE stadium_name LIKE 'IT7%')");jdbc.update("DELETE FROM stadium_zone WHERE stadium_id IN (SELECT stadium_id FROM stadium_info WHERE stadium_name LIKE 'IT7%')");jdbc.update("DELETE FROM stadium_info WHERE stadium_name LIKE 'IT7%'");admin=login("demo_event_admin");systemAdmin=login("demo_admin");user=login("demo_user");club=login("demo_club");}
+    @BeforeEach void reset()throws Exception{jdbc.update("DELETE FROM stadium_seat WHERE stadium_id IN (SELECT stadium_id FROM stadium_info WHERE stadium_name LIKE 'IT7%')");jdbc.update("DELETE FROM stadium_zone WHERE stadium_id IN (SELECT stadium_id FROM stadium_info WHERE stadium_name LIKE 'IT7%')");jdbc.update("DELETE FROM stadium_info WHERE stadium_name LIKE 'IT7%'");admin=loginByPhone("13800000005");systemAdmin=loginByPhone("13800000002");user=loginByPhone("13800000001");club=loginByPhone("13800000003");}
 
     @Test void stadiumCrudValidationAndPermission()throws Exception{
         long id=createStadium("IT7中心场",100);
@@ -66,6 +66,6 @@ class StadiumManagementIntegrationTest {
     private Map<String,Object> zone(String code,String name,int sort){return Map.of("zoneCode",code,"zoneName",name,"sortNo",sort,"description","test");}
     private org.springframework.test.web.servlet.ResultActions seatRequest(long zoneId,int rowNo,String rowLabel,int seatNo,String seatLabel,String token)throws Exception{return mockMvc.perform(post("/api/admin/stadium-zones/{id}/seats",zoneId).header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json(Map.of("rowNo",rowNo,"rowLabel",rowLabel,"seatNo",seatNo,"seatLabel",seatLabel))));}
     private String batch()throws Exception{return json(Map.of("rows",List.of(Map.of("rowNo",2,"rowLabel","2排","startSeatNo",1,"seatCount",3),Map.of("rowNo",1,"rowLabel","1排","startSeatNo",1,"seatCount",2))));}
-    private String login(String username)throws Exception{String body=mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json(Map.of("username",username,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();JsonNode n=objectMapper.readTree(body);return n.path("data").path("token").asText();}
+    private String loginByPhone(String phone)throws Exception{String body=mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json(Map.of("phone",phone,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();JsonNode n=objectMapper.readTree(body);return n.path("data").path("token").asText();}
     private String bearer(String token){return "Bearer "+token;}private String json(Object value)throws Exception{return objectMapper.writeValueAsString(value);}
 }

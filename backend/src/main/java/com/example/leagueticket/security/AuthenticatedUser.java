@@ -11,9 +11,12 @@ import java.util.List;
 public record AuthenticatedUser(
         Long userId,
         String username,
+        String phone,
         String realName,
+        String employeeNo,
         String roleCode,
         Long clubId,
+        String userStatus,
         List<String> permissions,
         Collection<? extends GrantedAuthority> authorities
 ) {
@@ -21,7 +24,8 @@ public record AuthenticatedUser(
         List<GrantedAuthority> authorities = new ArrayList<>();
         authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRoleCode()));
         permissions.stream().map(SimpleGrantedAuthority::new).forEach(authorities::add);
-        return new AuthenticatedUser(user.getUserId(), user.getUsername(), user.getRealName(),
-                user.getRoleCode(), user.getClubId(), List.copyOf(permissions), List.copyOf(authorities));
+        return new AuthenticatedUser(user.getUserId(), user.getUsername(), user.getPhone(), user.getRealName(),
+                user.getEmployeeNo(), user.getRoleCode(), user.getClubId(), user.getUserStatus(),
+                List.copyOf(permissions), List.copyOf(authorities));
     }
 }
