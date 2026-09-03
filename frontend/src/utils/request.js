@@ -24,9 +24,11 @@ request.interceptors.response.use(
     if (status === 401) {
       localStorage.removeItem(AUTH_TOKEN_KEY)
       localStorage.removeItem(AUTH_USER_KEY)
+      sessionStorage.removeItem(AUTH_TOKEN_KEY)
+      sessionStorage.removeItem(AUTH_USER_KEY)
       if (!['/login', '/register'].includes(window.location.pathname)) window.location.assign('/login')
     } else if (status === 403) {
-      ElMessage.error('没有权限执行此操作')
+      ElMessage.error(payload?.message || '没有权限执行此操作')
     } else if (!error.response) {
       ElMessage.error('网络连接失败，请确认后端服务已启动')
     } else {

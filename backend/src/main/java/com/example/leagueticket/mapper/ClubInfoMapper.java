@@ -12,37 +12,54 @@ import java.util.List;
 
 @Mapper
 public interface ClubInfoMapper {
-    @Select("SELECT * FROM club_info WHERE club_id=#{clubId} LIMIT 1")
+    String WITH_LEADER = """
+            SELECT c.*, u.display_name AS leader_name, u.phone AS leader_phone,
+                   u.username AS leader_nickname, u.user_status AS leader_status
+            FROM club_info c
+            LEFT JOIN sys_user u ON u.club_id=c.club_id
+              AND u.role_id=(SELECT role_id FROM sys_role WHERE role_code='CLUB' LIMIT 1)
+            """;
+
+    @Select(WITH_LEADER + " WHERE c.club_id=#{clubId} LIMIT 1")
     ClubInfo findById(Long clubId);
 
-    @Select("SELECT * FROM club_info WHERE club_id=#{clubId} AND club_status='ACTIVE' LIMIT 1")
+    @Select(WITH_LEADER + " WHERE c.club_id=#{clubId} AND c.club_status='ACTIVE' LIMIT 1")
     ClubInfo findActiveById(Long clubId);
+
+    @Select("SELECT * FROM club_info WHERE club_id=#{clubId} LIMIT 1 FOR UPDATE")
+    ClubInfo findByIdForUpdate(Long clubId);
 
     @Select("SELECT COUNT(*) FROM club_info WHERE club_name=#{clubName} AND (#{excludeId} IS NULL OR club_id != #{excludeId})")
     int countByName(@Param("clubName") String clubName, @Param("excludeId") Long excludeId);
 
     @Select("""
             <script>
-            SELECT COUNT(*) FROM club_info
+            SELECT COUNT(*) FROM club_info c
+            LEFT JOIN sys_user u ON u.club_id=c.club_id
+              AND u.role_id=(SELECT role_id FROM sys_role WHERE role_code='CLUB' LIMIT 1)
             <where>
-              <if test='name != null and name != ""'>AND club_name LIKE CONCAT('%',#{name},'%')</if>
-              <if test='status != null and status != ""'>AND club_status=#{status}</if>
+              <if test='name != null and name != ""'>AND c.club_name LIKE CONCAT('%',#{name},'%')</if>
+              <if test='status != null and status != ""'>AND c.club_status=#{status}</if>
+              <if test='withoutLeader'>AND u.user_id IS NULL</if>
             </where>
             </script>
             """)
-    long countPage(@Param("name") String name, @Param("status") String status);
+    long countPage(@Param("name") String name, @Param("status") String status,
+                   @Param("withoutLeader") boolean withoutLeader);
 
     @Select("""
             <script>
-            SELECT * FROM club_info
+            """ + WITH_LEADER + """
             <where>
-              <if test='name != null and name != ""'>AND club_name LIKE CONCAT('%',#{name},'%')</if>
-              <if test='status != null and status != ""'>AND club_status=#{status}</if>
+              <if test='name != null and name != ""'>AND c.club_name LIKE CONCAT('%',#{name},'%')</if>
+              <if test='status != null and status != ""'>AND c.club_status=#{status}</if>
+              <if test='withoutLeader'>AND u.user_id IS NULL</if>
             </where>
-            ORDER BY club_id DESC LIMIT #{limit} OFFSET #{offset}
+            ORDER BY c.club_id DESC LIMIT #{limit} OFFSET #{offset}
             </script>
             """)
     List<ClubInfo> findPage(@Param("name") String name, @Param("status") String status,
+                            @Param("withoutLeader") boolean withoutLeader,
                             @Param("offset") long offset, @Param("limit") int limit);
 
     @Insert("""

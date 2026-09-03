@@ -9,6 +9,7 @@ public record UserResponse(
         String username,
         String phone,
         String realName,
+        String clubApplyName,
         String employeeNo,
         String avatarUrl,
         String roleCode,
@@ -19,7 +20,7 @@ public record UserResponse(
 ) {
     public static UserResponse from(SysUser user) {
         return new UserResponse(user.getUserId(), user.getUsername(), user.getPhone(), user.getRealName(),
-                user.getEmployeeNo(), user.getAvatarUrl(), user.getRoleCode(), user.getClubId(), user.getUserStatus(),
+                user.getClubApplyName(), user.getEmployeeNo(), user.getAvatarUrl(), user.getRoleCode(), user.getClubId(), user.getUserStatus(),
                 user.getLastLoginAt(), user.getCreatedAt());
     }
 }

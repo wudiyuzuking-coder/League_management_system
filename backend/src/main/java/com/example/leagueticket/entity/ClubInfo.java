@@ -15,6 +15,10 @@ public class ClubInfo {
     private Long homeStadiumId;
     private String description;
     private String clubStatus;
+    private String leaderName;
+    private String leaderPhone;
+    private String leaderNickname;
+    private String leaderStatus;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

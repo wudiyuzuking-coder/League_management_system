@@ -89,7 +89,7 @@ class LeagueManagementIntegrationTest {
     private org.springframework.test.web.servlet.ResultActions updateRecord(long id,int w,int d,int l,int gf,int ga,String token)throws Exception{return mockMvc.perform(put("/api/admin/season-records/{id}",id).header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json(Map.of("wins",w,"draws",d,"losses",l,"goalsFor",gf,"goalsAgainst",ga))));}
     private Map<String,Object> season(String name,String start,String end){return Map.of("seasonName",name,"startDate",start,"endDate",end,"registrationStartTime","2034-01-01T00:00:00","registrationDeadline","2034-12-20T00:00:00","maxClubs",16,"description","integration");}
     private Map<String,Object> round(int no,String start,String end){return Map.of("roundNo",no,"roundName","第"+no+"轮","startDate",start,"endDate",end);}
-    private String loginByPhone(String phone)throws Exception{String body=mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json(Map.of("phone",phone,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();JsonNode n=objectMapper.readTree(body);return n.path("data").path("token").asText();}
+    private String loginByPhone(String phone)throws Exception{String body=mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json(TestLoginPayload.forPhone(phone,"123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();JsonNode n=objectMapper.readTree(body);return n.path("data").path("token").asText();}
     private String bearer(String token){return "Bearer "+token;}
     private String json(Object value)throws Exception{return objectMapper.writeValueAsString(value);}
 }

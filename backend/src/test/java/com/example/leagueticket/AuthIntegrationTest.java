@@ -46,6 +46,7 @@ class AuthIntegrationTest {
     void resetAccounts() {
         jdbcTemplate.update("DELETE FROM sys_user WHERE user_id NOT IN (1,2,3,4) " +
                 "AND (username LIKE 'it\\_%' OR phone LIKE '1390000%')");
+        jdbcTemplate.update("DELETE FROM club_info WHERE club_name LIKE 'IT认证测试俱乐部%' OR club_name='待审核俱乐部'");
         String hash = passwordEncoder.encode(DEMO_PASSWORD);
         resetDemo(1L, "demo_user", "13800000001", "演示普通用户", hash);
         resetDemo(2L, "demo_admin", "13800000002", "演示管理员", hash);
@@ -69,9 +70,11 @@ class AuthIntegrationTest {
 
         mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("username", "it_register_club", "phone", "13900001002",
-                                "password", "safe123", "roleCode", "CLUB", "clubName", "集成注册俱乐部"))))
+                                "password", "safe123", "roleCode", "CLUB", "realName", "集成负责人",
+                                "clubName", "集成注册俱乐部"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.roleCode").value("CLUB"))
-                .andExpect(jsonPath("$.data.realName").value("集成注册俱乐部"))
+                .andExpect(jsonPath("$.data.realName").value("集成负责人"))
+                .andExpect(jsonPath("$.data.clubApplyName").value("集成注册俱乐部"))
                 .andExpect(jsonPath("$.data.clubId").doesNotExist())
                 .andExpect(jsonPath("$.data.userStatus").value("DISABLED"));
 
@@ -79,19 +82,15 @@ class AuthIntegrationTest {
                         .content(json(Map.of("username", "it_register_event", "phone", "13900001003",
                                 "password", "safe123", "roleCode", "EVENT_ADMIN", "realName", "集成赛事管理员",
                                 "employeeNo", "EA0103"))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.roleCode").value("EVENT_ADMIN"))
-                .andExpect(jsonPath("$.data.realName").value("集成赛事管理员"))
-                .andExpect(jsonPath("$.data.employeeNo").value("EA0103"))
-                .andExpect(jsonPath("$.data.userStatus").value("DISABLED"));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("当前身份不支持公开注册，请联系系统管理员创建账号"));
 
         mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("username", "it_register_admin", "phone", "13900001004",
                                 "password", "safe123", "roleCode", "ADMIN", "realName", "集成系统管理员",
                                 "employeeNo", "SA0104"))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.roleCode").value("ADMIN"))
-                .andExpect(jsonPath("$.data.realName").value("集成系统管理员"))
-                .andExpect(jsonPath("$.data.employeeNo").value("SA0104"))
-                .andExpect(jsonPath("$.data.userStatus").value("DISABLED"));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("当前身份不支持公开注册，请联系系统管理员创建账号"));
 
         String storedHash = jdbcTemplate.queryForObject(
                 "SELECT password_hash FROM sys_user WHERE phone='13900001001'", String.class);
@@ -122,11 +121,11 @@ class AuthIntegrationTest {
         mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("username", "it_event_no_no", "phone", "13900001009", "password", "safe123",
                                 "roleCode", "EVENT_ADMIN"))))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isForbidden());
         mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("username", "it_admin_no_no", "phone", "13900001010", "password", "safe123",
                                 "roleCode", "ADMIN"))))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -137,12 +136,12 @@ class AuthIntegrationTest {
         assertRoleLogin("13800000002", "ADMIN");
 
         mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("phone", "13800000001", "password", "wrong-password"))))
+                        .content(json(TestLoginPayload.forPhone("13800000001", "wrong-password"))))
                 .andExpect(status().isUnauthorized());
 
         jdbcTemplate.update("UPDATE sys_user SET user_status='DISABLED' WHERE username='demo_user'");
         mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("phone", "13800000001", "password", DEMO_PASSWORD))))
+                        .content(json(TestLoginPayload.forPhone("13800000001", DEMO_PASSWORD))))
                 .andExpect(status().isForbidden());
     }
 
@@ -183,7 +182,7 @@ class AuthIntegrationTest {
         mockMvc.perform(get("/api/auth/me").header("Authorization", bearer(token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.username").value("新昵称"));
         mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("phone", "13800000001", "password", DEMO_PASSWORD))))
+                        .content(json(TestLoginPayload.forPhone("13800000001", DEMO_PASSWORD))))
                 .andExpect(status().isUnauthorized());
         loginByPhone("13900002001", DEMO_PASSWORD);
 
@@ -208,7 +207,8 @@ class AuthIntegrationTest {
     void adminCanManageUsersAndUserCannot() throws Exception {
         String adminToken = loginByPhone("13800000002", DEMO_PASSWORD);
         String userToken = loginByPhone("13800000001", DEMO_PASSWORD);
-        Long clubId = jdbcTemplate.queryForObject("SELECT MIN(club_id) FROM club_info", Long.class);
+        jdbcTemplate.update("INSERT INTO club_info(club_name,home_city,club_status) VALUES('IT认证测试俱乐部A','测试城','ACTIVE')");
+        Long clubId = jdbcTemplate.queryForObject("SELECT club_id FROM club_info WHERE club_name='IT认证测试俱乐部A'", Long.class);
 
         mockMvc.perform(post("/api/admin/users").header("Authorization", bearer(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -243,7 +243,7 @@ class AuthIntegrationTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("phone", "13900003003", "password", "safe123"))))
+                        .content(json(TestLoginPayload.forRole("13900003003", "safe123", "CLUB", null))))
                 .andExpect(status().isForbidden());
     }
 
@@ -252,7 +252,8 @@ class AuthIntegrationTest {
         String adminToken = loginByPhone("13800000002", DEMO_PASSWORD);
         mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("username", "it_club_review", "phone", "13900003010",
-                                "password", "safe123", "roleCode", "CLUB", "clubName", "待审核俱乐部"))))
+                                "password", "safe123", "roleCode", "CLUB", "realName", "待审核负责人",
+                                "clubName", "待审核俱乐部"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userStatus").value("DISABLED"))
                 .andExpect(jsonPath("$.data.clubId").doesNotExist());
@@ -266,15 +267,12 @@ class AuthIntegrationTest {
         org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
                 "SELECT user_status FROM sys_user WHERE user_id=?", String.class, userId)).isEqualTo("DISABLED");
 
-        Long clubId = jdbcTemplate.queryForObject("SELECT MIN(club_id) FROM club_info", Long.class);
-        mockMvc.perform(put("/api/admin/users/{id}", userId).header("Authorization", bearer(adminToken))
+        mockMvc.perform(post("/api/admin/users/{id}/club-approval", userId).header("Authorization", bearer(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("username", "it_club_review", "realName", "待审核俱乐部", "phone", "13900003010",
-                                "roleCode", "CLUB", "clubId", clubId, "userStatus", "DISABLED"))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.clubId").value(clubId));
-        mockMvc.perform(put("/api/admin/users/{id}/status", userId).header("Authorization", bearer(adminToken))
-                        .contentType(MediaType.APPLICATION_JSON).content(json(Map.of("userStatus", "ENABLED"))))
-                .andExpect(status().isOk());
+                        .content(json(Map.of("mode", "CREATE_NEW"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userStatus").value("ENABLED"));
+        Long clubId = jdbcTemplate.queryForObject("SELECT club_id FROM sys_user WHERE user_id=?", Long.class, userId);
 
         String clubToken = loginByPhone("13900003010", "safe123");
         mockMvc.perform(get("/api/club/profile").header("Authorization", bearer(clubToken))).andExpect(status().isOk());
@@ -300,7 +298,8 @@ class AuthIntegrationTest {
 
     private void assertRoleLogin(String phone, String roleCode) throws Exception {
         mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("phone", phone, "password", DEMO_PASSWORD))))
+                        .content(json(TestLoginPayload.forRole(phone, DEMO_PASSWORD, roleCode,
+                                "EVENT_ADMIN".equals(roleCode) ? "EA0001" : "ADMIN".equals(roleCode) ? "SA0001" : null))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.roleCode").value(roleCode))
                 .andExpect(jsonPath("$.data.token", startsWith("eyJ")));
@@ -308,7 +307,7 @@ class AuthIntegrationTest {
 
     private String loginByPhone(String phone, String password) throws Exception {
         String response = mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("phone", phone, "password", password))))
+                        .content(json(TestLoginPayload.forPhone(phone, password))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         JsonNode json = objectMapper.readTree(response);
         return json.path("data").path("token").asText();

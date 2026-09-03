@@ -198,7 +198,7 @@ class StatisticsIntegrationTest {
         jdbc.update("INSERT INTO refund_apply(refund_no,order_id,applicant_id,reason,refund_amount,refund_status,auditor_id,audit_remark,audit_time,created_at) VALUES('IT14-R-RR',?,?,'拒绝统计',0,'REJECTED',?,'拒绝','2026-08-20 17:00:00','2026-08-20 16:30:00')", rejectedOrder, user, admin);
     }
     private String loginByPhone(String phone) throws Exception {
-        String body = mvc.perform(post("/api/auth/login").contentType("application/json").content(json.writeValueAsString(Map.of("phone", phone, "password", "123456"))))
+        String body = mvc.perform(post("/api/auth/login").contentType("application/json").content(json.writeValueAsString(TestLoginPayload.forPhone(phone, "123456"))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         return json.readTree(body).path("data").path("token").asText();
     }

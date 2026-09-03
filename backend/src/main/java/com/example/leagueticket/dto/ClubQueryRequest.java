@@ -13,4 +13,5 @@ public class ClubQueryRequest {
     private int size = 10;
     private String name;
     private String status;
+    private boolean withoutLeader;
 }

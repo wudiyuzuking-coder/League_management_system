@@ -78,19 +78,21 @@ const router = createRouter({ history: createWebHistory(), routes, scrollBehavio
 
 router.beforeEach(async (to) => {
   const authStore = useAuthStore(pinia)
+  if (authStore.token && !authStore.hasValidIdentity) authStore.logout()
+  if (authStore.isAuthenticated && !authStore.sessionValidated) {
+    try {
+      await authStore.fetchMe()
+    } catch {
+      authStore.logout()
+      if (to.name === 'login') return true
+      return { name: 'login', query: to.meta.public ? {} : { redirect: to.fullPath } }
+    }
+  }
   if (to.meta.public) {
     if (to.name === 'login' && authStore.isAuthenticated) return authStore.homePath
     return true
   }
   if (to.meta.requiresAuth && !authStore.isAuthenticated) return { name: 'login', query: { redirect: to.fullPath } }
-  if (authStore.isAuthenticated && !authStore.user?.permissions) {
-    try {
-      await authStore.fetchMe()
-    } catch {
-      authStore.logout()
-      return { name: 'login' }
-    }
-  }
   if (to.meta.roles?.length && !to.meta.roles.includes(authStore.user?.roleCode)) return { name: 'forbidden' }
   return true
 })

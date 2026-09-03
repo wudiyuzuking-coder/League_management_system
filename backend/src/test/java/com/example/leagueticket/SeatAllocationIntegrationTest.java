@@ -70,6 +70,6 @@ class SeatAllocationIntegrationTest {
     }
 
     private org.springframework.test.web.servlet.ResultActions preview(int count,String token)throws Exception{return mockMvc.perform(post("/api/match-ticket-zones/{id}/seat-allocation/preview",matchZoneId).header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json(Map.of("ticketCount",count))));}
-    private String loginByPhone(String phone)throws Exception{String body=mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json(Map.of("phone",phone,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();JsonNode n=objectMapper.readTree(body);return n.path("data").path("token").asText();}
+    private String loginByPhone(String phone)throws Exception{String body=mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json(TestLoginPayload.forPhone(phone,"123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();JsonNode n=objectMapper.readTree(body);return n.path("data").path("token").asText();}
     private String bearer(String token){return "Bearer "+token;}private String json(Object value)throws Exception{return objectMapper.writeValueAsString(value);}
 }

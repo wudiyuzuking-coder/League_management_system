@@ -113,7 +113,7 @@ class OrderIntegrationTest {
     private ResultActions create(int n,String token)throws Exception{return mvc.perform(post("/api/orders").header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("matchZoneId",zoneId,"ticketCount",n))));}
     private ResultActions cancel(long id,String token)throws Exception{return mvc.perform(post("/api/orders/{id}/cancel",id).header("Authorization",bearer(token)));}
     private ResultActions preview(int n,String token)throws Exception{return mvc.perform(post("/api/match-ticket-zones/{id}/seat-allocation/preview",zoneId).header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content("{\"ticketCount\":"+n+"}"));}
-    private String loginByPhone(String phone)throws Exception{String body=mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("phone",phone,"password","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();return json.readTree(body).path("data").path("token").asText();}
+    private String loginByPhone(String phone)throws Exception{String body=mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(TestLoginPayload.forPhone(phone,"123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();return json.readTree(body).path("data").path("token").asText();}
     private String bearer(String token){return "Bearer "+token;}private long id(String sql){return jdbc.queryForObject(sql,Long.class);}
     private void cleanup(){
         jdbc.execute("DROP TRIGGER IF EXISTS it10_fail_item");

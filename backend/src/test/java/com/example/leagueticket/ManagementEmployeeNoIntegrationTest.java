@@ -3,6 +3,7 @@ package com.example.leagueticket;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,32 +41,32 @@ class ManagementEmployeeNoIntegrationTest {
 
     @BeforeEach
     void setup() throws Exception {
-        jdbc.update("DELETE FROM sys_user WHERE username LIKE 'p17a\\_%'");
+        jdbc.update("DELETE FROM sys_user WHERE username LIKE 'p17a\\_%' AND phone <> '13917000051'");
+        jdbc.update("DELETE FROM club_info WHERE club_name='P17A独立测试俱乐部'");
         String hash = encoder.encode("123456");
         jdbc.update("UPDATE sys_user SET password_hash=?,user_status='ENABLED',employee_no='SA0001' WHERE username='demo_admin'", hash);
         jdbc.update("UPDATE sys_user SET password_hash=?,user_status='ENABLED',employee_no='EA0001' WHERE username='demo_event_admin'", hash);
         adminToken = loginByPhone("13800000002", "123456");
     }
 
-    @Test
-    void publicManagementApplicationsStoreRealNameAndEmployeeNoSeparately() throws Exception {
-        registerManagement("p17a_event_apply", "13917000001", "张三", "EA0101", "EVENT_ADMIN")
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.realName").value("张三"))
-                .andExpect(jsonPath("$.data.employeeNo").value("EA0101"))
-                .andExpect(jsonPath("$.data.userStatus").value("DISABLED"));
-        registerManagement("p17a_admin_apply", "13917000002", "李四", "SA0101", "ADMIN")
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.realName").value("李四"))
-                .andExpect(jsonPath("$.data.employeeNo").value("SA0101"))
-                .andExpect(jsonPath("$.data.userStatus").value("DISABLED"));
+    @AfterEach
+    void cleanup() {
+        jdbc.update("DELETE FROM sys_user WHERE username LIKE 'p17a\\_%' AND phone <> '13917000051'");
+        jdbc.update("DELETE FROM club_info WHERE club_name='P17A独立测试俱乐部'");
+    }
 
+    @Test
+    void publicManagementApplicationsAreRejectedAndAdminCreationStoresFieldsSeparately() throws Exception {
+        registerManagement("p17a_event_apply", "13917000001", "张三", "EA0101", "EVENT_ADMIN")
+                .andExpect(status().isForbidden());
+        registerManagement("p17a_admin_apply", "13917000002", "李四", "SA0101", "ADMIN")
+                .andExpect(status().isForbidden());
+
+        adminCreate("p17a_event_apply", "13917000001", "张三", "EA0101", "EVENT_ADMIN")
+                .andExpect(status().isOk());
         Map<String, Object> stored = jdbc.queryForMap("SELECT display_name,employee_no FROM sys_user WHERE username='p17a_event_apply'");
         assertThat(stored.get("display_name")).isEqualTo("张三");
         assertThat(stored.get("employee_no")).isEqualTo("EA0101");
-        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(body(Map.of("phone", "13917000001", "password", "safe123"))))
-                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -77,7 +78,8 @@ class ManagementEmployeeNoIntegrationTest {
                 management("p17a_bad_4", "13917000014", "ADMIN", "EA0001"),
                 management("p17a_bad_5", "13917000015", "ADMIN", "SA001"));
         for (Map<String, String> request : invalid) {
-            mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body(request)))
+            mvc.perform(post("/api/admin/users").header("Authorization", bearer(adminToken))
+                            .contentType(MediaType.APPLICATION_JSON).content(body(request)))
                     .andExpect(status().isBadRequest());
         }
         mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
@@ -89,8 +91,8 @@ class ManagementEmployeeNoIntegrationTest {
 
     @Test
     void duplicateEmployeeNumberReturnsConflictAndDatabaseKeepsOneRow() throws Exception {
-        registerManagement("p17a_dup_1", "13917000021", "甲", "EA0201", "EVENT_ADMIN").andExpect(status().isOk());
-        registerManagement("p17a_dup_2", "13917000022", "乙", "EA0201", "EVENT_ADMIN")
+        adminCreate("p17a_dup_1", "13917000021", "甲", "EA0201", "EVENT_ADMIN").andExpect(status().isOk());
+        adminCreate("p17a_dup_2", "13917000022", "乙", "EA0201", "EVENT_ADMIN")
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("管理人员工号已存在"));
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sys_user WHERE employee_no='EA0201'", Integer.class)).isEqualTo(1);
     }
@@ -137,26 +139,36 @@ class ManagementEmployeeNoIntegrationTest {
     @Test
     void clubRegistrationBindingAndEnableFlowStillWorks() throws Exception {
         mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body(Map.of(
-                        "username", "p17a_club", "phone", "13917000051", "password", "safe123",
-                        "roleCode", "CLUB", "clubName", "阶段17A俱乐部"))))
+                        "username", "p17a_it_club", "phone", "13917000052", "password", "safe123",
+                        "roleCode", "CLUB", "realName", "阶段17A负责人", "clubName", "阶段17A俱乐部"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.userStatus").value("DISABLED"))
                 .andExpect(jsonPath("$.data.employeeNo").doesNotExist());
-        long userId = jdbc.queryForObject("SELECT user_id FROM sys_user WHERE username='p17a_club'", Long.class);
+        long userId = jdbc.queryForObject("SELECT user_id FROM sys_user WHERE username='p17a_it_club'", Long.class);
         enable(userId).andExpect(status().isConflict());
-        long clubId = jdbc.queryForObject("SELECT MIN(club_id) FROM club_info", Long.class);
+        jdbc.update("INSERT INTO club_info(club_name,home_city,club_status) VALUES('P17A独立测试俱乐部','测试城','ACTIVE')");
+        long clubId = jdbc.queryForObject("SELECT club_id FROM club_info WHERE club_name='P17A独立测试俱乐部'", Long.class);
         mvc.perform(put("/api/admin/users/{id}", userId).header("Authorization", bearer(adminToken))
                         .contentType(MediaType.APPLICATION_JSON).content(body(Map.of(
-                                "username", "p17a_club", "realName", "阶段17A俱乐部", "phone", "13917000051", "roleCode", "CLUB",
+                                "username", "p17a_it_club", "realName", "阶段17A俱乐部", "phone", "13917000052", "roleCode", "CLUB",
                                 "clubId", clubId, "userStatus", "DISABLED"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.clubId").value(clubId));
         enable(userId).andExpect(status().isOk());
-        loginByPhone("13917000051", "safe123");
+        loginByPhone("13917000052", "safe123");
     }
 
     private org.springframework.test.web.servlet.ResultActions registerManagement(String username, String phone,
                                                                                    String realName, String employeeNo,
                                                                                    String roleCode) throws Exception {
         return mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+                .content(body(Map.of("username", username, "phone", phone, "password", "safe123",
+                        "realName", realName, "employeeNo", employeeNo, "roleCode", roleCode))));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions adminCreate(String username, String phone,
+                                                                            String realName, String employeeNo,
+                                                                            String roleCode) throws Exception {
+        return mvc.perform(post("/api/admin/users").header("Authorization", bearer(adminToken))
+                .contentType(MediaType.APPLICATION_JSON)
                 .content(body(Map.of("username", username, "phone", phone, "password", "safe123",
                         "realName", realName, "employeeNo", employeeNo, "roleCode", roleCode))));
     }
@@ -190,7 +202,7 @@ class ManagementEmployeeNoIntegrationTest {
 
     private String loginByPhone(String phone, String password) throws Exception {
         String content = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(body(Map.of("phone", phone, "password", password))))
+                        .content(body(TestLoginPayload.forPhone(phone, password))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         return json.readTree(content).path("data").path("token").asText();
     }

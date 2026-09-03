@@ -59,10 +59,10 @@ class PhoneLoginIntegrationTest {
         role("13800000005", "EVENT_ADMIN");
         role("13800000002", "ADMIN");
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(body(Map.of("phone", "13917119999", "password", "123456"))))
+                        .content(body(TestLoginPayload.forRole("13917119999", "123456", "USER", null))))
                 .andExpect(status().isUnauthorized());
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(body(Map.of("phone", "13800000001", "password", "wrong-password"))))
+                        .content(body(TestLoginPayload.forPhone("13800000001", "wrong-password"))))
                 .andExpect(status().isUnauthorized());
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content(body(Map.of("username", "demo_user", "password", "123456"))))
@@ -89,12 +89,11 @@ class PhoneLoginIntegrationTest {
         registerUser("唯一手机号", "13917110003", "甲").andExpect(status().isOk());
         registerUser("另一个昵称", "13917110003", "乙").andExpect(status().isConflict());
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sys_user WHERE phone='13917110003'", Integer.class)).isEqualTo(1);
-        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body(Map.of(
-                        "username", "待启用赛事", "phone", "13917110004", "password", "safe123",
-                        "realName", "待启用", "employeeNo", "EA1701", "roleCode", "EVENT_ADMIN"))))
-                .andExpect(status().isOk());
+        jdbc.update("INSERT INTO sys_user(username,phone,password_hash,display_name,employee_no,role_id,user_status) " +
+                        "SELECT '待启用赛事','13917110004',?,'待启用','EA1701',role_id,'DISABLED' FROM sys_role WHERE role_code='EVENT_ADMIN'",
+                encoder.encode("safe123"));
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(body(Map.of("phone", "13917110004", "password", "safe123"))))
+                        .content(body(TestLoginPayload.forRole("13917110004", "safe123", "EVENT_ADMIN", "EA1701"))))
                 .andExpect(status().isForbidden());
     }
 
@@ -115,7 +114,7 @@ class PhoneLoginIntegrationTest {
                 .andExpect(jsonPath("$.data.username").value("共享昵称"))
                 .andExpect(jsonPath("$.data.phone").value("13917110007"));
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(body(Map.of("phone", "13917110005", "password", "safe123"))))
+                        .content(body(TestLoginPayload.forRole("13917110005", "safe123", "USER", null))))
                 .andExpect(status().isUnauthorized());
         assertThat(login("13917110007", "safe123").path("data").path("userId").asLong()).isEqualTo(userId);
     }
@@ -140,13 +139,13 @@ class PhoneLoginIntegrationTest {
 
     private void role(String phone, String roleCode) throws Exception {
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(body(Map.of("phone", phone, "password", "123456"))))
+                        .content(body(TestLoginPayload.forPhone(phone, "123456"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.roleCode").value(roleCode));
     }
 
     private JsonNode login(String phone, String password) throws Exception {
         String content = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(body(Map.of("phone", phone, "password", password))))
+                        .content(body(TestLoginPayload.forPhone(phone, password))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         return json.readTree(content);
     }

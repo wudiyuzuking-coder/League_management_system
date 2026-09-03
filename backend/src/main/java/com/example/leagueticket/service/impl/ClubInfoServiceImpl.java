@@ -32,9 +32,10 @@ public class ClubInfoServiceImpl implements ClubInfoService {
     @Override
     public PageResponse<ClubInfo> list(ClubQueryRequest request) {
         validateStatusIfPresent(request.getStatus());
-        long total = clubMapper.countPage(request.getName(), request.getStatus());
+        long total = clubMapper.countPage(request.getName(), request.getStatus(), request.isWithoutLeader());
         long offset = (long) (request.getPage() - 1) * request.getSize();
-        return new PageResponse<>(clubMapper.findPage(request.getName(), request.getStatus(), offset, request.getSize()),
+        return new PageResponse<>(clubMapper.findPage(request.getName(), request.getStatus(), request.isWithoutLeader(),
+                        offset, request.getSize()),
                 total, request.getPage(), request.getSize());
     }
 

@@ -1,8 +1,27 @@
 # 足球联赛购票系统测试报告
 
+## 阶段20B1 CLUB审核与唯一负责人验收（2026-09-03）
+
+- 完整命令：`RUN_DB_TESTS=true mvnw clean test`
+- 结果：`Tests run: 123, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`
+- 原阶段20A的113项测试全部保留；新增10项覆盖CLUB注册姓名/申请名称分离、CREATE_NEW、BIND_EXISTING、目标俱乐部已有负责人409、通用启用拦截、ADMIN权限、停用后负责人关联保留、并发绑定、并发重复审核及ADMIN手工创建城市必填。
+- 阶段17A污染源已修正：管理工号集成测试不再使用`MIN(club_id)`绑定正式`demo_club`，改为创建并清理独立测试俱乐部。完整测试后重复非NULL负责人绑定为0行，`club_id=1`仍只有`demo_club`。
+- 数据库仍为30表；`sys_user`新增`club_apply_name VARCHAR(100) NULL`及`UNIQUE(club_id)`，`club_info.home_city`改为可空以支持审核后待完善的最小俱乐部。原ADMIN手工创建俱乐部接口仍要求城市必填。
+- 当前开发库中两个经负责人确认的验收残留账号仅被停用并解除`club_id`绑定，账号记录及其他字段均保留；未删除、未级联、未推测绑定其他俱乐部。
+
+## 阶段20A认证与运行兼容验收（2026-09-02）
+
+- 完整命令：`RUN_DB_TESTS=true mvnw clean test`
+- 结果：`Tests run: 113, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`
+- 原阶段19的107项测试全部保留；新增6项覆盖四角色正确身份登录、手机号/密码/角色错误顺序、管理工号缺失或错误、DISABLED账号、管理角色公开注册拒绝、USER真实姓名必填及昵称分离。
+- 既有认证集成测试已迁移为`phone + password + roleCode`，EVENT_ADMIN/ADMIN补充`employeeNo`；未降低断言、未禁用测试。
+- 正式schema保持30表、0新表、0新字段；阶段20A不修改报名、排赛、比分、SystemTime或交易状态机。
+- 前端缓存专项：Node原生测试7/7通过，合法四角色缓存均可恢复；`CHECKER`、`UNKNOWN_ROLE`及“仅角色无Token”均清除localStorage/sessionStorage。浏览器DOM确认登录页有四角色和管理工号动态字段，注册页只提供USER/CLUB。
+- JAR真实HTTP A-F：USER注册/登录200；CLUB注册200、未启用登录403、ADMIN绑定和启用200、随后登录200；管理角色公开注册403；ADMIN后台创建EVENT_ADMIN及正确EA工号登录200，错误工号401；已有ADMIN使用SA工号登录200；手机号不存在、密码错误、身份错误均返回401及指定中文消息。
+
 ## 当前验收范围
 
-- 验收日期：2026-09-02（阶段19最终冻结验收）
+- 验收日期：2026-09-03（阶段20B1验收）
 - 正式角色：`USER`、`CLUB`、`EVENT_ADMIN`、`ADMIN`
 - Java编译目标：17（本机运行时 Java 21.0.8）
 - Spring Boot：3.5.7
@@ -33,12 +52,14 @@
 
 阶段17C在`sys_user`新增`avatar_url VARCHAR(255) NULL`，只保存头像相对访问路径，历史账号保持NULL并使用默认头像。空库仍为30张表；阶段17B库执行等价升级SQL后表数不变，历史账号非空头像数为0。
 
+阶段20B1在`sys_user`新增`club_apply_name VARCHAR(100) NULL`与`UNIQUE(club_id)`，并将`club_info.home_city`改为可空。空库执行当前schema及数据脚本两轮后仍为30表、4角色、4演示账号且重复负责人为0；阶段20A正式30表库执行`phase20b1_club_leader.sql`后，关键列类型、NULL属性、注释及`idx_sys_user_club`/`uq_sys_user_club`索引与空库完全一致。
+
 ## 自动化测试结果
 
 使用 `RUN_DB_TESTS=true`、隔离数据库和测试用JWT密钥执行：
 
 ```text
-Tests run: 107
+Tests run: 123
 Failures: 0
 Errors: 0
 Skipped: 0
@@ -52,6 +73,7 @@ Skipped: 0
 | 手机号登录、重复昵称、JWT主体与资料修改 | 5 | 通过 |
 | 四角色头像、公开读取、替换删除与异常文件防护 | 6 | 通过 |
 | USER俱乐部公开详情、时间计算、权限与票区安全映射 | 7 | 通过 |
+| CLUB注册审核、唯一负责人、并发与资料补全 | 10 | 通过 |
 | 俱乐部管理 | 4 | 通过 |
 | CLUB赛季报名、容量并发、事务与权限 | 7 | 通过 |
 | 自动双循环排赛、确认、触发与权限 | 7 | 通过 |
@@ -69,7 +91,7 @@ Skipped: 0
 | 统一系统时间、权限、日志与业务窗口 | 6 | 通过 |
 | 比赛票区与库存 | 3 | 通过 |
 
-阶段16B新增7项报名测试，阶段16C新增7项排赛测试，阶段16D新增6项比分与提醒测试，阶段17A新增6项管理工号测试。阶段17B新增5项手机号身份专项测试，覆盖四角色手机号登录、错误手机号/密码、DISABLED账号、username-only拒绝、重复手机号409、同昵称不同手机号与不同userId、JWT subject为userId、改为已有昵称、手机号修改和历史空手机号启用拦截。阶段17C新增6项头像与统一资料专项测试，覆盖JPEG/PNG、静态读取、替换、删除、空文件与伪造/不匹配/超限文件、四角色字段分离、JWT身份和路径安全。阶段18A新增7项专项测试，覆盖公开聚合详情、敏感字段排除、ACTIVE过滤与号码排序、统一系统时间年龄/剩余天数、公开比赛状态、权限与不存在/停用俱乐部、票区安全映射和DRAFT隐藏。阶段17C的原100项正式测试全部继续通过，没有禁用、跳过或降低原断言。
+阶段16B新增7项报名测试，阶段16C新增7项排赛测试，阶段16D新增6项比分与提醒测试，阶段17A新增6项管理工号测试。阶段17B新增5项手机号身份专项测试，覆盖四角色手机号登录、错误手机号/密码、DISABLED账号、username-only拒绝、重复手机号409、同昵称不同手机号与不同userId、JWT subject为userId、改为已有昵称、手机号修改和历史空手机号启用拦截。阶段17C新增6项头像与统一资料专项测试，覆盖JPEG/PNG、静态读取、替换、删除、空文件与伪造/不匹配/超限文件、四角色字段分离、JWT身份和路径安全。阶段18A新增7项专项测试，覆盖公开聚合详情、敏感字段排除、ACTIVE过滤与号码排序、统一系统时间年龄/剩余天数、公开比赛状态、权限与不存在/停用俱乐部、票区安全映射和DRAFT隐藏。阶段20A新增6项认证与运行兼容测试，阶段20B1新增10项CLUB审核与唯一负责人测试。原113项正式测试全部继续通过，没有禁用、跳过或降低原断言。
 
 ### 阶段18A USER俱乐部详情与购票信息链
 
@@ -104,6 +126,15 @@ Skipped: 0
 - 场景E（权限）：USER、CLUB、ADMIN确认接口均403；EVENT_ADMIN为200。数据库复核所有自动比赛仍为DRAFT，场馆与主队报名快照完全一致。
 
 ## 真实HTTP验收
+
+### 阶段20B1 CLUB审核与唯一负责人
+
+- A：CLUB以负责人“张三”和申请名称“银河FC”注册返回200且状态为DISABLED；ADMIN选择CREATE_NEW返回200，创建`homeCity=NULL`的俱乐部并原子绑定、启用；随后CLUB登录和profile均为200。
+- B：另一CLUB申请后，ADMIN选择BIND_EXISTING绑定一个无负责人的已有俱乐部返回200，未创建额外俱乐部。
+- C：第三个CLUB尝试绑定A中已有负责人的俱乐部返回409，消息为“该俱乐部已有负责人”。
+- D：ADMIN俱乐部列表返回200，并分别展示负责人姓名、手机号和ENABLED状态。
+- E：ADMIN停用负责人返回200；俱乐部详情仍存在且仍展示原负责人，负责人状态变为DISABLED。
+- 本轮真实HTTP使用隔离冷库；结束后3个验收账号和2个验收俱乐部均已主动清理，剩余数均为0。
 
 ### 阶段18A USER俱乐部详情与购票链
 
@@ -260,14 +291,15 @@ EVENT_ADMIN访问 overview、matches、clubs、popular-matches、sales-trend、r
 - 固定东/西/南/北×VIP/普通八区模板、长边/宽边每排座位数。
 - 主场VIP/普通默认价格；当前按`match_ticket_zone.ticket_price`进行比赛票区定价。
 - 教练年龄；`coach_info`缺少出生日期/出生年。
-- 管理人员先由ADMIN预登记姓名/工号再本人注册的旧需求仍与当前双入口账号流程冲突，状态为`CONFLICT_REMAINS`。
+- 阶段20A以后EVENT_ADMIN和ADMIN只由ADMIN后台创建；历史公开申请账号保留，不删除。
 - 直接发送缺少multipart boundary的畸形头像请求当前返回500；真实PNG/JPEG的正常上传、替换、删除和安全校验均通过。这是低优先级API健壮性项，不阻塞正式演示。
 
 ## 构建结论
 
-- `clean test`：BUILD SUCCESS，107/0/0/0。
-- `clean package`：未使用 `-DskipTests`，BUILD SUCCESS，107/0/0/0，并生成可执行JAR。
+- `clean test`：BUILD SUCCESS，123/0/0/0。
+- `clean package`：未使用 `-DskipTests`，BUILD SUCCESS，123/0/0/0，并生成可执行JAR。
 - `npm run build`：SUCCESS。
+- 前端缓存专项：7/7通过。
 - 非阻塞提示：Element Plus公共包仍超过Vite默认500 kB提示，本轮不调整其引入方式。
 - 本轮敏感信息扫描未发现真实数据库密码、真实JWT密钥、私钥或token进入Git；`.env.example`仅含占位值，uploads、target、dist和隔离MySQL数据目录均未跟踪。
 - UTF-8严格扫描`frontend/src`、README和docs共93个文件：无效UTF-8为0，替换字符为0。

@@ -194,7 +194,7 @@ class ClubManagementIntegrationTest {
 
     private String loginByPhone(String phone) throws Exception {
         String response = mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("phone", phone, "password", PASSWORD))))
+                        .content(json(TestLoginPayload.forPhone(phone, PASSWORD))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         JsonNode root = objectMapper.readTree(response);
         return root.path("data").path("token").asText();

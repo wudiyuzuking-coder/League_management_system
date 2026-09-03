@@ -3,13 +3,16 @@ package com.example.leagueticket.service.impl;
 import com.example.leagueticket.dto.AdminCreateUserRequest;
 import com.example.leagueticket.dto.AdminUpdateUserRequest;
 import com.example.leagueticket.dto.ChangePasswordRequest;
+import com.example.leagueticket.dto.ClubApprovalRequest;
 import com.example.leagueticket.dto.RegisterRequest;
 import com.example.leagueticket.dto.UpdateProfileRequest;
 import com.example.leagueticket.dto.UserQueryRequest;
 import com.example.leagueticket.entity.SysRole;
 import com.example.leagueticket.entity.SysUser;
+import com.example.leagueticket.entity.ClubInfo;
 import com.example.leagueticket.exception.BusinessException;
 import com.example.leagueticket.mapper.SysUserMapper;
+import com.example.leagueticket.mapper.ClubInfoMapper;
 import com.example.leagueticket.security.AuthenticatedUser;
 import com.example.leagueticket.service.SysRolePermissionService;
 import com.example.leagueticket.service.SysRoleService;
@@ -36,13 +39,14 @@ public class SysUserServiceImpl implements SysUserService {
     private static final Set<String> USER_STATUSES = Set.of("ENABLED", "DISABLED", "LOCKED");
     private static final Set<String> CLUB_BOUND_ROLES = Set.of("CLUB");
     private static final Set<String> UNBOUND_ROLES = Set.of("USER", "EVENT_ADMIN", "ADMIN");
-    private static final Set<String> PUBLIC_REGISTER_ROLES = Set.of("USER", "CLUB", "EVENT_ADMIN", "ADMIN");
+    private static final Set<String> PUBLIC_REGISTER_ROLES = Set.of("USER", "CLUB");
     private static final Set<String> MANAGEMENT_ROLES = Set.of("EVENT_ADMIN", "ADMIN");
     private static final Pattern EVENT_ADMIN_EMPLOYEE_NO = Pattern.compile("^EA\\d{4}$");
     private static final Pattern ADMIN_EMPLOYEE_NO = Pattern.compile("^SA\\d{4}$");
     private static final Pattern PHONE_PATTERN = Pattern.compile("^1\\d{10}$");
 
     private final SysUserMapper userMapper;
+    private final ClubInfoMapper clubMapper;
     private final SysRoleService roleService;
     private final SysRolePermissionService rolePermissionService;
     private final PasswordEncoder passwordEncoder;
@@ -67,10 +71,12 @@ public class SysUserServiceImpl implements SysUserService {
         String roleCode = normalizeRegisterRole(request.roleCode());
         SysRole role = roleService.getByCode(roleCode);
         String realName = registerRealName(roleCode, request);
+        String clubApplyName = "CLUB".equals(roleCode)
+                ? requiredText(request.clubName(), "俱乐部名称不能为空") : null;
         String employeeNo = validateEmployeeNo(roleCode, request.employeeNo(), null);
         String status = "USER".equals(roleCode) ? "ENABLED" : "DISABLED";
         SysUser user = buildUser(request.username(), request.phone(), request.password(), realName,
-                employeeNo, role, null, status);
+                clubApplyName, employeeNo, role, null, status);
         insertUser(user);
         return UserResponse.from(userMapper.findById(user.getUserId()));
     }
@@ -124,9 +130,10 @@ public class SysUserServiceImpl implements SysUserService {
     public UserResponse createByAdmin(AdminCreateUserRequest request) {
         SysRole role = roleService.getByCode(request.roleCode());
         validateRoleClub(role.getRoleCode(), request.clubId());
+        assertClubLeaderAvailable(role.getRoleCode(), request.clubId(), null);
         String employeeNo = validateEmployeeNo(role.getRoleCode(), request.employeeNo(), null);
         SysUser user = buildUser(request.username(), request.phone(), request.password(), request.realName(),
-                employeeNo, role, request.clubId(), "ENABLED");
+                null, employeeNo, role, request.clubId(), "ENABLED");
         validateManagementEnable(user.getRoleCode(), user.getRealName(), user.getEmployeeNo(), "ENABLED");
         insertUser(user);
         return UserResponse.from(userMapper.findById(user.getUserId()));
@@ -139,6 +146,7 @@ public class SysUserServiceImpl implements SysUserService {
         SysRole role = roleService.getByCode(request.roleCode());
         validateStatus(request.userStatus());
         validateRoleClub(role.getRoleCode(), request.clubId());
+        assertClubLeaderAvailable(role.getRoleCode(), request.clubId(), userId);
         String phone = request.phone().trim();
         assertPhoneAvailable(phone, userId);
         String employeeNo = validateEmployeeNo(role.getRoleCode(), request.employeeNo(), userId);
@@ -154,6 +162,64 @@ public class SysUserServiceImpl implements SysUserService {
             userMapper.updateByAdmin(user);
         } catch (DuplicateKeyException exception) {
             throw duplicateConflict(phone, employeeNo, userId);
+        }
+        return UserResponse.from(userMapper.findById(userId));
+    }
+
+    @Override
+    @Transactional
+    public UserResponse approveClub(Long userId, ClubApprovalRequest request) {
+        SysUser user = userMapper.findByIdForUpdate(userId);
+        if (user == null) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "user not found");
+        }
+        if (!"CLUB".equals(user.getRoleCode())) {
+            throw new BusinessException("只有CLUB申请账号可以执行俱乐部审核");
+        }
+        if (!"DISABLED".equals(user.getUserStatus())) {
+            throw new BusinessException(HttpStatus.CONFLICT, "仅可审核尚未启用的CLUB申请账号");
+        }
+        if (user.getClubId() != null) {
+            throw new BusinessException(HttpStatus.CONFLICT, "该CLUB账号已经绑定俱乐部");
+        }
+        requiredText(user.getRealName(), "负责人真实姓名不能为空");
+        String applyName = requiredText(user.getClubApplyName(), "申请俱乐部名称不能为空");
+        String mode = request.mode().trim().toUpperCase();
+        Long clubId;
+        if ("CREATE_NEW".equals(mode)) {
+            if (request.existingClubId() != null) {
+                throw new BusinessException("创建新俱乐部时不能指定已有俱乐部");
+            }
+            if (clubMapper.countByName(applyName, null) > 0) {
+                throw new BusinessException(HttpStatus.CONFLICT, "俱乐部名称已存在，请选择关联已有俱乐部");
+            }
+            ClubInfo club = new ClubInfo();
+            club.setClubName(applyName);
+            club.setHomeCity(null);
+            club.setClubStatus("ACTIVE");
+            try {
+                clubMapper.insert(club);
+            } catch (DuplicateKeyException exception) {
+                throw new BusinessException(HttpStatus.CONFLICT, "俱乐部名称已存在，请选择关联已有俱乐部");
+            }
+            clubId = club.getClubId();
+        } else if ("BIND_EXISTING".equals(mode)) {
+            if (request.existingClubId() == null) {
+                throw new BusinessException("关联已有俱乐部时必须选择俱乐部");
+            }
+            ClubInfo club = clubMapper.findByIdForUpdate(request.existingClubId());
+            if (club == null) {
+                throw new BusinessException(HttpStatus.NOT_FOUND, "club not found");
+            }
+            assertNoOtherClubLeader(club.getClubId(), userId);
+            clubId = club.getClubId();
+        } else {
+            throw new BusinessException("审核模式必须为CREATE_NEW或BIND_EXISTING");
+        }
+        try {
+            userMapper.approveClub(userId, clubId);
+        } catch (DuplicateKeyException exception) {
+            throw new BusinessException(HttpStatus.CONFLICT, "该俱乐部已有负责人");
         }
         return UserResponse.from(userMapper.findById(userId));
     }
@@ -186,7 +252,7 @@ public class SysUserServiceImpl implements SysUserService {
     }
 
     private SysUser buildUser(String username, String phone, String rawPassword, String realName,
-                              String employeeNo, SysRole role, Long clubId, String status) {
+                              String clubApplyName, String employeeNo, SysRole role, Long clubId, String status) {
         String normalizedPhone = phone.trim();
         assertPhoneAvailable(normalizedPhone, null);
         SysUser user = new SysUser();
@@ -194,6 +260,7 @@ public class SysUserServiceImpl implements SysUserService {
         user.setPhone(normalizedPhone);
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         user.setRealName(realName.trim());
+        user.setClubApplyName(clubApplyName);
         user.setEmployeeNo(employeeNo);
         user.setRoleId(role.getRoleId());
         user.setRoleCode(role.getRoleCode());
@@ -237,6 +304,9 @@ public class SysUserServiceImpl implements SysUserService {
             throw new BusinessException("请选择注册身份");
         }
         String value = roleCode.trim().toUpperCase();
+        if (MANAGEMENT_ROLES.contains(value)) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "当前身份不支持公开注册，请联系系统管理员创建账号");
+        }
         if (!PUBLIC_REGISTER_ROLES.contains(value)) {
             throw new BusinessException("请选择正确的注册身份");
         }
@@ -246,8 +316,7 @@ public class SysUserServiceImpl implements SysUserService {
     private String registerRealName(String roleCode, RegisterRequest request) {
         return switch (roleCode) {
             case "USER" -> requiredText(request.realName(), "用户姓名不能为空");
-            case "CLUB" -> requiredText(request.clubName(), "俱乐部名称不能为空");
-            case "EVENT_ADMIN", "ADMIN" -> requiredText(request.realName(), "管理人员真实姓名不能为空");
+            case "CLUB" -> requiredText(request.realName(), "负责人姓名不能为空");
             default -> throw new BusinessException("请选择正确的注册身份");
         };
     }
@@ -299,6 +368,23 @@ public class SysUserServiceImpl implements SysUserService {
         }
         if (!CLUB_BOUND_ROLES.contains(roleCode) && !UNBOUND_ROLES.contains(roleCode)) {
             throw new BusinessException("不支持的角色类型");
+        }
+    }
+
+    private void assertClubLeaderAvailable(String roleCode, Long clubId, Long excludeUserId) {
+        if (!"CLUB".equals(roleCode) || clubId == null) {
+            return;
+        }
+        ClubInfo club = clubMapper.findByIdForUpdate(clubId);
+        if (club == null) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "club not found");
+        }
+        assertNoOtherClubLeader(clubId, excludeUserId);
+    }
+
+    private void assertNoOtherClubLeader(Long clubId, Long excludeUserId) {
+        if (userMapper.findOtherClubLeaderForUpdate(clubId, excludeUserId) != null) {
+            throw new BusinessException(HttpStatus.CONFLICT, "该俱乐部已有负责人");
         }
     }
 

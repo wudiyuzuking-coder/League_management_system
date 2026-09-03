@@ -22,6 +22,9 @@ onMounted(async()=>{stadiums.value=(await getStadiums()).data;await load()})
 <template>
   <el-card v-loading="loading" class="page-card">
     <template #header><h2>俱乐部资料</h2></template>
+    <el-alert :closable="false" type="info" class="leader-info">
+      当前负责人：{{form.leaderName||'未绑定'}}（{{form.leaderPhone||'—'}}）
+    </el-alert>
     <el-form ref="formRef" :model="form" :rules="rules" label-width="110px" class="edit-form">
       <el-form-item label="俱乐部名称" prop="clubName"><el-input v-model="form.clubName" /></el-form-item>
       <el-form-item label="简称"><el-input v-model="form.shortName" /></el-form-item>
@@ -35,4 +38,4 @@ onMounted(async()=>{stadiums.value=(await getStadiums()).data;await load()})
   </el-card>
 </template>
 
-<style scoped>.page-card h2{margin:0}.edit-form{max-width:720px}</style>
+<style scoped>.page-card h2{margin:0}.leader-info{margin-bottom:18px}.edit-form{max-width:720px}</style>

@@ -235,7 +235,7 @@ class UserClubDetailIntegrationTest {
 
     private String login(String phone) throws Exception {
         String body = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of("phone", phone, "password", "123456"))))
+                        .content(json.writeValueAsString(TestLoginPayload.forPhone(phone, "123456"))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         return json.readTree(body).path("data").path("token").asText();
     }

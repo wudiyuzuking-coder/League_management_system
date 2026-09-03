@@ -181,14 +181,15 @@ SET @role_checker := (SELECT role_id FROM sys_role WHERE role_code = 'CHECKER');
 SET @role_event_admin := (SELECT role_id FROM sys_role WHERE role_code = 'EVENT_ADMIN');
 SET @role_admin := (SELECT role_id FROM sys_role WHERE role_code = 'ADMIN');
 
-INSERT INTO sys_user (username, phone, password_hash, display_name, employee_no, role_id, club_id, user_status)
+INSERT INTO sys_user (username, phone, password_hash, display_name, club_apply_name, employee_no, role_id, club_id, user_status)
 VALUES
-    ('demo_user', '13800000001', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示普通用户', NULL, @role_user, NULL, 'ENABLED'),
-    ('demo_admin', '13800000002', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示系统管理员', 'SA0001', @role_admin, NULL, 'ENABLED'),
-    ('demo_club', '13800000003', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '潮汐俱乐部负责人', NULL, @role_club, @club_a, 'ENABLED'),
-    ('demo_event_admin', '13800000005', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示赛事管理员', 'EA0001', @role_event_admin, NULL, 'ENABLED')
+    ('demo_user', '13800000001', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示普通用户', NULL, NULL, @role_user, NULL, 'ENABLED'),
+    ('demo_admin', '13800000002', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示系统管理员', NULL, 'SA0001', @role_admin, NULL, 'ENABLED'),
+    ('demo_club', '13800000003', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '潮汐俱乐部负责人', '杭州潮汐足球俱乐部', NULL, @role_club, @club_a, 'ENABLED'),
+    ('demo_event_admin', '13800000005', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示赛事管理员', NULL, 'EA0001', @role_event_admin, NULL, 'ENABLED')
 ON DUPLICATE KEY UPDATE
-    password_hash = VALUES(password_hash), display_name = VALUES(display_name), employee_no = VALUES(employee_no), role_id = VALUES(role_id),
+    password_hash = VALUES(password_hash), display_name = VALUES(display_name), club_apply_name = VALUES(club_apply_name),
+    employee_no = VALUES(employee_no), role_id = VALUES(role_id),
     club_id = VALUES(club_id), user_status = VALUES(user_status);
 SET @demo_admin_id := (SELECT user_id FROM sys_user WHERE phone = '13800000002');
 
