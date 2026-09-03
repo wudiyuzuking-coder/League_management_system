@@ -19,5 +19,5 @@ public class TicketController {
     @GetMapping("/api/matches/{matchId}/ticket-zones") public Result<List<UserMatchTicketZoneResponse>> list(@PathVariable Long matchId){return Result.success(zoneService.listPublic(matchId));}
     @GetMapping("/api/match-ticket-zones/{id}") public Result<UserMatchTicketZoneResponse> detail(@PathVariable Long id){return Result.success(zoneService.detailPublic(id));}
     @GetMapping("/api/match-ticket-zones/{id}/availability") public Result<TicketZoneAvailabilityResponse> availability(@PathVariable Long id){return Result.success(inventoryService.availability(id));}
-    @PostMapping("/api/match-ticket-zones/{id}/seat-allocation/preview") public Result<SeatAllocationResponse> preview(@PathVariable Long id,@Valid @RequestBody SeatAllocationRequest request){return Result.success(seatAllocateService.preview(id,request.ticketCount()));}
+    @PostMapping("/api/match-ticket-zones/{id}/seat-allocation/preview") public Result<SeatAllocationResponse> preview(@PathVariable Long id,@Valid @RequestBody SeatAllocationRequest request){zoneService.requireSaleAvailable(id);return Result.success(seatAllocateService.preview(id,request.ticketCount()));}
 }

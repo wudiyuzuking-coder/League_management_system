@@ -9,6 +9,8 @@ public interface MatchTicketZoneMapper {
     String SELECT_COLUMNS="mz.match_zone_id,mz.match_id,mz.stadium_zone_id,mz.created_by,mz.zone_name_snapshot,sz.zone_code,mz.ticket_price,mz.zone_status,mz.sale_start_time,mz.sale_end_time,mz.version,mz.created_at,mz.updated_at";
     @Select("SELECT "+SELECT_COLUMNS+" FROM match_ticket_zone mz JOIN stadium_zone sz ON sz.stadium_zone_id=mz.stadium_zone_id WHERE mz.match_id=#{matchId} ORDER BY sz.sort_order,mz.match_zone_id")
     List<MatchTicketZone> findByMatch(Long matchId);
+    @Select("SELECT "+SELECT_COLUMNS+" FROM match_ticket_zone mz JOIN stadium_zone sz ON sz.stadium_zone_id=mz.stadium_zone_id WHERE mz.match_id=#{matchId} ORDER BY sz.sort_order,mz.match_zone_id FOR UPDATE")
+    List<MatchTicketZone> findByMatchForUpdate(Long matchId);
     @Select("SELECT "+SELECT_COLUMNS+" FROM match_ticket_zone mz JOIN stadium_zone sz ON sz.stadium_zone_id=mz.stadium_zone_id WHERE mz.match_zone_id=#{id}")
     MatchTicketZone findById(Long id);
     @Select("SELECT "+SELECT_COLUMNS+" FROM match_ticket_zone mz JOIN stadium_zone sz ON sz.stadium_zone_id=mz.stadium_zone_id WHERE mz.match_zone_id=#{id} FOR UPDATE")
@@ -21,4 +23,6 @@ public interface MatchTicketZoneMapper {
     int update(MatchTicketZone zone);
     @Update("UPDATE match_ticket_zone SET zone_status=#{status},version=version+1 WHERE match_zone_id=#{id}")
     int updateStatus(@Param("id") Long id,@Param("status") String status);
+    @Update("UPDATE match_ticket_zone SET sale_start_time=#{saleStartTime},version=version+1 WHERE match_id=#{matchId}")
+    int updateSaleStartByMatch(@Param("matchId") Long matchId,@Param("saleStartTime") java.time.LocalDateTime saleStartTime);
 }

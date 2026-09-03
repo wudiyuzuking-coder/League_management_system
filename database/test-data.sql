@@ -205,14 +205,20 @@ WHERE username = 'demo_checker';
 INSERT INTO match_ticket_zone
     (match_id, stadium_zone_id, created_by, zone_name_snapshot, ticket_price, zone_status, sale_start_time, sale_end_time)
 VALUES
-    (@match_1, @zone_1_east, @demo_admin_id, '东看台', 120.00, 'ON_SALE', '2026-08-25 10:00:00', '2026-09-05 19:00:00'),
-    (@match_1, @zone_1_west, @demo_admin_id, '西看台', 180.00, 'ON_SALE', '2026-08-25 10:00:00', '2026-09-05 19:00:00'),
-    (@match_3, @zone_1_east, @demo_admin_id, '东看台', 100.00, 'ON_SALE', '2026-08-25 10:00:00', '2026-09-12 19:00:00'),
-    (@match_3, @zone_1_west, @demo_admin_id, '西看台', 160.00, 'ON_SALE', '2026-08-25 10:00:00', '2026-09-12 19:00:00')
+    (@match_1, @zone_1_east, @demo_admin_id, '东看台', 120.00, 'ON_SALE', '2026-08-29 20:00:00', '2026-09-05 19:00:00'),
+    (@match_1, @zone_1_west, @demo_admin_id, '西看台', 180.00, 'ON_SALE', '2026-08-29 20:00:00', '2026-09-05 19:00:00'),
+    (@match_3, @zone_1_east, @demo_admin_id, '东看台', 100.00, 'ON_SALE', '2026-09-05 20:00:00', '2026-09-12 19:00:00'),
+    (@match_3, @zone_1_west, @demo_admin_id, '西看台', 160.00, 'ON_SALE', '2026-09-05 20:00:00', '2026-09-12 19:00:00')
 ON DUPLICATE KEY UPDATE
     zone_name_snapshot = VALUES(zone_name_snapshot), ticket_price = VALUES(ticket_price),
     zone_status = VALUES(zone_status),
     sale_start_time = VALUES(sale_start_time), sale_end_time = VALUES(sale_end_time);
+
+-- 阶段20B2：演示票区开售时间始终由比赛时间计算，避免复制的常量漂移。
+UPDATE match_ticket_zone mz
+JOIN match_info m ON m.match_id = mz.match_id
+SET mz.sale_start_time = DATE_ADD(DATE_SUB(DATE(m.match_time), INTERVAL 7 DAY), INTERVAL 20 HOUR)
+WHERE mz.match_id IN (@match_1, @match_3);
 
 INSERT INTO match_seat_inventory (match_id, match_zone_id, stadium_seat_id, inventory_status)
 SELECT mz.match_id, mz.match_zone_id, ss.stadium_seat_id, 'AVAILABLE'

@@ -7,6 +7,7 @@ import com.example.leagueticket.exception.BusinessException;
 import com.example.leagueticket.mapper.*;
 import com.example.leagueticket.service.OrderService;
 import com.example.leagueticket.service.SystemTimeService;
+import com.example.leagueticket.service.TicketSalePolicy;
 import com.example.leagueticket.vo.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -31,6 +32,7 @@ public class OrderServiceImpl implements OrderService {
     private final ETicketMapper ticketMapper;
     private final SystemConfigMapper configMapper;
     private final SystemTimeService systemTimeService;
+    private final TicketSalePolicy ticketSalePolicy;
     private final SeatAllocateService seatAllocateService;
     private final ObjectProvider<OrderService> orderServiceProvider;
 
@@ -41,8 +43,10 @@ public class OrderServiceImpl implements OrderService {
         MatchTicketZone zone=zoneMapper.findByIdForUpdate(request.matchZoneId());
         if(zone==null)throw new BusinessException(HttpStatus.NOT_FOUND,"match ticket zone not found");
         MatchInfo match=matchMapper.findById(zone.getMatchId());
-        LocalDateTime now=systemTimeService.now();validateSale(zone,match,now);
-        if(inventoryMapper.countStatus(zone.getMatchZoneId(),"AVAILABLE")<request.ticketCount())
+        LocalDateTime now=systemTimeService.now();
+        long availableInventory=inventoryMapper.countStatus(zone.getMatchZoneId(),"AVAILABLE");
+        ticketSalePolicy.requireSaleAvailable(match,zone,availableInventory);
+        if(availableInventory<request.ticketCount())
             throw new BusinessException(HttpStatus.CONFLICT,"not enough AVAILABLE seats");
         LocalDateTime expire=now.plusMinutes(configInt("ORDER_PAYMENT_TIMEOUT_MINUTES",15));
         TicketOrder order=new TicketOrder();order.setOrderNo(orderNo(now));order.setUserId(userId);order.setMatchId(zone.getMatchId());
@@ -91,12 +95,6 @@ public class OrderServiceImpl implements OrderService {
         if(items!=order.getTicketCount()||released!=order.getTicketCount())throw new BusinessException(HttpStatus.CONFLICT,"order lock data is inconsistent; cancellation rolled back");
     }
     private void verifyLockedOrder(Long orderId,int expected){if(itemMapper.countByOrder(orderId)!=expected||inventoryMapper.countLockedByOrder(orderId)!=expected)throw new BusinessException(HttpStatus.CONFLICT,"order lock data is incomplete");}
-    private void validateSale(MatchTicketZone zone,MatchInfo match,LocalDateTime now){
-        if(!"PUBLISHED".equals(match.getMatchStatus()))throw new BusinessException(HttpStatus.CONFLICT,"match is not available for ticket sales");
-        if(!"ON_SALE".equals(zone.getZoneStatus()))throw new BusinessException(HttpStatus.CONFLICT,"match ticket zone is not ON_SALE");
-        if(zone.getSaleStartTime()==null||zone.getSaleEndTime()==null||now.isBefore(zone.getSaleStartTime())||!now.isBefore(zone.getSaleEndTime()))throw new BusinessException(HttpStatus.CONFLICT,"current time is outside the sale period");
-        if(!now.isBefore(match.getMatchTime().minusMinutes(configInt("SALE_STOP_BEFORE_MINUTES",30))))throw new BusinessException(HttpStatus.CONFLICT,"ticket sales have stopped before match start");
-    }
     private TicketOrder requireLocked(Long id){TicketOrder o=orderMapper.findByIdForUpdate(id);if(o==null)throw new BusinessException(HttpStatus.NOT_FOUND,"order not found");return o;}
     private TicketOrder requireDetail(Long id){TicketOrder o=orderMapper.findDetail(id);if(o==null)throw new BusinessException(HttpStatus.NOT_FOUND,"order not found");return o;}
     private void requireOwner(TicketOrder order,Long userId){if(!order.getUserId().equals(userId))throw new BusinessException(HttpStatus.FORBIDDEN,"cannot access another user's order");}

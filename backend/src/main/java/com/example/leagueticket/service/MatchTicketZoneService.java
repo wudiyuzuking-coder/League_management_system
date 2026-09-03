@@ -15,4 +15,5 @@ public interface MatchTicketZoneService {
     MatchTicketZone update(Long id,MatchTicketZoneRequest request);
     MatchTicketZone updateStatus(Long id,String status);
     MatchTicketZone getEntity(Long id);
+    void requireSaleAvailable(Long id);
 }

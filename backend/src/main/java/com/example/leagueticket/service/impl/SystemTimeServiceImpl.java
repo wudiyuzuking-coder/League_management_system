@@ -37,7 +37,8 @@ public class SystemTimeServiceImpl implements SystemTimeService {
         long beforeOffset=lockOffset();
         LocalDateTime real=realNow();
         LocalDateTime before=applyOffset(real,beforeOffset);
-        long afterOffset=Duration.between(real,targetTime).getSeconds();
+        Duration requestedOffset=Duration.between(real,targetTime);
+        long afterOffset=requestedOffset.getSeconds()+(requestedOffset.getNano()==0?0:1);
         updateAndLog(operator,"SET","PUT","/api/system-time",real,before,targetTime,beforeOffset,afterOffset);
         return new SystemTimeResponse(applyOffset(real,afterOffset),real,afterOffset);
     }

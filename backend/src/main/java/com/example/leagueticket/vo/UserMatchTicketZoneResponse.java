@@ -21,4 +21,5 @@ public record UserMatchTicketZoneResponse(
         long totalSeatCount,
         long availableSeatCount,
         int maxContinuousCount,
-        boolean saleAvailable) {}
+        boolean saleAvailable,
+        String saleState) {}

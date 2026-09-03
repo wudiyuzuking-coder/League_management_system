@@ -20,6 +20,7 @@ public interface MatchInfoMapper {
         JOIN stadium_info st ON st.stadium_id=m.stadium_id
         """;
     @Select(JOIN_SELECT+" WHERE m.match_id=#{id}") MatchInfo findById(Long id);
+    @Select("SELECT * FROM match_info WHERE match_id=#{id} FOR UPDATE") MatchInfo findByIdForUpdate(Long id);
     @Select("""
         <script>SELECT COUNT(*) FROM match_info m <where>
         <if test='q.seasonId!=null'>AND m.season_id=#{q.seasonId}</if><if test='q.roundId!=null'>AND m.round_id=#{q.roundId}</if>

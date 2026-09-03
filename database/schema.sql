@@ -419,7 +419,7 @@ CREATE TABLE match_ticket_zone (
     zone_name_snapshot VARCHAR(80) NOT NULL COMMENT '售票时票区名称快照',
     ticket_price DECIMAL(10,2) UNSIGNED NOT NULL COMMENT '单价',
     zone_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '比赛票区状态',
-    sale_start_time DATETIME NULL COMMENT '票区售票开始时间',
+    sale_start_time DATETIME NULL COMMENT '根据比赛时间自动派生并持久化的开售时间',
     sale_end_time DATETIME NULL COMMENT '票区售票停止时间',
     version INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '乐观锁版本',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

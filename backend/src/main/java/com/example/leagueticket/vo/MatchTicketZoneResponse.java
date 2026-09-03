@@ -7,4 +7,4 @@ public record MatchTicketZoneResponse(Long matchZoneId,Long matchId,Long stadium
         String zoneName,String zoneCode,BigDecimal price,String zoneStatus,
         LocalDateTime saleStartTime,LocalDateTime saleEndTime,long totalSeatCount,
         long availableSeatCount,long lockedSeatCount,long soldSeatCount,long disabledSeatCount,
-        int maxContinuousCount,boolean saleAvailable) {}
+        int maxContinuousCount,boolean saleAvailable,String saleState) {}

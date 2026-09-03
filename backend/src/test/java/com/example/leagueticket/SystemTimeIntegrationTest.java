@@ -130,24 +130,25 @@ class SystemTimeIntegrationTest {
     @Test
     void saleWindowAndOrderExpiryUseSystemTime() throws Exception {
         LocalDateTime businessNow=systemTimeService.realNow().plusDays(120).truncatedTo(ChronoUnit.SECONDS);
-        setupTicketScenario(businessNow);
-        setTime(userToken,businessNow.minusHours(2)).andExpect(status().isOk());
+        LocalDateTime saleStart=businessNow.toLocalDate().atTime(20,0);
+        setupTicketScenario(saleStart.plusDays(7),saleStart.plusHours(1));
+        setTime(userToken,saleStart.minusSeconds(1)).andExpect(status().isOk());
         mvc.perform(get("/api/match-ticket-zones/{id}",zoneId).header("Authorization",bearer(userToken))).andExpect(status().isOk()).andExpect(jsonPath("$.data.saleAvailable").value(false));
         createOrder().andExpect(status().isConflict());
 
-        setTime(userToken,businessNow).andExpect(status().isOk());
+        setTime(userToken,saleStart).andExpect(status().isOk());
         mvc.perform(get("/api/match-ticket-zones/{id}",zoneId).header("Authorization",bearer(userToken))).andExpect(jsonPath("$.data.saleAvailable").value(true));
         JsonNode order=response(createOrder().andExpect(status().isOk())).path("data").path("order");
         long orderId=order.path("orderId").asLong();
         LocalDateTime expire=LocalDateTime.parse(order.path("expireTime").asText());
-        assertClose(expire,businessNow.plusMinutes(15),2);
+        assertClose(expire,saleStart.plusMinutes(15),2);
 
         setTime(userToken,expire.plusSeconds(1)).andExpect(status().isOk());
         assertThat(orderService.closeExpiredBatch()).isGreaterThanOrEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT order_status FROM ticket_order WHERE order_id=?",String.class,orderId)).isEqualTo("CANCELLED");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM match_seat_inventory WHERE match_zone_id=? AND inventory_status='AVAILABLE'",Integer.class,zoneId)).isEqualTo(8);
 
-        setTime(userToken,businessNow.plusHours(2)).andExpect(status().isOk());
+        setTime(userToken,saleStart.plusHours(2)).andExpect(status().isOk());
         mvc.perform(get("/api/match-ticket-zones/{id}",zoneId).header("Authorization",bearer(userToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.saleAvailable").value(false));
         createOrder().andExpect(status().isConflict());
@@ -156,7 +157,7 @@ class SystemTimeIntegrationTest {
     @Test
     void refundDeadlineUsesSystemTime() throws Exception {
         LocalDateTime businessNow=systemTimeService.realNow().plusDays(150).truncatedTo(ChronoUnit.SECONDS);
-        setupTicketScenario(businessNow);
+        setupTicketScenario(businessNow.plusHours(48),businessNow.plusHours(1));
         setTime(userToken,businessNow).andExpect(status().isOk());
         long beforeOrder=paidOrder();long afterOrder=paidOrder();
         applyRefund(beforeOrder).andExpect(status().isOk());
@@ -164,16 +165,17 @@ class SystemTimeIntegrationTest {
         applyRefund(afterOrder).andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("refund deadline has passed"));
     }
 
-    private void setupTicketScenario(LocalDateTime businessNow){
+    private void setupTicketScenario(LocalDateTime matchTime,LocalDateTime saleEndTime){
         cleanupScenario();
         matchId=id("SELECT match_id FROM match_info WHERE match_status='PUBLISHED' ORDER BY match_id LIMIT 1");
         originalMatchTime=jdbc.queryForObject("SELECT match_time FROM match_info WHERE match_id=?",LocalDateTime.class,matchId);
-        jdbc.update("UPDATE match_info SET match_time=? WHERE match_id=?",businessNow.plusHours(48),matchId);
+        jdbc.update("UPDATE match_info SET match_time=? WHERE match_id=?",matchTime,matchId);
         long stadium=id("SELECT stadium_id FROM match_info WHERE match_id="+matchId),admin=id("SELECT user_id FROM sys_user WHERE username='demo_event_admin'");
         jdbc.update("INSERT INTO stadium_zone(stadium_id,zone_code,zone_name,sort_order,zone_status) VALUES(?,'IT16A','IT16A系统时间区',160,'ACTIVE')",stadium);
         long staticZone=id("SELECT stadium_zone_id FROM stadium_zone WHERE zone_code='IT16A'");
         for(int seat=1;seat<=8;seat++)jdbc.update("INSERT INTO stadium_seat(stadium_id,stadium_zone_id,row_no,row_seq,seat_no,seat_seq,center_distance,seat_status) VALUES(?,?,'1排',1,?,?,0,'ACTIVE')",stadium,staticZone,seat+"座",seat);
-        jdbc.update("INSERT INTO match_ticket_zone(match_id,stadium_zone_id,created_by,zone_name_snapshot,ticket_price,zone_status,sale_start_time,sale_end_time) VALUES(?,?,?,'IT16A系统时间区',80,'ON_SALE',?,?)",matchId,staticZone,admin,businessNow.minusHours(1),businessNow.plusHours(1));
+        LocalDateTime saleStart=matchTime.toLocalDate().minusDays(7).atTime(20,0);
+        jdbc.update("INSERT INTO match_ticket_zone(match_id,stadium_zone_id,created_by,zone_name_snapshot,ticket_price,zone_status,sale_start_time,sale_end_time) VALUES(?,?,?,'IT16A系统时间区',80,'ON_SALE',?,?)",matchId,staticZone,admin,saleStart,saleEndTime);
         zoneId=id("SELECT match_zone_id FROM match_ticket_zone WHERE stadium_zone_id="+staticZone);
         jdbc.update("INSERT INTO match_seat_inventory(match_id,match_zone_id,stadium_seat_id,inventory_status) SELECT ?,?,stadium_seat_id,'AVAILABLE' FROM stadium_seat WHERE stadium_zone_id=?",matchId,zoneId,staticZone);
     }

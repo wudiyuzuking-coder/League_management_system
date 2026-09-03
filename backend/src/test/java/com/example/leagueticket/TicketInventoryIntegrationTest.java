@@ -55,7 +55,7 @@ class TicketInventoryIntegrationTest {
         createZoneRequest(matchA,disabledZone,admin,zoneBody(disabledZone,100)).andExpect(status().isBadRequest());
         createZoneRequest(matchA,otherZone,admin,zoneBody(otherZone,100)).andExpect(status().isBadRequest());
         createZoneRequest(matchA,activeZone,admin,zoneBody(activeZone,-1)).andExpect(status().isBadRequest());
-        Map<String,Object> bad=zoneBody(activeZone,10);bad.put("saleEndTime",LocalDateTime.now().minusHours(2));createZoneRequest(matchB,activeZone,admin,bad).andExpect(status().isBadRequest());
+        Map<String,Object> bad=zoneBody(activeZone,10);bad.put("saleEndTime",LocalDateTime.now().minusDays(6));createZoneRequest(matchB,activeZone,admin,bad).andExpect(status().isBadRequest());
         Map<String,Object> late=zoneBody(activeZone,10);late.put("saleEndTime",LocalDateTime.now().plusDays(3));createZoneRequest(matchB,activeZone,admin,late).andExpect(status().isBadRequest());
     }
 
@@ -89,7 +89,7 @@ class TicketInventoryIntegrationTest {
     private ResultActions generate(long zone,String token)throws Exception{return mockMvc.perform(post("/api/admin/match-ticket-zones/{id}/inventory/generate",zone).header("Authorization",bearer(token)));}
     private ResultActions transition(long zone,String value,String token)throws Exception{return mockMvc.perform(put("/api/admin/match-ticket-zones/{id}/status",zone).header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json(Map.of("zoneStatus",value))));}
     private ResultActions inventoryStatus(long id,String value,String token)throws Exception{return mockMvc.perform(put("/api/admin/match-seat-inventory/{id}/status",id).header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json(Map.of("inventoryStatus",value))));}
-    private Map<String,Object> zoneBody(long zone,double price){Map<String,Object> body=new LinkedHashMap<>();body.put("stadiumZoneId",zone);body.put("price",price);body.put("saleStartTime",LocalDateTime.now().minusHours(1));body.put("saleEndTime",LocalDateTime.now().plusHours(24));return body;}
+    private Map<String,Object> zoneBody(long zone,double price){Map<String,Object> body=new LinkedHashMap<>();body.put("stadiumZoneId",zone);body.put("price",price);body.put("saleEndTime",LocalDateTime.now().plusHours(24));return body;}
     private long id(String sql){return jdbc.queryForObject(sql,Long.class);}
     private String loginByPhone(String phone)throws Exception{String body=mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json(TestLoginPayload.forPhone(phone,"123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();JsonNode n=objectMapper.readTree(body);return n.path("data").path("token").asText();}
     private String bearer(String token){return "Bearer "+token;}private String json(Object value)throws Exception{return objectMapper.writeValueAsString(value);}
