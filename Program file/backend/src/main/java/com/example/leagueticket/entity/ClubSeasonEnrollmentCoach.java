@@ -9,4 +9,6 @@ public class ClubSeasonEnrollmentCoach {
     private Long coachId;
     private String coachNameSnapshot;
     private String titleSnapshot;
+    private Integer birthYearSnapshot;
+    private String nationalitySnapshot;
 }

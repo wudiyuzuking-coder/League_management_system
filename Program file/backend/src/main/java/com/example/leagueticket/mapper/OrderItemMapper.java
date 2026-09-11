@@ -6,7 +6,7 @@ import java.util.List;
 
 @Mapper
 public interface OrderItemMapper {
-    @Insert("INSERT INTO order_item(order_id,inventory_id,ticket_price,zone_name_snapshot,row_no_snapshot,seat_no_snapshot,item_status) VALUES(#{orderId},#{inventoryId},#{ticketPrice},#{zoneNameSnapshot},#{rowNoSnapshot},#{seatNoSnapshot},'LOCKED')")
+    @Insert("INSERT INTO order_item(order_id,inventory_id,ticket_price,zone_name_snapshot,row_no_snapshot,seat_no_snapshot,passenger_name_snapshot,passenger_id_card_snapshot,item_status) VALUES(#{orderId},#{inventoryId},#{ticketPrice},#{zoneNameSnapshot},#{rowNoSnapshot},#{seatNoSnapshot},#{passengerNameSnapshot},#{passengerIdCardSnapshot},'LOCKED')")
     @Options(useGeneratedKeys=true,keyProperty="itemId") int insert(OrderItem item);
     @Select("SELECT * FROM order_item WHERE order_id=#{orderId} ORDER BY item_id") List<OrderItem> findByOrder(Long orderId);
     @Update("UPDATE order_item SET item_status='CANCELLED' WHERE order_id=#{orderId} AND item_status='LOCKED'") int cancelLocked(Long orderId);

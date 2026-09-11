@@ -1,7 +1,6 @@
 package com.example.leagueticket.service.impl;
 
 import com.example.leagueticket.dto.AdminCreateUserRequest;
-import com.example.leagueticket.dto.AdminUpdateUserRequest;
 import com.example.leagueticket.dto.ChangePasswordRequest;
 import com.example.leagueticket.dto.ClubApprovalRequest;
 import com.example.leagueticket.dto.RegisterRequest;
@@ -36,7 +35,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class SysUserServiceImpl implements SysUserService {
 
-    private static final Set<String> USER_STATUSES = Set.of("ENABLED", "DISABLED", "LOCKED");
+    private static final Set<String> USER_STATUSES = Set.of("PENDING_ACTIVATION", "PENDING_CLUB_APPROVAL", "ENABLED", "DISABLED", "LOCKED");
     private static final Set<String> CLUB_BOUND_ROLES = Set.of("CLUB");
     private static final Set<String> UNBOUND_ROLES = Set.of("USER", "EVENT_ADMIN", "ADMIN");
     private static final Set<String> PUBLIC_REGISTER_ROLES = Set.of("USER", "CLUB");
@@ -52,9 +51,11 @@ public class SysUserServiceImpl implements SysUserService {
     private final PasswordEncoder passwordEncoder;
 
     @Override
-    public SysUser findByPhone(String phone) {
-        return userMapper.findByPhone(phone);
+    public SysUser findByPhoneAndRole(String phone, String roleCode) {
+        return userMapper.findByPhoneAndRole(phone, roleCode);
     }
+
+    @Override public boolean phoneExists(String phone) { return userMapper.countByPhoneAny(phone) > 0; }
 
     @Override
     public SysUser getById(Long userId) {
@@ -74,7 +75,7 @@ public class SysUserServiceImpl implements SysUserService {
         String clubApplyName = "CLUB".equals(roleCode)
                 ? requiredText(request.clubName(), "俱乐部名称不能为空") : null;
         String employeeNo = validateEmployeeNo(roleCode, request.employeeNo(), null);
-        String status = "USER".equals(roleCode) ? "ENABLED" : "DISABLED";
+        String status = "USER".equals(roleCode) ? "ENABLED" : "PENDING_CLUB_APPROVAL";
         SysUser user = buildUser(request.username(), request.phone(), request.password(), realName,
                 clubApplyName, employeeNo, role, null, status);
         insertUser(user);
@@ -93,9 +94,17 @@ public class SysUserServiceImpl implements SysUserService {
     @Override
     @Transactional
     public UserResponse updateProfile(Long userId, UpdateProfileRequest request) {
-        getById(userId);
+        SysUser current=getById(userId);
+        if("USER".equals(current.getRoleCode())){
+            if(request.phone()!=null&&!request.phone().isBlank()&&!request.phone().trim().equals(current.getPhone()))throw new BusinessException(HttpStatus.FORBIDDEN,"普通用户手机号不可修改");
+            if(request.realName()!=null&&!request.realName().isBlank()&&!request.realName().trim().equals(current.getRealName()))throw new BusinessException(HttpStatus.FORBIDDEN,"普通用户资料只允许修改用户名");
+            userMapper.updateUsername(userId,request.username().trim());
+            return UserResponse.from(userMapper.findById(userId));
+        }
+        if(request.phone()==null||request.phone().isBlank()||!PHONE_PATTERN.matcher(request.phone().trim()).matches())throw new BusinessException("请输入有效手机号");
+        if(request.realName()==null||request.realName().isBlank())throw new BusinessException("请输入真实姓名");
         String phone = request.phone().trim();
-        assertPhoneAvailable(phone, userId);
+        assertPhoneAvailable(phone, current.getRoleId(), userId);
         try {
             userMapper.updateProfile(userId, request.username().trim(), request.realName().trim(), phone);
         } catch (DuplicateKeyException exception) {
@@ -128,43 +137,18 @@ public class SysUserServiceImpl implements SysUserService {
     @Override
     @Transactional
     public UserResponse createByAdmin(AdminCreateUserRequest request) {
-        SysRole role = roleService.getByCode(request.roleCode());
-        validateRoleClub(role.getRoleCode(), request.clubId());
-        assertClubLeaderAvailable(role.getRoleCode(), request.clubId(), null);
+        String roleCode=request.roleCode().trim().toUpperCase();
+        if(!MANAGEMENT_ROLES.contains(roleCode))throw new BusinessException(HttpStatus.FORBIDDEN,"内部人员管理只允许创建EVENT_ADMIN或ADMIN");
+        SysRole role = roleService.getByCode(roleCode);
         String employeeNo = validateEmployeeNo(role.getRoleCode(), request.employeeNo(), null);
-        SysUser user = buildUser(request.username(), request.phone(), request.password(), request.realName(),
-                null, employeeNo, role, request.clubId(), "ENABLED");
-        validateManagementEnable(user.getRoleCode(), user.getRealName(), user.getEmployeeNo(), "ENABLED");
+        String realName=requiredText(request.realName(),"姓名不能为空");
+        SysUser user = buildUser(realName, request.phone(), "PENDING_ACTIVATION_NO_PASSWORD", realName,
+                null, employeeNo, role, null, "PENDING_ACTIVATION");
         insertUser(user);
         return UserResponse.from(userMapper.findById(user.getUserId()));
     }
 
-    @Override
-    @Transactional
-    public UserResponse updateByAdmin(Long userId, AdminUpdateUserRequest request) {
-        SysUser user = getById(userId);
-        SysRole role = roleService.getByCode(request.roleCode());
-        validateStatus(request.userStatus());
-        validateRoleClub(role.getRoleCode(), request.clubId());
-        assertClubLeaderAvailable(role.getRoleCode(), request.clubId(), userId);
-        String phone = request.phone().trim();
-        assertPhoneAvailable(phone, userId);
-        String employeeNo = validateEmployeeNo(role.getRoleCode(), request.employeeNo(), userId);
-        validateManagementEnable(role.getRoleCode(), request.realName(), employeeNo, request.userStatus());
-        user.setUsername(request.username().trim());
-        user.setRealName(request.realName().trim());
-        user.setPhone(phone);
-        user.setEmployeeNo(employeeNo);
-        user.setRoleId(role.getRoleId());
-        user.setClubId(request.clubId());
-        user.setUserStatus(request.userStatus());
-        try {
-            userMapper.updateByAdmin(user);
-        } catch (DuplicateKeyException exception) {
-            throw duplicateConflict(phone, employeeNo, userId);
-        }
-        return UserResponse.from(userMapper.findById(userId));
-    }
+    @Override public SysUser getClubLeader(Long clubId){SysUser user=userMapper.findClubLeader(clubId);if(user==null)throw new BusinessException(HttpStatus.NOT_FOUND,"该俱乐部尚无负责人");return user;}
 
     @Override
     @Transactional
@@ -176,7 +160,7 @@ public class SysUserServiceImpl implements SysUserService {
         if (!"CLUB".equals(user.getRoleCode())) {
             throw new BusinessException("只有CLUB申请账号可以执行俱乐部审核");
         }
-        if (!"DISABLED".equals(user.getUserStatus())) {
+        if (!"PENDING_CLUB_APPROVAL".equals(user.getUserStatus())) {
             throw new BusinessException(HttpStatus.CONFLICT, "仅可审核尚未启用的CLUB申请账号");
         }
         if (user.getClubId() != null) {
@@ -184,38 +168,11 @@ public class SysUserServiceImpl implements SysUserService {
         }
         requiredText(user.getRealName(), "负责人真实姓名不能为空");
         String applyName = requiredText(user.getClubApplyName(), "申请俱乐部名称不能为空");
-        String mode = request.mode().trim().toUpperCase();
-        Long clubId;
-        if ("CREATE_NEW".equals(mode)) {
-            if (request.existingClubId() != null) {
-                throw new BusinessException("创建新俱乐部时不能指定已有俱乐部");
-            }
-            if (clubMapper.countByName(applyName, null) > 0) {
-                throw new BusinessException(HttpStatus.CONFLICT, "俱乐部名称已存在，请选择关联已有俱乐部");
-            }
-            ClubInfo club = new ClubInfo();
-            club.setClubName(applyName);
-            club.setHomeCity(null);
-            club.setClubStatus("ACTIVE");
-            try {
-                clubMapper.insert(club);
-            } catch (DuplicateKeyException exception) {
-                throw new BusinessException(HttpStatus.CONFLICT, "俱乐部名称已存在，请选择关联已有俱乐部");
-            }
-            clubId = club.getClubId();
-        } else if ("BIND_EXISTING".equals(mode)) {
-            if (request.existingClubId() == null) {
-                throw new BusinessException("关联已有俱乐部时必须选择俱乐部");
-            }
-            ClubInfo club = clubMapper.findByIdForUpdate(request.existingClubId());
-            if (club == null) {
-                throw new BusinessException(HttpStatus.NOT_FOUND, "club not found");
-            }
-            assertNoOtherClubLeader(club.getClubId(), userId);
-            clubId = club.getClubId();
-        } else {
-            throw new BusinessException("审核模式必须为CREATE_NEW或BIND_EXISTING");
-        }
+        if (!"CREATE_NEW".equals(request.mode().trim().toUpperCase()))throw new BusinessException("审核模式仅支持CREATE_NEW");
+        if (clubMapper.countByName(applyName, null) > 0)throw new BusinessException(HttpStatus.CONFLICT,"俱乐部名称已存在");
+        ClubInfo club = new ClubInfo();club.setClubName(applyName);club.setHomeCity(null);club.setClubStatus("ACTIVE");
+        try { clubMapper.insert(club); } catch (DuplicateKeyException exception) { throw new BusinessException(HttpStatus.CONFLICT,"俱乐部名称已存在"); }
+        Long clubId=club.getClubId();
         try {
             userMapper.approveClub(userId, clubId);
         } catch (DuplicateKeyException exception) {
@@ -254,7 +211,7 @@ public class SysUserServiceImpl implements SysUserService {
     private SysUser buildUser(String username, String phone, String rawPassword, String realName,
                               String clubApplyName, String employeeNo, SysRole role, Long clubId, String status) {
         String normalizedPhone = phone.trim();
-        assertPhoneAvailable(normalizedPhone, null);
+        assertPhoneAvailable(normalizedPhone, role.getRoleId(), null);
         SysUser user = new SysUser();
         user.setUsername(username.trim());
         user.setPhone(normalizedPhone);
@@ -273,13 +230,13 @@ public class SysUserServiceImpl implements SysUserService {
         try {
             userMapper.insert(user);
         } catch (DuplicateKeyException exception) {
-            throw duplicateConflict(user.getPhone(), user.getEmployeeNo(), null);
+            throw duplicateConflict(user.getPhone(), user.getRoleId(), user.getEmployeeNo(), null);
         }
     }
 
-    private BusinessException duplicateConflict(String phone, String employeeNo, Long excludeId) {
-        if (phone != null && userMapper.countByPhone(phone, excludeId) > 0) {
-            return new BusinessException(HttpStatus.CONFLICT, "手机号已存在");
+    private BusinessException duplicateConflict(String phone, Long roleId, String employeeNo, Long excludeId) {
+        if (phone != null && userMapper.countByPhoneAndRole(phone, roleId, excludeId) > 0) {
+            return new BusinessException(HttpStatus.CONFLICT, "该手机号在所选角色下已注册");
         }
         if (employeeNo != null && userMapper.countByEmployeeNo(employeeNo, excludeId) > 0) {
             return new BusinessException(HttpStatus.CONFLICT, "管理人员工号已存在");
@@ -287,9 +244,9 @@ public class SysUserServiceImpl implements SysUserService {
         return new BusinessException(HttpStatus.CONFLICT, "手机号或工号已存在");
     }
 
-    private void assertPhoneAvailable(String phone, Long excludeId) {
-        if (userMapper.countByPhone(phone.trim(), excludeId) > 0) {
-            throw new BusinessException(HttpStatus.CONFLICT, "手机号已存在");
+    private void assertPhoneAvailable(String phone, Long roleId, Long excludeId) {
+        if (userMapper.countByPhoneAndRole(phone.trim(), roleId, excludeId) > 0) {
+            throw new BusinessException(HttpStatus.CONFLICT, "该手机号在所选角色下已注册");
         }
     }
 
@@ -315,7 +272,7 @@ public class SysUserServiceImpl implements SysUserService {
 
     private String registerRealName(String roleCode, RegisterRequest request) {
         return switch (roleCode) {
-            case "USER" -> requiredText(request.realName(), "用户姓名不能为空");
+            case "USER" -> request.username().trim();
             case "CLUB" -> requiredText(request.realName(), "负责人姓名不能为空");
             default -> throw new BusinessException("请选择正确的注册身份");
         };
@@ -328,13 +285,9 @@ public class SysUserServiceImpl implements SysUserService {
             }
             return null;
         }
-        String value = requiredText(employeeNo, "管理人员工号不能为空");
-        Pattern expected = "EVENT_ADMIN".equals(roleCode) ? EVENT_ADMIN_EMPLOYEE_NO : ADMIN_EMPLOYEE_NO;
-        if (!expected.matcher(value).matches()) {
-            throw new BusinessException("EVENT_ADMIN".equals(roleCode)
-                    ? "赛事管理员工号必须为EA加4位数字"
-                    : "系统管理员工号必须为SA加4位数字");
-        }
+        String digits = requiredText(employeeNo, "请输入4位工号数字");
+        if(!digits.matches("\\d{4}"))throw new BusinessException("请输入4位工号数字");
+        String value=("EVENT_ADMIN".equals(roleCode)?"EA":"SA")+digits;
         assertEmployeeNoAvailable(value, excludeId);
         return value;
     }

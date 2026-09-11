@@ -11,6 +11,7 @@ public class CoachInfo {
     private String coachName;
     private String title;
     private String nationality;
+    private Integer birthYear;
     private String description;
     private String coachStatus;
     private LocalDateTime createdAt;

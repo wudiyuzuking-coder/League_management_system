@@ -13,4 +13,6 @@ public class ClubSeasonEnrollmentPlayer {
     private Integer shirtNoSnapshot;
     private String positionSnapshot;
     private LocalDate birthDateSnapshot;
+    private Integer birthYearSnapshot;
+    private String nationalitySnapshot;
 }

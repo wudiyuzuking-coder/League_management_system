@@ -1,5 +1,5 @@
 export const STATUS_LABELS = {
-  ENABLED: '启用', DISABLED: '停用', ACTIVE: '进行中', INACTIVE: '停用',
+  PENDING_ACTIVATION: '待首次启用', PENDING_CLUB_APPROVAL: '俱乐部审核中', ENABLED: '启用', DISABLED: '停用', ACTIVE: '进行中', INACTIVE: '停用',
   DRAFT: '草稿', PUBLISHED: '已发布', IN_PROGRESS: '进行中', FINISHED: '已结束', CANCELLED: '已取消',
   ON_SALE: '销售中', PAUSED: '已暂停', CLOSED: '已关闭',
   AVAILABLE: '可售', LOCKED: '已锁定', SOLD: '已售',
@@ -16,7 +16,7 @@ export const STATUS_TYPES = {
   ENABLED: 'success', ACTIVE: 'success', PUBLISHED: 'success', ON_SALE: 'success', AVAILABLE: 'success',
   PAID: 'success', SUCCESS: 'success', USED: 'success', APPROVED: 'success',
   DRAFT: 'info', DISABLED: 'info', INACTIVE: 'info', CLOSED: 'info', CANCELLED: 'info', VOID: 'info',
-  PENDING_PAYMENT: 'warning', REFUND_PENDING: 'warning', LOCKED: 'warning', PAUSED: 'warning', CREATED: 'warning', PENDING: 'warning',
+  PENDING_ACTIVATION: 'warning', PENDING_CLUB_APPROVAL: 'warning', PENDING_PAYMENT: 'warning', REFUND_PENDING: 'warning', LOCKED: 'warning', PAUSED: 'warning', CREATED: 'warning', PENDING: 'warning',
   FAILED: 'danger', REFUNDED: 'danger', REJECTED: 'danger', CODE_NOT_FOUND: 'danger', WRONG_MATCH: 'danger',
   ORDER_INVALID: 'danger', TICKET_USED: 'danger', TICKET_REFUNDED: 'danger', TICKET_VOID: 'danger',
 }
@@ -25,6 +25,8 @@ export const statusLabel = value => STATUS_LABELS[value] || value || '—'
 export const statusType = value => STATUS_TYPES[value] || 'info'
 
 export const ACCOUNT_STATUS_LABELS = {
+  PENDING_ACTIVATION: '待首次启用',
+  PENDING_CLUB_APPROVAL: '俱乐部审核中',
   ENABLED: '已启用',
   DISABLED: '已停用',
 }

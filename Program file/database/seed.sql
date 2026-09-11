@@ -29,7 +29,7 @@ VALUES
     ('CHECKIN', '现场检票', 'ENABLED', '核验指定场次电子票'),
     ('MATCH_MANAGE', '管理比赛', 'ENABLED', '管理赛季、轮次、赛程和比赛状态'),
     ('TICKET_MANAGE', '管理票务', 'ENABLED', '管理场馆座位、比赛票区和比赛座位库存'),
-    ('REFUND_AUDIT', '审核退票', 'ENABLED', '审核用户整单退票申请'),
+    ('REFUND_AUDIT', '审核退票（已停用）', 'DISABLED', '历史权限保留；正式退款流程已改为自动处理'),
     ('STATISTICS_VIEW', '查看统计', 'ENABLED', '查看上座率、销售额等统计数据'),
     ('USER_MANAGE', '管理用户', 'ENABLED', '管理用户、角色和账号状态')
 ON DUPLICATE KEY UPDATE
@@ -60,7 +60,7 @@ WHERE r.role_code = 'CLUB';
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.role_id, p.permission_id
 FROM sys_role r
-JOIN sys_permission p ON p.permission_code IN ('MATCH_VIEW', 'MATCH_MANAGE', 'TICKET_MANAGE', 'REFUND_AUDIT', 'STATISTICS_VIEW')
+JOIN sys_permission p ON p.permission_code IN ('MATCH_VIEW', 'MATCH_MANAGE', 'TICKET_MANAGE', 'STATISTICS_VIEW')
 WHERE r.role_code = 'EVENT_ADMIN';
 
 -- 系统管理员权限
@@ -73,11 +73,11 @@ WHERE r.role_code = 'ADMIN';
 INSERT INTO sys_config (config_key, config_value, value_type, description, config_status)
 VALUES
     ('ORDER_PAYMENT_TIMEOUT_MINUTES', '15', 'INTEGER', '待支付订单和锁座的超时时长（分钟）', 'ENABLED'),
-    ('SALE_STOP_BEFORE_MINUTES', '30', 'INTEGER', '比赛开始前停止售票的时间（分钟）', 'ENABLED'),
+    ('SALE_STOP_BEFORE_MINUTES', '60', 'INTEGER', '兼容配置；正式停售时间固定为比赛开始前60分钟', 'ENABLED'),
     ('REFUND_STOP_BEFORE_HOURS', '24', 'INTEGER', '比赛开始前停止申请退票的时间（小时）', 'ENABLED'),
     ('MAX_TICKETS_PER_ORDER', '4', 'INTEGER', '单笔订单最大购票张数', 'ENABLED'),
     ('SYSTEM_TIME_OFFSET_SECONDS', '0', 'INTEGER', '课程演示系统时间相对服务器真实时间的偏移秒数', 'ENABLED'),
-    ('AUTO_SCHEDULE_DEFAULT_KICKOFF_TIME', '19:30', 'STRING', '自动排赛默认开球时间（HH:mm）', 'ENABLED')
+    ('AUTO_SCHEDULE_DEFAULT_KICKOFF_TIME', '20:00', 'STRING', '兼容配置；正式自动排赛统一20:00开球', 'ENABLED')
 ON DUPLICATE KEY UPDATE
     config_value = IF(config_key = 'SYSTEM_TIME_OFFSET_SECONDS', config_value, VALUES(config_value)),
     value_type = VALUES(value_type),

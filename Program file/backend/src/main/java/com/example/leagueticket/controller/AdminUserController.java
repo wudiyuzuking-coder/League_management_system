@@ -1,9 +1,6 @@
 package com.example.leagueticket.controller;
 
 import com.example.leagueticket.common.Result;
-import com.example.leagueticket.dto.AdminCreateUserRequest;
-import com.example.leagueticket.dto.AdminUpdateUserRequest;
-import com.example.leagueticket.dto.ClubApprovalRequest;
 import com.example.leagueticket.dto.UpdateUserStatusRequest;
 import com.example.leagueticket.dto.UserQueryRequest;
 import com.example.leagueticket.service.SysUserService;
@@ -32,35 +29,24 @@ public class AdminUserController {
 
     @GetMapping
     public Result<PageResponse<UserResponse>> list(@Valid UserQueryRequest request) {
+        if(request.getRoleCode()!=null&&!request.getRoleCode().isBlank()&&!"USER".equals(request.getRoleCode()))throw new com.example.leagueticket.exception.BusinessException(org.springframework.http.HttpStatus.FORBIDDEN,"用户管理只能查询普通USER");
+        request.setRoleCode("USER");
         return Result.success(userService.listUsers(request));
     }
 
     @GetMapping("/{id}")
     public Result<UserResponse> detail(@PathVariable Long id) {
-        return Result.success(UserResponse.from(userService.getById(id)));
-    }
-
-    @PostMapping
-    public Result<UserResponse> create(@Valid @RequestBody AdminCreateUserRequest request) {
-        return Result.success(userService.createByAdmin(request));
-    }
-
-    @PutMapping("/{id}")
-    public Result<UserResponse> update(@PathVariable Long id,
-                                       @Valid @RequestBody AdminUpdateUserRequest request) {
-        return Result.success(userService.updateByAdmin(id, request));
-    }
-
-    @PostMapping("/{id}/club-approval")
-    public Result<UserResponse> approveClub(@PathVariable Long id,
-                                            @Valid @RequestBody ClubApprovalRequest request) {
-        return Result.success(userService.approveClub(id, request));
+        var user=userService.getById(id);requireUser(user.getRoleCode());return Result.success(UserResponse.from(user));
     }
 
     @PutMapping("/{id}/status")
     public Result<Void> updateStatus(@PathVariable Long id,
                                      @Valid @RequestBody UpdateUserStatusRequest request) {
+        var user=userService.getById(id);requireUser(user.getRoleCode());
+        if(!java.util.Set.of("ENABLED","DISABLED").contains(request.userStatus()))throw new com.example.leagueticket.exception.BusinessException("用户管理只允许启用或停用USER");
         userService.updateStatus(id, request.userStatus());
         return Result.success();
     }
+
+    private void requireUser(String roleCode){if(!"USER".equals(roleCode))throw new com.example.leagueticket.exception.BusinessException(org.springframework.http.HttpStatus.FORBIDDEN,"用户管理不能操作非USER账号");}
 }

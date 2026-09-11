@@ -30,6 +30,7 @@ const accountPath = computed(() => {
 })
 const handleAccountCommand = command => {
   if (command === 'profile') router.push(accountPath.value)
+  if (command === 'switch') router.push('/switch-account')
   if (command === 'logout') logout()
 }
 const menuLabel=item=>item[0]==='/admin/matches/result-reminders'?`${item[1]}（${resultReminderCount.value}）`:item[1]
@@ -59,7 +60,12 @@ watch(()=>systemTimeStore.revision,loadReminderCount)
             </button>
             <template #dropdown>
               <el-dropdown-menu>
+                <div class="account-summary">
+                  <el-avatar :size="48" :src="authStore.user?.avatarUrl || undefined" :icon="UserFilled" />
+                  <div><b>{{authStore.user?.username}}</b><small>{{authStore.user?.phone||'—'}}</small><small>{{ROLE_LABELS[authStore.user?.roleCode]||authStore.user?.roleCode}}</small></div>
+                </div>
                 <el-dropdown-item command="profile">账号资料</el-dropdown-item>
+                <el-dropdown-item command="switch">切换账户</el-dropdown-item>
                 <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -145,6 +151,7 @@ watch(()=>systemTimeStore.revision,loadReminderCount)
   background: #f3f4f6;
   outline: none;
 }
+.account-summary{display:flex;gap:12px;align-items:center;padding:12px 16px;min-width:220px;border-bottom:1px solid #ebeef5}.account-summary div{display:flex;flex-direction:column;gap:3px}.account-summary small{color:#6b7280}
 
 @media (max-width: 760px) {
   .management-aside {

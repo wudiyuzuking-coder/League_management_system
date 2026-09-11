@@ -1,6 +1,6 @@
 import request from '../utils/request'
 
-export const createOrder=(matchZoneId,ticketCount)=>request.post('/orders',{matchZoneId,ticketCount})
+export const createOrder=(selection,ticketCount)=>request.post('/orders',typeof selection==='object'?selection:{matchZoneId:selection,ticketCount})
 export const getOrders=(params)=>request.get('/orders',{params})
 export const getOrder=(id)=>request.get(`/orders/${id}`)
 export const cancelOrder=(id)=>request.post(`/orders/${id}/cancel`)

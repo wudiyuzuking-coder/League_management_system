@@ -1,21 +1,22 @@
 <script setup>
-import {onMounted,reactive,ref} from 'vue'
+import {computed,onMounted,reactive,ref} from 'vue'
 import {useRoute,useRouter} from 'vue-router'
 import {ElMessage,ElMessageBox} from 'element-plus'
 import {getMatch} from '../../api/match'
 import {getZones} from '../../api/stadium'
-import {createTicketZone,debugSeatAllocation,generateInventory,getAdminTicketZones,getInventoryLayout,updateInventoryStatus,updateTicketZone,updateTicketZoneStatus} from '../../api/ticket'
+import {createTicketZone,debugSeatAllocation,generateInventory,getAdminTicketZones,getInventoryLayout,initializeStandardTicketing,updateInventoryStatus,updateTicketZone,updateTicketZoneStatus} from '../../api/ticket'
 
 const route=useRoute(),router=useRouter(),matchId=Number(route.params.id)
 const match=ref({}),staticZones=ref([]),zones=ref([]),selected=ref(null),layout=ref([]),loading=ref(false),saving=ref(false),operating=ref('')
 const visible=ref(false),editingId=ref(null),formRef=ref(),debugCount=ref(2),debugResult=ref(null),debugging=ref(false)
-const blank=()=>({stadiumZoneId:null,price:0,saleEndTime:''}),form=reactive(blank()),automaticSaleStart=ref('')
-const rules={stadiumZoneId:[{required:true,message:'请选择静态票区'}],price:[{required:true,type:'number',min:0,message:'票价不能小于0'}],saleEndTime:[{required:true,message:'请选择停售时间'}]}
+const standardVisible=ref(false)
+const standardStadium=computed(()=>staticZones.value.length===8&&staticZones.value.every(z=>z.zoneDirection&&z.ticketType))
+const blank=()=>({stadiumZoneId:null,price:0}),form=reactive(blank()),automaticSaleStart=ref('')
+const rules={stadiumZoneId:[{required:true,message:'请选择静态票区'}],price:[{required:true,type:'number',min:0,message:'票价不能小于0'}]}
 
 const load=async()=>{loading.value=true;try{const [m,z]=await Promise.all([getMatch(matchId),getAdminTicketZones(matchId)]);match.value=m.data;zones.value=z.data;staticZones.value=(await getZones(match.value.stadiumId)).data;if(selected.value){selected.value=zones.value.find(v=>v.matchZoneId===selected.value.matchZoneId)||null;if(selected.value)await loadLayout()}}finally{loading.value=false}}
-const calculatedSaleStart=()=>{if(!match.value.matchTime)return '';const date=new Date(match.value.matchTime);date.setDate(date.getDate()-7);date.setHours(20,0,0,0);const pad=n=>String(n).padStart(2,'0');return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`}
-const open=row=>{editingId.value=row?.matchZoneId||null;Object.assign(form,blank(),row?{stadiumZoneId:row.stadiumZoneId,price:Number(row.price),saleEndTime:row.saleEndTime}:{});automaticSaleStart.value=row?.saleStartTime||calculatedSaleStart();visible.value=true}
-const save=async()=>{await formRef.value.validate();if(form.saleEndTime<=automaticSaleStart.value.replace(' ','T'))return ElMessage.error('停售时间必须晚于自动开售时间');saving.value=true;try{editingId.value?await updateTicketZone(editingId.value,form):await createTicketZone(matchId,form);visible.value=false;ElMessage.success('比赛票区已保存');await load()}finally{saving.value=false}}
+const open=row=>{editingId.value=row?.matchZoneId||null;Object.assign(form,blank(),row?{stadiumZoneId:row.stadiumZoneId,price:Number(row.price)}:{});automaticSaleStart.value=row?.saleStartTime||match.value.saleStartTime;visible.value=true}
+const save=async()=>{await formRef.value.validate();saving.value=true;try{editingId.value?await updateTicketZone(editingId.value,form):await createTicketZone(matchId,form);visible.value=false;ElMessage.success('比赛票区已保存');await load()}finally{saving.value=false}}
 const nextActions=z=>({DRAFT:[['ON_SALE','开售'],['CLOSED','关闭']],ON_SALE:[['PAUSED','暂停'],['CLOSED','关闭']],PAUSED:[['ON_SALE','恢复'],['CLOSED','关闭']]}[z.zoneStatus]||[])
 const operationalStatus=z=>z.zoneStatus==='ON_SALE'?'已启用自动销售':({DRAFT:'未启用销售',PAUSED:'暂停销售',CLOSED:'已关闭'}[z.zoneStatus]||z.zoneStatus)
 const currentSaleStatus=z=>({MATCH_UNAVAILABLE:'比赛不可售',NOT_ENABLED:'未启用',PAUSED:'暂停销售',CLOSED:'已关闭',NOT_STARTED:'尚未开售',ENDED:'已停售',SOLD_OUT:'已售罄',AVAILABLE:'销售中'}[z.saleState]||'不可售')
@@ -28,6 +29,7 @@ const toggleSeat=async seat=>{if(!['AVAILABLE','DISABLED'].includes(seat.invento
 const seatLetter=s=>({AVAILABLE:'O',LOCKED:'L',SOLD:'S',DISABLED:'X'}[s.inventoryStatus]||'?')
 const seatType=s=>({AVAILABLE:'primary',LOCKED:'warning',SOLD:'success',DISABLED:'info'}[s.inventoryStatus]||'info')
 const runDebug=async()=>{debugging.value=true;try{debugResult.value=(await debugSeatAllocation(selected.value.matchZoneId,debugCount.value)).data}finally{debugging.value=false}}
+const initializeStandard=async()=>{saving.value=true;try{await initializeStandardTicketing(matchId);standardVisible.value=false;ElMessage.success('已按默认价格和自动售票时间生成8个比赛票区及库存');await load()}finally{saving.value=false}}
 onMounted(load)
 </script>
 
@@ -36,7 +38,7 @@ onMounted(load)
     <el-page-header @back="router.push(`/admin/matches/${matchId}`)"><template #content>比赛票务配置</template></el-page-header>
     <el-alert class="notice" title="比赛库存是物理座位在本场比赛中的独立快照；连坐预览和算法调试均不会修改库存。" type="info" :closable="false"/>
     <el-card>
-      <template #header><div class="head"><b>{{match.homeClubName}} vs {{match.awayClubName}}</b><el-button type="primary" :disabled="!['DRAFT','PUBLISHED'].includes(match.matchStatus)" @click="open()">新增比赛票区</el-button></div></template>
+      <template #header><div class="head"><b>{{match.homeClubName}} vs {{match.awayClubName}}</b><div><el-button v-if="standardStadium&&!zones.length" type="success" :disabled="!['DRAFT','PUBLISHED'].includes(match.matchStatus)" @click="standardVisible=true">初始化标准8票区</el-button><el-button type="primary" :disabled="!['DRAFT','PUBLISHED'].includes(match.matchStatus)" @click="open()">新增比赛票区</el-button></div></div></template>
       <el-table :data="zones" highlight-current-row @current-change="selectZone">
         <el-table-column label="票区"><template #default="{row}">{{row.zoneName}}（{{row.zoneCode}}）</template></el-table-column>
         <el-table-column label="票价"><template #default="{row}">{{$formatMoney(row.price)}}</template></el-table-column>
@@ -58,10 +60,11 @@ onMounted(load)
     </el-card>
   </div>
   <el-dialog v-model="visible" :title="editingId?'编辑比赛票区':'新增比赛票区'" width="560px">
-    <el-alert title="系统将在比赛日前7天20:00自动开放购买；ON_SALE表示已启用自动销售。" type="info" :closable="false"/>
-    <el-form ref="formRef" :model="form" :rules="rules" label-width="120px"><el-form-item label="静态票区" prop="stadiumZoneId"><el-select v-model="form.stadiumZoneId" :disabled="editingId&&zones.find(v=>v.matchZoneId===editingId)?.totalSeatCount>0"><el-option v-for="z in staticZones" :key="z.stadiumZoneId" :label="`${z.zoneName}（${z.zoneCode}）`" :value="z.stadiumZoneId" :disabled="z.zoneStatus!=='ACTIVE'"/></el-select></el-form-item><el-form-item label="票价" prop="price"><el-input-number v-model="form.price" :min="0" :precision="2"/></el-form-item><el-form-item label="自动开售时间"><el-input :model-value="automaticSaleStart" readonly/></el-form-item><el-form-item label="停售时间" prop="saleEndTime"><el-date-picker v-model="form.saleEndTime" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss"/></el-form-item></el-form>
+    <el-alert title="开售时间由报名截止次日20:00统一生成，停售时间固定为赛前1小时。" type="info" :closable="false"/>
+    <el-form ref="formRef" :model="form" :rules="rules" label-width="120px"><el-form-item label="静态票区" prop="stadiumZoneId"><el-select v-model="form.stadiumZoneId" :disabled="editingId&&zones.find(v=>v.matchZoneId===editingId)?.totalSeatCount>0"><el-option v-for="z in staticZones" :key="z.stadiumZoneId" :label="`${z.zoneName}（${z.zoneCode}）`" :value="z.stadiumZoneId" :disabled="z.zoneStatus!=='ACTIVE'"/></el-select></el-form-item><el-form-item label="票价" prop="price"><el-input-number v-model="form.price" :min="0" :precision="2"/></el-form-item><el-form-item label="自动开售时间"><el-input :model-value="automaticSaleStart" readonly/></el-form-item><el-form-item label="自动停售时间"><el-input :model-value="match.saleEndTime" readonly/></el-form-item></el-form>
     <template #footer><el-button @click="visible=false">取消</el-button><el-button type="primary" :loading="saving" @click="save">保存</el-button></template>
   </el-dialog>
+  <el-dialog v-model="standardVisible" title="初始化标准8票区" width="500px"><el-alert title="系统将使用主场默认价格和赛季自动售票时间，一次生成8个比赛票区及库存。" type="info" :closable="false"/><template #footer><el-button @click="standardVisible=false">取消</el-button><el-button type="primary" :loading="saving" @click="initializeStandard">确认初始化</el-button></template></el-dialog>
 </template>
 
 <style scoped>.notice,.inventory,.debug{margin-top:16px}.head{display:flex;justify-content:space-between;align-items:center}.seat-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}.seat-row>b{width:55px}</style>

@@ -28,6 +28,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     public CheckinStatisticsResponse checkins(StatisticsQueryRequest q){prepareRange(q);return mapper.checkinStatistics(q);}
     public ClubStatisticsResponse clubOverview(Long clubId,StatisticsQueryRequest q){requireClub(clubId);prepare(q);q.setClubId(null);List<ClubStatisticsResponse> rows=mapper.clubStatistics(q,clubId);if(rows.isEmpty())throw new BusinessException(HttpStatus.NOT_FOUND,"club statistics not found");return rows.get(0);}
     public PageResponse<MatchStatisticsResponse> clubMatches(Long clubId,StatisticsQueryRequest q){requireClub(clubId);prepare(q);q.setClubId(null);return page(q,clubId);}
+    public SeasonRevenueResponse seasonRevenue(Long seasonId){if(seasonId==null)throw new BusinessException("seasonId is required");return mapper.seasonRevenue(seasonId);}
 
     private PageResponse<MatchStatisticsResponse> page(StatisticsQueryRequest q,Long clubScope){long total=mapper.countMatches(q,clubScope);List<MatchStatisticsResponse> records=mapper.matchPage(q,clubScope,(long)(q.getPage()-1)*q.getSize(),q.getSize());return new PageResponse<>(records,total,q.getPage(),q.getSize());}
     private void prepare(StatisticsQueryRequest q){prepareRange(q);if(q.getMatchStatus()!=null&&!q.getMatchStatus().isBlank()){String s=q.getMatchStatus().trim().toUpperCase(Locale.ROOT);if(!MATCH_STATUSES.contains(s))throw new BusinessException("invalid matchStatus");q.setMatchStatus(s);}else q.setMatchStatus(null);}

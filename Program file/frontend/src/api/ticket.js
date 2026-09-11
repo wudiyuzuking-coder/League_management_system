@@ -10,4 +10,6 @@ export const generateInventory=(id)=>request.post(`/admin/match-ticket-zones/${i
 export const getInventoryLayout=(id)=>request.get(`/admin/match-ticket-zones/${id}/inventory`)
 export const updateInventoryStatus=(id,inventoryStatus)=>request.put(`/admin/match-seat-inventory/${id}/status`,{inventoryStatus})
 export const previewSeatAllocation=(id,ticketCount)=>request.post(`/match-ticket-zones/${id}/seat-allocation/preview`,{ticketCount})
+export const previewTicketTypeAllocation=(matchId,ticketType,ticketCount)=>request.post(`/matches/${matchId}/ticket-types/${ticketType}/seat-allocation/preview`,{ticketCount})
+export const initializeStandardTicketing=matchId=>request.post(`/admin/matches/${matchId}/ticketing/initialize-standard`)
 export const debugSeatAllocation=(id,ticketCount)=>request.post(`/admin/match-ticket-zones/${id}/seat-allocation/debug`,{ticketCount})

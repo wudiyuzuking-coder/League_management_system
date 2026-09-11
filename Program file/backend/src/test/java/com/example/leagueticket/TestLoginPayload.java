@@ -33,8 +33,7 @@ final class TestLoginPayload {
 
     private static String employeeNoFor(String phone) {
         return switch (phone) {
-            case "13800000002" -> "SA0001";
-            case "13800000005" -> "EA0001";
+            case "13800000002", "13800000005" -> "0001";
             default -> null;
         };
     }

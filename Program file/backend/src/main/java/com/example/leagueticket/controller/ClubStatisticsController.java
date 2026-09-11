@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('CLUB')")
 public class ClubStatisticsController {
     private final StatisticsService service;
+    private final com.example.leagueticket.service.ClubDataService clubDataService;
+    @GetMapping("/data") public Result<ClubDataResponse> data(@AuthenticationPrincipal AuthenticatedUser user){return Result.success(clubDataService.get(user.clubId()));}
     @GetMapping("/overview") public Result<ClubStatisticsResponse> overview(@AuthenticationPrincipal AuthenticatedUser user,@Valid StatisticsQueryRequest q){return Result.success(service.clubOverview(user.clubId(),q));}
     @GetMapping("/matches") public Result<PageResponse<MatchStatisticsResponse>> matches(@AuthenticationPrincipal AuthenticatedUser user,@Valid StatisticsQueryRequest q){return Result.success(service.clubMatches(user.clubId(),q));}
 }

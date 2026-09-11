@@ -13,6 +13,8 @@ public record PlayerRequest(
         @NotNull @Min(1) @Max(99) Integer shirtNo,
         @NotBlank String position,
         @Size(max = 50) String nationality,
-        LocalDate birthDate
+        LocalDate birthDate,
+        @Min(1900) @Max(2100) Integer birthYear,
+        String lineupRole
 ) {
 }

@@ -3,11 +3,14 @@ package com.example.leagueticket.controller;
 import com.example.leagueticket.common.Result;
 import com.example.leagueticket.dto.LoginRequest;
 import com.example.leagueticket.dto.RegisterRequest;
+import com.example.leagueticket.dto.ManagementAccountProbeRequest;
+import com.example.leagueticket.dto.ManagementActivationRequest;
 import com.example.leagueticket.security.AuthenticatedUser;
 import com.example.leagueticket.service.AuthService;
 import com.example.leagueticket.service.SysUserService;
 import com.example.leagueticket.vo.CurrentUserResponse;
 import com.example.leagueticket.vo.LoginResponse;
+import com.example.leagueticket.vo.ManagementAccountStateResponse;
 import com.example.leagueticket.vo.UserResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +39,16 @@ public class AuthController {
     @PostMapping("/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return Result.success(authService.login(request));
+    }
+
+    @PostMapping("/management/probe")
+    public Result<ManagementAccountStateResponse> probeManagementAccount(@Valid @RequestBody ManagementAccountProbeRequest request) {
+        return Result.success(authService.probeManagementAccount(request));
+    }
+
+    @PostMapping("/management/activate")
+    public Result<LoginResponse> activateManagementAccount(@Valid @RequestBody ManagementActivationRequest request) {
+        return Result.success(authService.activateManagementAccount(request));
     }
 
     @GetMapping("/me")

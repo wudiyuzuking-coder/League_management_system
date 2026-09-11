@@ -2,30 +2,30 @@
 
 本项目是“软件课程设计 I”的足球联赛购票系统，采用前后端分离架构。当前正式提交范围覆盖联赛赛程、俱乐部、场馆与座位、比赛票务、连坐分配、订单、模拟支付、电子票、退票和统计分析。
 
-当前仓库已完成**阶段20B2：比赛日前7天20:00自动开售**。正式数据库仍为30张表；票区开售时间统一由比赛日期派生，核心订单、支付、退票、报名、排赛和比分状态机均未改变。
+当前仓库结构已推进至 **Phase25**。Phase21–24 已完成 STANDARD_8 私有主场、预填购票人及订单快照、CLUB 阵容快照、统一售票窗口、自动退款和多人赛果确认；Phase25 将账号状态、跨角色手机号和 ADMIN 管理域彻底拆分。以下带阶段号的章节保留演进背景，若与本节冲突，以最新阶段规则为准。
 
 ## 项目功能与系统角色
 
 - `USER`：浏览比赛、连坐购票、支付、订单、电子票和退票申请。
 - `CLUB`：维护账号绑定俱乐部的资料、球员、教练和球员赛季数据，提交赛季报名，查看自己的已确认赛程、本队比赛和主场统计。
-- `EVENT_ADMIN`：负责赛季、轮次、自动赛程确认、比赛与赛果维护、场馆、座位、比赛票务、库存、退票审核和运营统计，并只读查看俱乐部报名。
-- `ADMIN`：负责用户管理、俱乐部管理，以及CLUB账号的创建新俱乐部/绑定已有俱乐部审核和启停。
+- `EVENT_ADMIN`：负责赛季、自动赛程确认、比赛与独立赛果提交、比赛票务和赛季平台营收；不维护 CLUB 主场，也不审核退票。
+- `ADMIN`：按用户管理、内部人员管理、俱乐部管理三个领域工作，并负责冲突或单人赛果的最终确认。
 
 系统不采用前端菜单隐藏作为权限保障。JWT认证、角色权限和CLUB的俱乐部数据范围均由后端校验。
 
-公开注册只面向`USER`和`CLUB`。`EVENT_ADMIN`与`ADMIN`只能由ADMIN后台创建；历史版本已形成的管理账号不会删除，仍按原状态和权限处理。登录页固定选择四类正式身份：USER/CLUB提交`roleCode + phone + password`，EVENT_ADMIN/ADMIN还必须提交与账号完全一致的`employeeNo`。工号只是身份匹配字段，不是密码、2FA或其他秘密。
+公开注册只面向`USER`和`CLUB`。`EVENT_ADMIN`与`ADMIN`由 ADMIN 预登记姓名、手机号、类型和4位工号数字，账号进入`PENDING_ACTIVATION`，本人首次核验姓名并设置密码后启用。登录页固定选择四类正式身份；管理角色只输入4位数字，系统按角色补`EA`或`SA`前缀。JWT 的`sub`始终是`userId`。
 
-普通用户注册字段为昵称（数据库`username`）、手机号、密码和必填真实姓名（后端`realName`，数据库`display_name`）；CLUB注册还必须分别填写负责人真实姓名和申请俱乐部名称，后者独立保存于`club_apply_name`。注册后保持`DISABLED + clubId=NULL`，等待ADMIN选择创建新俱乐部或绑定尚无负责人的已有俱乐部；审核成功会原子地绑定并启用账号。课程演示会明确区分“手机号不存在”“密码错误”“所选身份与账号不匹配”“工号与账号不匹配”和“账号尚未启用”，且不会记录明文密码。
+普通 USER 注册只要求用户名、手机号和密码；手机号只读，资料只允许修改用户名。CLUB 注册还必须填写负责人姓名和申请俱乐部名称，注册后为`PENDING_CLUB_APPROVAL + clubId=NULL`。ADMIN 审核只能`CREATE_NEW`，在同一事务内创建新俱乐部、绑定负责人并启用；`BIND_EXISTING`已删除。手机号允许跨角色复用，但`(phone, role_id)`唯一；登录先区分手机号是否存在，再按所选角色定位账号。
 
 ## 核心演示流程
 
 流程A（购票）：`USER手机号登录 → 浏览比赛 → 点击主队/客队查看俱乐部阵容、教练、积分与近期赛程 → 返回比赛详情查看场馆、票区、票价与余票 → 连坐Preview → 创建订单 → 支付 → 查看电子票UNUSED`。
 
-流程B（退票）：`USER购票并支付 → 申请退票 → EVENT_ADMIN审核通过 → 订单/明细/电子票REFUNDED → 比赛座位恢复AVAILABLE`。
+流程B（退票）：`USER购票并支付 → 申请整单退票 → 系统按距比赛时间自动计算100%或50%退款 → 订单/明细/电子票REFUNDED → 比赛座位恢复AVAILABLE`。
 
-流程C（运营）：`EVENT_ADMIN → 比赛管理 → 场馆座位 → 比赛票务与库存 → 退票审核 → 运营统计`。
+流程C（运营）：`EVENT_ADMIN → 赛季/赛程/比赛 → 比赛票务 → 独立提交赛果 → 赛季营收`。
 
-流程D（账号管理）：`CLUB填写负责人姓名与申请俱乐部名称注册 → DISABLED → ADMIN选择CREATE_NEW或BIND_EXISTING审核 → 唯一绑定并启用 → CLUB登录并完善俱乐部资料`。
+流程D（账号管理）：`CLUB注册 → PENDING_CLUB_APPROVAL → ADMIN执行CREATE_NEW审核 → 原子创建俱乐部并绑定负责人 → ENABLED`；内部人员为`ADMIN预登记 → PENDING_ACTIVATION → 本人首次启用`。
 
 项目历史版本曾实现独立CHECKER检票模块；当前四角色提交版本未将该模块纳入正式验收范围，相关代码和历史测试保留用于版本追溯。当前演示流程不执行检票，也不把电子票推进为 `USED`。
 
@@ -73,21 +73,21 @@ EVENT_ADMIN通过 `GET /api/admin/matches/result-reminders` 查看待维护赛�
 
 ## 管理人员工号与账号字段（阶段17A）
 
-阶段17B以后，`phone`是全系统唯一的登录凭证；`username`是允许重复、允许本人和ADMIN修改的昵称，不再作为身份键。`realName`是人员真实姓名，`employeeNo`是管理人员工号，`clubId`只用于CLUB账号唯一绑定俱乐部，`clubApplyName`只保存CLUB注册审核阶段提交的俱乐部名称。数据库继续以`display_name`承载后端`realName`字段，并以独立的`employee_no VARCHAR(16) NULL UNIQUE`保存工号；昵称、姓名、工号和俱乐部申请名称不互相代替。
+Phase25以后，`phone + roleCode`是角色感知的登录身份；`username`允许重复且不作为身份键。`realName`是人员姓名，`employeeNo`是全局唯一管理工号，`clubId`只用于CLUB账号唯一绑定俱乐部，`clubApplyName`只保存CLUB注册审核阶段提交的俱乐部名称。
 
-`EVENT_ADMIN`工号必须匹配`EA`加4位数字（如`EA0001`），`ADMIN`必须匹配`SA`加4位数字（如`SA0001`）。USER和CLUB不得设置工号。阶段20A起公开注册拒绝管理角色；ADMIN后台创建和编辑继续复用同一Service校验，重复工号返回409。管理账号启用前必须具有真实姓名和与角色匹配的合法工号。阶段20B1起CLUB不能通过通用状态接口绕过审核启用，必须由专用审核事务完成俱乐部绑定与启用。
+`EVENT_ADMIN`工号存储为`EA`加4位数字，`ADMIN`存储为`SA`加4位数字；登录和首次启用只输入后四位。USER和CLUB不得设置工号。只有“内部人员管理”允许预登记管理账号；只有“用户管理”允许启停 USER；CLUB审核和负责人启停位于“俱乐部管理”。
 
 阶段17A以前创建的管理账号可能仍为`employee_no=NULL`。数据库为历史兼容保留NULL，但此类账号在启用或通过后台编辑前必须人工补齐；系统不会根据username、姓名或其他字段猜测工号。已有数据库执行`database/migrations/phase17a_employee_no.sql`升级，脚本只明确回填`demo_event_admin → EA0001`和`demo_admin → SA0001`，其他历史管理账号保持NULL。
 
-阶段20B1已将CLUB负责人姓名和申请俱乐部名称分离：`display_name`保存`realName`，`club_apply_name`保存`clubName`。ADMIN通过`POST /api/admin/users/{id}/club-approval`选择`CREATE_NEW`或`BIND_EXISTING`；创建新俱乐部时允许`home_city=NULL`作为待完善状态，负责人登录后通过原资料编辑功能补充。原ADMIN手工创建完整俱乐部仍要求`homeCity`必填。
+CLUB负责人姓名和申请俱乐部名称分离：`display_name`保存`realName`，`club_apply_name`保存`clubName`。Phase25专用审核接口为`POST /api/admin/club-applications/{id}/approve`且只接受`CREATE_NEW`；旧审核入口及`BIND_EXISTING`均不再支持。
 
 ## 手机号登录与昵称（阶段17B）
 
-`POST /api/auth/login`不提供username回退登录。阶段20A请求字段为`phone + password + roleCode`；EVENT_ADMIN和ADMIN还必须提供`employeeNo`。手机号沿用项目既有的11位格式校验和全局UNIQUE约束；重复手机号在注册、后台创建或编辑时返回409。新账号手机号必填，历史数据仍保持数据库字段可空以兼容迁移，但任何角色启用前都必须具有合法手机号。
+`POST /api/auth/login`不提供username回退登录。请求字段为`phone + password + roleCode`；EVENT_ADMIN和ADMIN还必须提供4位工号数字。手机号使用`UNIQUE(phone, role_id)`，所以跨角色可复用、同角色重复返回409。完全没有该手机号返回“该账号未注册”，手机号存在但所选角色不存在返回“所选身份与账号不匹配”。
 
-JWT的`sub`已由username改为稳定的`userId`。username、phone、roleCode仅可作为Token签发时的快照；过滤器每次按`sub`中的userId重新读取当前账号、角色、权限与clubId，业务归属和数据权限不依赖昵称。用户改昵称后原Token继续有效并返回新昵称；本项目原本已允许本人修改手机号，因此继续保留该能力，新手机号必须唯一，修改后旧手机号不能登录、新手机号可以登录。阶段17B升级后旧版username-sub Token预期失效，用户需要重新登录。
+JWT的`sub`是稳定的`userId`。username、phone、roleCode仅是签发时快照；过滤器每次按userId重新读取当前账号、角色、权限与clubId。普通 USER 手机号只读、资料只允许修改用户名；其他角色资料权限沿用各自规则。
 
-已有阶段17A数据库执行`database/migrations/phase17b_phone_login.sql`升级：先审计空手机号和重复手机号，再移除`uq_sys_user_username`并增加普通索引`idx_sys_user_username`；`uq_sys_user_phone`保持不变。脚本不新增表，数据库仍为30张表。
+历史库先执行阶段17B变更；Phase25再执行`database/migrations/phase25_account_identity_domains.sql`，把全局手机号唯一约束替换为角色内唯一约束，并扩展五种明确账号状态。Phase25迁移不猜测或改写历史账号状态。
 
 ## 用户资料与头像（阶段17C）
 
@@ -456,6 +456,8 @@ cd backend
 
 数据库集成测试默认不自动连接本机数据库。需要执行完整数据库测试时，先准备专用测试库并设置 `RUN_DB_TESTS=true`、`DB_URL`、`DB_USERNAME`、`DB_PASSWORD` 和 `JWT_SECRET`；不要对保存真实业务数据的数据库运行集成测试。
 
+已有历史库的增量顺序固定为：`phase16b → phase16c → phase17a → phase17b → phase17c → phase20b1 → phase20b2 → phase21 → phase22 → phase23 → phase24 → phase25`。`schema.sql`是最新完整结构快照；不得在已经应用增量迁移的同一库上再次执行完整快照。
+
 完整验收应在隔离的 MySQL 8 实例中依次执行 `schema.sql → seed.sql → test-data.sql`，设置 `RUN_DB_TESTS=true` 后运行后端测试。测试总结见 [测试报告](../文档资料/项目文档/docs/test-report/TEST_REPORT.md)。
 
 前端：
@@ -476,19 +478,19 @@ npm run build
 
 阶段20A在上述107项上新增6项后端认证专项测试，总计113项且`Failures=0`、`Errors=0`、`Skipped=0`；`clean test`、不跳过测试的`clean package`和`npm run build`均成功。另有7项前端缓存专项测试通过，覆盖四类合法角色、旧`CHECKER`、未知角色及无Token残留角色。
 
-阶段20B1在113项基线上新增10项CLUB审核专项测试，总计123项且`Failures=0`、`Errors=0`、`Skipped=0`。覆盖姓名/申请名称分离、CREATE_NEW、BIND_EXISTING、唯一负责人、并发审核、通用启用拦截、停用后绑定保留、资料补全及ADMIN手工创建城市必填。已有数据库执行`database/migrations/phase20b1_club_leader.sql`：新增`club_apply_name`、将`home_city`调整为可空并在通过前置审计后增加`UNIQUE(club_id)`；迁移不会猜测未知历史账号的负责人归属。
+阶段20B1曾包含`BIND_EXISTING`，该行为已被Phase25明确替换。当前回归测试只接受`CREATE_NEW`并验证旧模式返回4xx；迁移仍保留当时新增的`club_apply_name`和一俱乐部一负责人约束，不改写历史归属。
 
 阶段20B2在123项基线上新增7项自动开售专项测试，总计130项且`Failures=0`、`Errors=0`、`Skipped=0`。覆盖自动时间公式、客户端字段不可覆盖、开售前/边界/结束边界、状态与库存条件、比赛改期多票区原子重算和冲突回滚、已支付订单保留及系统时间调整后立即生效。数据库无新增表或字段；已有数据库先审计冲突，再执行`database/migrations/phase20b2_auto_sale_start.sql`统一回填派生时间。
 
 ## 推荐答辩演示顺序（8–12分钟）
 
 1. **系统时间**：展示当前系统时间、调整和恢复真实时间，说明报名、售票、退票和比分限制共用`SystemTimeService`。
-2. **ADMIN账号审核**：演示CLUB申请账号，ADMIN绑定`clubId`并启用；同时展示EVENT_ADMIN管理账号的姓名、手机号和EA工号分列。
+2. **ADMIN账号域**：分别展示USER启停、内部人员预登记与首次启用、CLUB `CREATE_NEW`审核；验证跨域操作被后端拒绝。
 3. **CLUB报名**：登录CLUB，查看球员、教练和默认主场，选择不少于11名球员及1名教练提交赛季报名。
 4. **自动排赛**：用最后一个CLUB报名触发，或将系统时间跳到截止时间；展示4队双循环生成6轮12场，EVENT_ADMIN确认后CLUB看到自己的6场。
 5. **USER购票**：手机号登录，查看比赛双方俱乐部、阵容、教练和战绩，再查看场馆、票区、票价与余票，执行2座连坐Preview、下单和支付。
-6. **退票**：USER申请整单退票，EVENT_ADMIN审核通过，展示电子票变为`REFUNDED`且座位恢复`AVAILABLE`。
-7. **比分与提醒**：跳转系统时间，先展示比赛日前录分返回409，再在比赛当天录入并结束比赛，展示积分榜更新和提醒消失。
+6. **退票**：USER申请整单退票，系统自动计算100%或50%退款，展示电子票变为`REFUNDED`且座位恢复`AVAILABLE`。
+7. **比分与提醒**：两名EVENT_ADMIN独立提交；相同比分自动发布，单人或冲突进入ADMIN确认，发布前不影响积分榜。
 8. **统计**：展示EVENT_ADMIN运营总览、比赛、俱乐部、热门比赛、销售趋势和退票统计。
 
 ## 已知延期/非当前范围

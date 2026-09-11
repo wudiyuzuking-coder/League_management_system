@@ -23,4 +23,6 @@ public class ETicket {
     private String rowNo;
     private String seatNo;
     private BigDecimal ticketPrice;
+    private String passengerName;
+    private String passengerIdCard;
 }

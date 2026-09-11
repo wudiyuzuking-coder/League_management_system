@@ -2,7 +2,7 @@
 import {onMounted,ref} from 'vue'
 import {useRouter} from 'vue-router'
 import {getOrders} from '../../api/order'
-const router=useRouter(),loading=ref(false),records=ref([]),total=ref(0),status=ref(''),page=ref(1)
+const router=useRouter(),loading=ref(false),records=ref([]),total=ref(0),status=ref('PAID'),page=ref(1)
 const load=async()=>{loading.value=true;try{const d=(await getOrders({orderStatus:status.value||undefined,page:page.value,size:10})).data;records.value=d.records;total.value=d.total}finally{loading.value=false}}
 const changeStatus=()=>{page.value=1;load()}
 onMounted(load)

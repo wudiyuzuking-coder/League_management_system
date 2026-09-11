@@ -12,7 +12,7 @@ const request = axios.create({
 
 request.interceptors.request.use((config) => {
   const token = localStorage.getItem(AUTH_TOKEN_KEY)
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  if (token && !config.headers.Authorization) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
@@ -23,7 +23,7 @@ request.interceptors.response.use(
     const payload = error.response?.data ?? error
     const skipErrorNotification = error.config?.skipErrorNotification === true
     let notified = false
-    if (status === 401) {
+    if (status === 401 && error.config?.preserveAuthOnUnauthorized !== true) {
       localStorage.removeItem(AUTH_TOKEN_KEY)
       localStorage.removeItem(AUTH_USER_KEY)
       sessionStorage.removeItem(AUTH_TOKEN_KEY)

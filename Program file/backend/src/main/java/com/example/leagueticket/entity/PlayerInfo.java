@@ -14,7 +14,9 @@ public class PlayerInfo {
     private String position;
     private String nationality;
     private LocalDate birthDate;
+    private Integer birthYear;
     private String playerStatus;
+    private String lineupRole;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

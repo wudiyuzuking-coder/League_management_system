@@ -28,7 +28,10 @@ public interface ClubSeasonEnrollmentMapper {
           s.registration_deadline,s.max_clubs,
           (SELECT COUNT(*) FROM club_season_enrollment e WHERE e.season_id=s.season_id AND e.enrollment_status='SUBMITTED') enrolled_clubs,
           s.max_clubs-(SELECT COUNT(*) FROM club_season_enrollment e WHERE e.season_id=s.season_id AND e.enrollment_status='SUBMITTED') remaining_slots,
-          #{now} system_time
+          #{now} system_time,
+          EXISTS(SELECT 1 FROM club_season_enrollment own JOIN season_info os ON os.season_id=own.season_id
+            WHERE own.club_id=#{clubId} AND own.enrollment_status='SUBMITTED'
+              AND s.start_date<=os.end_date AND s.end_date>=os.start_date) time_conflict
         FROM season_info s
         WHERE s.season_status='DRAFT' AND s.registration_start_time IS NOT NULL
           AND s.registration_deadline IS NOT NULL AND s.max_clubs IS NOT NULL
@@ -36,10 +39,6 @@ public interface ClubSeasonEnrollmentMapper {
           AND NOT EXISTS (SELECT 1 FROM season_schedule_batch b WHERE b.season_id=s.season_id)
           AND (SELECT COUNT(*) FROM club_season_enrollment e WHERE e.season_id=s.season_id AND e.enrollment_status='SUBMITTED')<s.max_clubs
           AND NOT EXISTS (SELECT 1 FROM club_season_enrollment own WHERE own.season_id=s.season_id AND own.club_id=#{clubId})
-          AND NOT EXISTS (SELECT 1 FROM club_season_enrollment own
-              JOIN season_info os ON os.season_id=own.season_id
-              WHERE own.club_id=#{clubId} AND own.enrollment_status='SUBMITTED'
-                AND s.start_date<=os.end_date AND s.end_date>=os.start_date)
         ORDER BY s.start_date,s.season_id
         """)
     List<AvailableSeasonResponse> findAvailable(@Param("clubId")Long clubId,@Param("now")LocalDateTime now);
@@ -63,9 +62,9 @@ public interface ClubSeasonEnrollmentMapper {
 
     @Insert("INSERT INTO club_season_enrollment(season_id,club_id,stadium_id,enrollment_status,submitted_at) VALUES(#{seasonId},#{clubId},#{stadiumId},#{enrollmentStatus},#{submittedAt})")
     @Options(useGeneratedKeys=true,keyProperty="enrollmentId") int insert(ClubSeasonEnrollment enrollment);
-    @Insert("INSERT INTO club_season_enrollment_player(enrollment_id,player_id,lineup_role,player_name_snapshot,shirt_no_snapshot,position_snapshot,birth_date_snapshot) VALUES(#{enrollmentId},#{playerId},#{lineupRole},#{playerNameSnapshot},#{shirtNoSnapshot},#{positionSnapshot},#{birthDateSnapshot})")
+    @Insert("INSERT INTO club_season_enrollment_player(enrollment_id,player_id,lineup_role,player_name_snapshot,shirt_no_snapshot,position_snapshot,birth_date_snapshot,birth_year_snapshot,nationality_snapshot) VALUES(#{enrollmentId},#{playerId},#{lineupRole},#{playerNameSnapshot},#{shirtNoSnapshot},#{positionSnapshot},#{birthDateSnapshot},#{birthYearSnapshot},#{nationalitySnapshot})")
     int insertPlayer(ClubSeasonEnrollmentPlayer player);
-    @Insert("INSERT INTO club_season_enrollment_coach(enrollment_id,coach_id,coach_name_snapshot,title_snapshot) VALUES(#{enrollmentId},#{coachId},#{coachNameSnapshot},#{titleSnapshot})")
+    @Insert("INSERT INTO club_season_enrollment_coach(enrollment_id,coach_id,coach_name_snapshot,title_snapshot,birth_year_snapshot,nationality_snapshot) VALUES(#{enrollmentId},#{coachId},#{coachNameSnapshot},#{titleSnapshot},#{birthYearSnapshot},#{nationalitySnapshot})")
     int insertCoach(ClubSeasonEnrollmentCoach coach);
 
     @Select(SUMMARY+" WHERE e.enrollment_id=#{id}") ClubSeasonEnrollment findById(@Param("id")Long id,@Param("now")LocalDateTime now);

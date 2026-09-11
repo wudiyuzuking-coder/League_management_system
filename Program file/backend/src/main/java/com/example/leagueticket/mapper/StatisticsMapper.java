@@ -4,6 +4,7 @@ import com.example.leagueticket.dto.StatisticsQueryRequest;
 import com.example.leagueticket.vo.*;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
 @Mapper
@@ -18,4 +19,5 @@ public interface StatisticsMapper {
     List<SalesTrendResponse> salesTrend(@Param("q")StatisticsQueryRequest query);
     RefundStatisticsResponse refundStatistics(@Param("q")StatisticsQueryRequest query);
     CheckinStatisticsResponse checkinStatistics(@Param("q")StatisticsQueryRequest query);
+    @Select("SELECT #{seasonId} season_id,CAST(COALESCE(SUM(CASE WHEN oi.item_status='PAID' THEN oi.ticket_price ELSE 0 END),0) AS DECIMAL(14,2)) effective_revenue,CAST(COALESCE(SUM(CASE WHEN oi.item_status='PAID' THEN oi.ticket_price ELSE 0 END),0)*0.10 AS DECIMAL(14,2)) platform_share FROM match_info m LEFT JOIN ticket_order o ON o.match_id=m.match_id LEFT JOIN order_item oi ON oi.order_id=o.order_id WHERE m.season_id=#{seasonId}") SeasonRevenueResponse seasonRevenue(Long seasonId);
 }

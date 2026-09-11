@@ -16,4 +16,5 @@ public class AvailableSeasonResponse {
     private Integer enrolledClubs;
     private Integer remainingSlots;
     private LocalDateTime systemTime;
+    private Boolean timeConflict;
 }

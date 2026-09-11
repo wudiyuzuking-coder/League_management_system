@@ -15,4 +15,5 @@ public interface StatisticsService {
     CheckinStatisticsResponse checkins(StatisticsQueryRequest query);
     ClubStatisticsResponse clubOverview(Long clubId,StatisticsQueryRequest query);
     PageResponse<MatchStatisticsResponse> clubMatches(Long clubId,StatisticsQueryRequest query);
+    SeasonRevenueResponse seasonRevenue(Long seasonId);
 }

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { getCurrentUser, login as loginApi, register as registerApi } from '../api/auth'
+import { activateManagementAccount, getCurrentUser, login as loginApi, register as registerApi } from '../api/auth'
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY, FORMAL_ROLE_CODES, ROLE_HOME } from '../constants/app'
 import { clearStoredAuth, restoreStoredAuth } from '../utils/authStorage'
 
@@ -19,11 +19,29 @@ export const useAuthStore = defineStore('auth', {
     },
     async login(payload) {
       const response = await loginApi(payload)
+      return this.acceptLogin(response)
+    },
+    async activateManagement(payload) {
+      const response = await activateManagementAccount(payload)
+      return this.acceptLogin(response)
+    },
+    async acceptLogin(response) {
       this.token = response.data.token
       this.user = response.data
       this.sessionValidated = false
       this.persist()
       await this.fetchMe()
+      return this.homePath
+    },
+    async switchAccount(payload) {
+      const response=await loginApi(payload,{preserveAuthOnUnauthorized:true})
+      const candidateToken=response.data.token
+      const verified=(await getCurrentUser(candidateToken)).data
+      if(!FORMAL_ROLE_CODES.includes(verified?.roleCode)||verified.roleCode!==response.data.roleCode)throw new Error('切换账户身份校验失败')
+      this.token=candidateToken
+      this.user={...response.data,...verified}
+      this.sessionValidated=true
+      this.persist()
       return this.homePath
     },
     register(payload) {

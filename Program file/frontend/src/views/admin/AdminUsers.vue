@@ -49,7 +49,7 @@ onMounted(async () => {
   <el-card>
     <template #header><div class="head"><h2>用户管理</h2></div></template>
     <el-form class="filters" inline>
-      <el-form-item label="昵称/用户名"><el-input v-model="query.username" clearable /></el-form-item>
+      <el-form-item label="用户名"><el-input v-model="query.username" clearable /></el-form-item>
       <el-form-item label="角色">
         <el-select v-model="query.roleCode" disabled style="width: 130px">
           <el-option v-for="role in roles" :key="role.roleCode" :label="role.roleName" :value="role.roleCode" />
@@ -64,7 +64,7 @@ onMounted(async () => {
       <el-form-item><el-button type="primary" @click="search">查询</el-button></el-form-item>
     </el-form>
     <el-table :data="rows" v-loading="loading" empty-text="暂无普通用户">
-      <el-table-column prop="username" label="昵称/用户名" min-width="140" />
+      <el-table-column prop="username" label="用户名" min-width="140" />
       <el-table-column prop="phone" label="手机号" min-width="125" />
       <el-table-column prop="realName" label="真实姓名" min-width="120" />
       <el-table-column label="角色"><template #default="{ row }">{{ roleName(row.roleCode) }}</template></el-table-column>
@@ -81,7 +81,7 @@ onMounted(async () => {
 
   <el-dialog v-model="detailVisible" title="用户详情" width="520px">
     <el-descriptions :column="1" border>
-      <el-descriptions-item label="昵称/用户名">{{ selectedUser.username || '—' }}</el-descriptions-item>
+      <el-descriptions-item label="用户名">{{ selectedUser.username || '—' }}</el-descriptions-item>
       <el-descriptions-item label="手机号">{{ selectedUser.phone || '—' }}</el-descriptions-item>
       <el-descriptions-item label="真实姓名">{{ selectedUser.realName || '—' }}</el-descriptions-item>
       <el-descriptions-item label="角色">{{ roleName(selectedUser.roleCode) }}</el-descriptions-item>

@@ -9,6 +9,8 @@ public record UserMatchTicketZoneResponse(
         Long stadiumZoneId,
         String zoneName,
         String zoneCode,
+        String zoneDirection,
+        String ticketType,
         BigDecimal price,
         String zoneStatus,
         LocalDateTime saleStartTime,

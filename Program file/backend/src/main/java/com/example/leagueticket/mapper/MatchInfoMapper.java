@@ -53,13 +53,13 @@ public interface MatchInfoMapper {
     @Select(PAGE_SELECT) List<MatchInfo> findPage(@Param("q") MatchQueryRequest query,@Param("offset") long offset,@Param("limit") int limit);
     @Select("SELECT COUNT(*) FROM match_info WHERE season_id=#{seasonId} AND round_id=#{roundId} AND home_club_id=#{homeClubId} AND away_club_id=#{awayClubId} AND (#{excludeId} IS NULL OR match_id!=#{excludeId})")
     int countDuplicate(@Param("seasonId") Long seasonId,@Param("roundId") Long roundId,@Param("homeClubId") Long homeClubId,@Param("awayClubId") Long awayClubId,@Param("excludeId") Long excludeId);
-    @Insert("INSERT INTO match_info(season_id,round_id,home_club_id,away_club_id,stadium_id,match_time,match_status,published_at) VALUES(#{seasonId},#{roundId},#{homeClubId},#{awayClubId},#{stadiumId},#{matchTime},'DRAFT',NULL)")
+    @Insert("INSERT INTO match_info(season_id,round_id,home_club_id,away_club_id,stadium_id,match_time,sale_start_time,sale_end_time,match_status,published_at) VALUES(#{seasonId},#{roundId},#{homeClubId},#{awayClubId},#{stadiumId},#{matchTime},#{saleStartTime},#{saleEndTime},'DRAFT',NULL)")
     @Options(useGeneratedKeys=true,keyProperty="matchId") int insert(MatchInfo match);
-    @Update("UPDATE match_info SET season_id=#{seasonId},round_id=#{roundId},home_club_id=#{homeClubId},away_club_id=#{awayClubId},stadium_id=#{stadiumId},match_time=#{matchTime} WHERE match_id=#{matchId}") int updateBasic(MatchInfo match);
+    @Update("UPDATE match_info SET season_id=#{seasonId},round_id=#{roundId},home_club_id=#{homeClubId},away_club_id=#{awayClubId},stadium_id=#{stadiumId},match_time=#{matchTime},sale_start_time=#{saleStartTime},sale_end_time=#{saleEndTime} WHERE match_id=#{matchId}") int updateBasic(MatchInfo match);
     @Update("UPDATE match_info SET match_time=#{matchTime} WHERE match_id=#{matchId}") int updateTime(MatchInfo match);
+    @Update("UPDATE match_info SET match_time=#{matchTime},sale_start_time=#{saleStartTime},sale_end_time=#{saleEndTime} WHERE match_id=#{matchId}") int updateTimeAndSale(MatchInfo match);
     @Update("UPDATE match_info SET match_status='PUBLISHED',published_at=COALESCE(published_at,#{now}) WHERE match_id=#{id}") int publish(@Param("id")Long id,@Param("now")LocalDateTime now);
     @Update("UPDATE match_info SET match_status=#{status} WHERE match_id=#{id}") int updateStatus(@Param("id") Long id,@Param("status") String status);
-    @Update("UPDATE match_info SET home_score=#{homeScore},away_score=#{awayScore} WHERE match_id=#{id}") int updateScore(@Param("id") Long id,@Param("homeScore") Integer homeScore,@Param("awayScore") Integer awayScore);
     @Select("SELECT match_id,season_id,home_club_id,away_club_id,home_score,away_score FROM match_info WHERE season_id=#{seasonId} AND match_status='FINISHED' AND home_score IS NOT NULL AND away_score IS NOT NULL ORDER BY match_id") List<MatchInfo> findFinishedBySeason(Long seasonId);
     @Select(JOIN_SELECT+" WHERE (m.home_club_id=#{clubId} OR m.away_club_id=#{clubId}) " +
             "AND m.match_status='FINISHED' ORDER BY m.match_time DESC,m.match_id DESC LIMIT #{limit}")

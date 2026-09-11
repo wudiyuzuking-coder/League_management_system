@@ -9,6 +9,6 @@ public record LoginRequest(
         @Pattern(regexp = "^1\\d{10}$", message = "请输入11位手机号") String phone,
         @NotBlank(message = "请输入密码") String password,
         @NotBlank(message = "请选择身份") @Size(max = 32) String roleCode,
-        @Size(max = 16) String employeeNo
+        @Size(max = 4) String employeeNo
 ) {
 }

@@ -22,6 +22,7 @@ public class AdminTicketController {
 
     @GetMapping("/matches/{matchId}/ticket-zones") public Result<List<MatchTicketZoneResponse>> list(@PathVariable Long matchId){return Result.success(zoneService.list(matchId));}
     @PostMapping("/matches/{matchId}/ticket-zones") public Result<MatchTicketZone> create(@PathVariable Long matchId,@AuthenticationPrincipal AuthenticatedUser principal,@Valid @RequestBody MatchTicketZoneRequest request){return Result.success(zoneService.create(matchId,principal.userId(),request));}
+    @PostMapping("/matches/{matchId}/ticketing/initialize-standard") public Result<List<MatchTicketZoneResponse>> initializeStandard(@PathVariable Long matchId,@AuthenticationPrincipal AuthenticatedUser principal){return Result.success(zoneService.initializeStandard(matchId,principal.userId()));}
     @GetMapping("/match-ticket-zones/{id}") public Result<MatchTicketZoneResponse> detail(@PathVariable Long id){return Result.success(zoneService.detail(id));}
     @PutMapping("/match-ticket-zones/{id}") public Result<MatchTicketZone> update(@PathVariable Long id,@Valid @RequestBody MatchTicketZoneRequest request){return Result.success(zoneService.update(id,request));}
     @PutMapping("/match-ticket-zones/{id}/status") public Result<MatchTicketZone> status(@PathVariable Long id,@Valid @RequestBody MatchTicketZoneStatusRequest request){return Result.success(zoneService.updateStatus(id,request.zoneStatus()));}

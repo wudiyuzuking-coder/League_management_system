@@ -6,7 +6,9 @@ import com.example.leagueticket.entity.*;
 import com.example.leagueticket.exception.BusinessException;
 import com.example.leagueticket.mapper.*;
 import com.example.leagueticket.service.OrderService;
+import com.example.leagueticket.service.StandardTicketZoneSelector;
 import com.example.leagueticket.service.SystemTimeService;
+import com.example.leagueticket.service.TicketPassengerService;
 import com.example.leagueticket.service.TicketSalePolicy;
 import com.example.leagueticket.vo.*;
 import lombok.RequiredArgsConstructor;
@@ -30,17 +32,25 @@ public class OrderServiceImpl implements OrderService {
     private final MatchSeatInventoryMapper inventoryMapper;
     private final PaymentRecordMapper paymentMapper;
     private final ETicketMapper ticketMapper;
+    private final RefundApplyMapper refundMapper;
     private final SystemConfigMapper configMapper;
     private final SystemTimeService systemTimeService;
     private final TicketSalePolicy ticketSalePolicy;
     private final SeatAllocateService seatAllocateService;
+    private final StandardTicketZoneSelector standardTicketZoneSelector;
+    private final TicketPassengerService ticketPassengerService;
     private final ObjectProvider<OrderService> orderServiceProvider;
 
     @Override @Transactional
     public OrderDetailResponse create(Long userId,OrderCreateRequest request){
         int max=configInt("MAX_TICKETS_PER_ORDER",4);
+        if(request.ticketCount()==null)throw new BusinessException("ticketCount is required");
         if(request.ticketCount()<1||request.ticketCount()>max)throw new BusinessException("ticketCount must be between 1 and "+max);
-        MatchTicketZone zone=zoneMapper.findByIdForUpdate(request.matchZoneId());
+        List<UserPrefilledPassenger> passengers=ticketPassengerService.requireForOrder(userId,request.passengerIds(),request.ticketCount());
+        boolean legacy=request.matchZoneId()!=null;
+        boolean standard=request.matchId()!=null&&request.ticketType()!=null&&!request.ticketType().isBlank();
+        if(legacy==standard)throw new BusinessException("provide either matchZoneId or matchId with ticketType");
+        MatchTicketZone zone=legacy?zoneMapper.findByIdForUpdate(request.matchZoneId()):standardTicketZoneSelector.select(request.matchId(),request.ticketType(),request.ticketCount(),true);
         if(zone==null)throw new BusinessException(HttpStatus.NOT_FOUND,"match ticket zone not found");
         MatchInfo match=matchMapper.findById(zone.getMatchId());
         LocalDateTime now=systemTimeService.now();
@@ -58,6 +68,7 @@ public class OrderServiceImpl implements OrderService {
             OrderItem item=new OrderItem();item.setOrderId(order.getOrderId());item.setInventoryId(seats.inventoryIds().get(i));
             item.setTicketPrice(zone.getTicketPrice());item.setZoneNameSnapshot(zone.getZoneNameSnapshot());
             item.setRowNoSnapshot(seats.rowLabel());item.setSeatNoSnapshot(seats.seatLabels().get(i));item.setItemStatus("LOCKED");
+            item.setPassengerNameSnapshot(passengers.get(i).getPassengerName());item.setPassengerIdCardSnapshot(passengers.get(i).getIdCardNo());
             if(itemMapper.insert(item)!=1)throw new BusinessException(HttpStatus.CONFLICT,"failed to create complete order items");
         }
         verifyLockedOrder(order.getOrderId(),request.ticketCount());
@@ -98,7 +109,7 @@ public class OrderServiceImpl implements OrderService {
     private TicketOrder requireLocked(Long id){TicketOrder o=orderMapper.findByIdForUpdate(id);if(o==null)throw new BusinessException(HttpStatus.NOT_FOUND,"order not found");return o;}
     private TicketOrder requireDetail(Long id){TicketOrder o=orderMapper.findDetail(id);if(o==null)throw new BusinessException(HttpStatus.NOT_FOUND,"order not found");return o;}
     private void requireOwner(TicketOrder order,Long userId){if(!order.getUserId().equals(userId))throw new BusinessException(HttpStatus.FORBIDDEN,"cannot access another user's order");}
-    private OrderDetailResponse detail(Long id){TicketOrder order=requireDetail(id);List<OrderItemResponse> items=itemMapper.findByOrder(id).stream().map(i->new OrderItemResponse(i.getItemId(),i.getInventoryId(),i.getRowNoSnapshot(),i.getSeatNoSnapshot(),i.getTicketPrice(),i.getItemStatus())).toList();PaymentRecord p=paymentMapper.findSuccessByOrder(id);PaymentSummaryResponse payment=p==null?null:new PaymentSummaryResponse(p.getPaymentId(),p.getPaymentNo(),p.getOrderId(),p.getPayAmount(),p.getPayMethod(),p.getPayStatus(),p.getThirdPartyTradeNo(),p.getPayTime(),p.getCreatedAt());List<ETicketResponse> tickets=ticketMapper.findByOrder(id).stream().map(ETicketServiceImpl::response).toList();return new OrderDetailResponse(summary(order),items,payment,tickets);}
+    private OrderDetailResponse detail(Long id){TicketOrder order=requireDetail(id);List<OrderItemResponse> items=itemMapper.findByOrder(id).stream().map(i->new OrderItemResponse(i.getItemId(),i.getInventoryId(),i.getRowNoSnapshot(),i.getSeatNoSnapshot(),i.getPassengerNameSnapshot(),i.getPassengerIdCardSnapshot(),i.getTicketPrice(),i.getItemStatus())).toList();PaymentRecord p=paymentMapper.findSuccessByOrder(id);PaymentSummaryResponse payment=p==null?null:new PaymentSummaryResponse(p.getPaymentId(),p.getPaymentNo(),p.getOrderId(),p.getPayAmount(),p.getPayMethod(),p.getPayStatus(),p.getThirdPartyTradeNo(),p.getPayTime(),p.getCreatedAt());List<ETicketResponse> tickets=ticketMapper.findByOrder(id).stream().map(ETicketServiceImpl::response).toList();RefundApply r=refundMapper.findByOrder(id);RefundResponse refund=r==null?null:new RefundResponse(r.getRefundId(),r.getRefundNo(),r.getOrderId(),r.getOrderNo(),r.getApplicantId(),r.getUsername(),r.getRefundAmount(),r.getRefundRate(),r.getFeeAmount(),r.getProcessingMode(),r.getReason(),r.getRefundStatus(),r.getCreatedAt(),r.getAuditorId(),r.getAuditTime(),r.getAuditRemark(),r.getMatchId(),r.getHomeClubName(),r.getAwayClubName(),r.getMatchTime(),r.getStadiumName(),r.getZoneName(),tickets);return new OrderDetailResponse(summary(order),items,payment,tickets,refund);}
     private OrderSummaryResponse summary(TicketOrder o){return new OrderSummaryResponse(o.getOrderId(),o.getOrderNo(),o.getMatchId(),o.getMatchZoneId(),o.getHomeClubName(),o.getAwayClubName(),o.getMatchTime(),o.getStadiumName(),o.getZoneName(),o.getTicketCount(),o.getTotalAmount(),o.getOrderStatus(),o.getExpireTime(),o.getPaidAt(),o.getCancelledAt(),o.getCancelReason(),o.getCreatedAt());}
     private String normalizeStatus(String status){if(status==null||status.isBlank())return null;String value=status.trim().toUpperCase(Locale.ROOT);if(!QUERY_STATUSES.contains(value))throw new BusinessException("invalid orderStatus");return value;}
     private int configInt(String key,int fallback){String v=configMapper.findEnabledValue(key);try{return v==null?fallback:Integer.parseInt(v);}catch(NumberFormatException e){return fallback;}}

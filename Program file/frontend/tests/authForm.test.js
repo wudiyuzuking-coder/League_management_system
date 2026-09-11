@@ -19,10 +19,10 @@ test('USER and CLUB login require role, valid phone and password', () => {
 
 test('management login additionally requires the matching employee number format', () => {
   assert.equal(isLoginFormValid({ ...validLogin, roleCode: 'EVENT_ADMIN', employeeNo: '' }), false)
-  assert.equal(isLoginFormValid({ ...validLogin, roleCode: 'EVENT_ADMIN', employeeNo: 'EA0001' }), true)
-  assert.equal(isLoginFormValid({ ...validLogin, roleCode: 'EVENT_ADMIN', employeeNo: 'SA0001' }), false)
-  assert.equal(isLoginFormValid({ ...validLogin, roleCode: 'ADMIN', employeeNo: 'SA0001' }), true)
-  assert.equal(isLoginFormValid({ ...validLogin, roleCode: 'ADMIN', employeeNo: 'EA0001' }), false)
+  assert.equal(isLoginFormValid({ ...validLogin, roleCode: 'EVENT_ADMIN', employeeNo: '0001' }), true)
+  assert.equal(isLoginFormValid({ ...validLogin, roleCode: 'EVENT_ADMIN', employeeNo: 'EA0001' }), false)
+  assert.equal(isLoginFormValid({ ...validLogin, roleCode: 'ADMIN', employeeNo: '0001' }), true)
+  assert.equal(isLoginFormValid({ ...validLogin, roleCode: 'ADMIN', employeeNo: 'SA0001' }), false)
 })
 
 const validRegistration = {
@@ -35,12 +35,13 @@ const validRegistration = {
   confirmPassword: '123456',
 }
 
-test('USER and CLUB registration enable only when role-specific required fields are valid', () => {
+test('USER registration does not require real name while CLUB still does', () => {
   assert.equal(isRegistrationFormValid(validRegistration), true)
+  assert.equal(isRegistrationFormValid({ ...validRegistration, realName: '' }), true)
   assert.equal(isRegistrationFormValid({ ...validRegistration, roleCode: '' }), false)
   assert.equal(isRegistrationFormValid({ ...validRegistration, roleCode: 'CLUB' }), false)
   assert.equal(isRegistrationFormValid({ ...validRegistration, roleCode: 'CLUB', clubName: '测试俱乐部' }), true)
-  assert.equal(isRegistrationFormValid({ ...validRegistration, realName: '' }), false)
+  assert.equal(isRegistrationFormValid({ ...validRegistration, roleCode: 'CLUB', clubName: '测试俱乐部', realName: '' }), false)
 })
 
 test('registration remains disabled for invalid formats and mismatched passwords', () => {

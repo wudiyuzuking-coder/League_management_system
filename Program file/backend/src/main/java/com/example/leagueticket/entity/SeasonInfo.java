@@ -12,6 +12,7 @@ public class SeasonInfo {
     private LocalDate endDate;
     private LocalDateTime registrationStartTime;
     private LocalDateTime registrationDeadline;
+    private LocalDateTime ticketSaleStartTime;
     private Integer maxClubs;
     private String seasonStatus;
     private String description;

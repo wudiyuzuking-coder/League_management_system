@@ -15,6 +15,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 
@@ -28,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
+@Transactional
 @EnabledIfEnvironmentVariable(named = "RUN_DB_TESTS", matches = "true")
 class PhoneLoginIntegrationTest {
 
@@ -85,20 +87,21 @@ class PhoneLoginIntegrationTest {
     }
 
     @Test
-    void phoneRemainsUniqueAndDisabledAccountCannotLogin() throws Exception {
+    void phoneIsUniquePerRoleAndDisabledAccountCannotLogin() throws Exception {
         registerUser("唯一手机号", "13917110003", "甲").andExpect(status().isOk());
         registerUser("另一个昵称", "13917110003", "乙").andExpect(status().isConflict());
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sys_user WHERE phone='13917110003'", Integer.class)).isEqualTo(1);
+        registerClub("跨角色共享", "13917110003", "丙", "跨角色俱乐部").andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sys_user WHERE phone='13917110003'", Integer.class)).isEqualTo(2);
         jdbc.update("INSERT INTO sys_user(username,phone,password_hash,display_name,employee_no,role_id,user_status) " +
                         "SELECT '待启用赛事','13917110004',?,'待启用','EA1701',role_id,'DISABLED' FROM sys_role WHERE role_code='EVENT_ADMIN'",
                 encoder.encode("safe123"));
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(body(TestLoginPayload.forRole("13917110004", "safe123", "EVENT_ADMIN", "EA1701"))))
+                        .content(body(TestLoginPayload.forRole("13917110004", "safe123", "EVENT_ADMIN", "1701"))))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    void nicknameAndPhoneChangeKeepExistingJwtBoundToUserId() throws Exception {
+    void usernameChangeKeepsPhoneReadOnlyAndJwtBoundToUserId() throws Exception {
         registerUser("旧昵称", "13917110005", "甲").andExpect(status().isOk());
         registerUser("共享昵称", "13917110006", "乙").andExpect(status().isOk());
         JsonNode login = login("13917110005", "safe123");
@@ -106,17 +109,20 @@ class PhoneLoginIntegrationTest {
         long userId = login.path("data").path("userId").asLong();
         mvc.perform(put("/api/users/me").header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON).content(body(Map.of(
-                                "username", "共享昵称", "phone", "13917110007", "realName", "甲更新"))))
+                                "username", "共享昵称", "phone", "13917110005", "realName", "甲"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.userId").value(userId))
                 .andExpect(jsonPath("$.data.username").value("共享昵称"));
         mvc.perform(get("/api/auth/me").header("Authorization", bearer(token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.userId").value(userId))
                 .andExpect(jsonPath("$.data.username").value("共享昵称"))
-                .andExpect(jsonPath("$.data.phone").value("13917110007"));
+                .andExpect(jsonPath("$.data.phone").value("13917110005"));
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content(body(TestLoginPayload.forRole("13917110005", "safe123", "USER", null))))
-                .andExpect(status().isUnauthorized());
-        assertThat(login("13917110007", "safe123").path("data").path("userId").asLong()).isEqualTo(userId);
+                .andExpect(status().isOk());
+        mvc.perform(put("/api/users/me").header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content(body(Map.of(
+                                "username", "再次修改", "phone", "13917110007", "realName", "甲"))))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.message").value("普通用户手机号不可修改"));
     }
 
     @Test
@@ -135,6 +141,11 @@ class PhoneLoginIntegrationTest {
     private org.springframework.test.web.servlet.ResultActions registerUser(String username, String phone, String name) throws Exception {
         return mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body(Map.of(
                 "username", username, "phone", phone, "password", "safe123", "realName", name, "roleCode", "USER"))));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions registerClub(String username,String phone,String name,String clubName) throws Exception {
+        return mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body(Map.of(
+                "username",username,"phone",phone,"password","safe123","realName",name,"roleCode","CLUB","clubName",clubName))));
     }
 
     private void role(String phone, String roleCode) throws Exception {

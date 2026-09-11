@@ -186,12 +186,15 @@ VALUES
     ('demo_user', '13800000001', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示普通用户', NULL, NULL, @role_user, NULL, 'ENABLED'),
     ('demo_admin', '13800000002', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示系统管理员', NULL, 'SA0001', @role_admin, NULL, 'ENABLED'),
     ('demo_club', '13800000003', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '潮汐俱乐部负责人', '杭州潮汐足球俱乐部', NULL, @role_club, @club_a, 'ENABLED'),
-    ('demo_event_admin', '13800000005', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示赛事管理员', NULL, 'EA0001', @role_event_admin, NULL, 'ENABLED')
+    ('demo_event_admin', '13800000005', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '演示赛事管理员', NULL, 'EA0001', @role_event_admin, NULL, 'ENABLED'),
+    ('demo_club_garden', '13800000006', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '园林俱乐部负责人', '苏州园林足球俱乐部', NULL, @role_club, @club_b, 'ENABLED'),
+    ('demo_club_spark', '13800000007', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '星火俱乐部负责人', '杭州星火足球俱乐部', NULL, @role_club, @club_c, 'ENABLED'),
+    ('demo_club_voyage', '13800000008', 'DEMO_PASSWORD_NOT_FOR_LOGIN', '远航俱乐部负责人', '苏州远航足球俱乐部', NULL, @role_club, @club_d, 'ENABLED')
 ON DUPLICATE KEY UPDATE
     password_hash = VALUES(password_hash), display_name = VALUES(display_name), club_apply_name = VALUES(club_apply_name),
     employee_no = VALUES(employee_no), role_id = VALUES(role_id),
     club_id = VALUES(club_id), user_status = VALUES(user_status);
-SET @demo_admin_id := (SELECT user_id FROM sys_user WHERE phone = '13800000002');
+SET @demo_admin_id := (SELECT user_id FROM sys_user WHERE phone = '13800000002' AND role_id=@role_admin);
 
 UPDATE sys_user
 SET display_name = '历史检票员账号',

@@ -31,8 +31,8 @@ const validateConfirm = (_rule, value, callback) => {
 }
 const rules = {
   username: [
-    { required: true, message: '请输入昵称', trigger: 'blur' },
-    { min: 2, max: 50, message: '昵称长度为2到50个字符', trigger: 'blur' },
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 2, max: 50, message: '用户名长度为2到50个字符', trigger: 'blur' },
   ],
   roleCode: [{ required: true, message: '请选择注册身份', trigger: 'change' }],
   realName: [
@@ -75,8 +75,7 @@ const submit = async () => {
       phone: form.phone,
       password: form.password,
     }
-    if (form.roleCode === 'USER') payload.realName = form.realName
-    else if (form.roleCode === 'CLUB') {
+    if (form.roleCode === 'CLUB') {
       payload.realName = form.realName
       payload.clubName = form.clubName
     }
@@ -103,7 +102,7 @@ const submit = async () => {
       </template>
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <div class="form-grid">
-          <el-form-item label="昵称" prop="username"><el-input v-model="form.username" placeholder="昵称允许与其他用户相同" /></el-form-item>
+          <el-form-item label="用户名" prop="username"><el-input v-model="form.username" /></el-form-item>
           <el-form-item label="手机号" prop="phone"><el-input v-model="form.phone" /></el-form-item>
           <el-form-item label="密码" prop="password"><el-input v-model="form.password" type="password" show-password /></el-form-item>
           <el-form-item label="确认密码" prop="confirmPassword"><el-input v-model="form.confirmPassword" type="password" show-password /></el-form-item>
@@ -114,8 +113,7 @@ const submit = async () => {
           </el-select>
         </el-form-item>
         <div v-if="form.roleCode" class="form-grid">
-          <el-form-item v-if="form.roleCode === 'USER'" label="姓名" prop="realName" required><el-input v-model="form.realName" /></el-form-item>
-          <template v-else-if="form.roleCode === 'CLUB'">
+          <template v-if="form.roleCode === 'CLUB'">
             <el-form-item label="负责人姓名" prop="realName" required><el-input v-model="form.realName" /></el-form-item>
             <el-form-item label="俱乐部名称" prop="clubName" required><el-input v-model="form.clubName" /></el-form-item>
           </template>

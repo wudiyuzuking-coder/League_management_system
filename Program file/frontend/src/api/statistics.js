@@ -10,3 +10,5 @@ export const getRefundStatistics=params=>request.get('/admin/statistics/refunds'
 export const getCheckinStatistics=params=>request.get('/admin/statistics/checkins',{params})
 export const getOwnClubStatistics=params=>request.get('/club/statistics/overview',{params})
 export const getOwnClubMatchStatistics=params=>request.get('/club/statistics/matches',{params})
+export const getClubData=()=>request.get('/club/statistics/data')
+export const getSeasonRevenue=seasonId=>request.get(`/admin/statistics/seasons/${seasonId}/revenue`)

@@ -34,8 +34,17 @@ public interface SysUserMapper {
             </script>
             """;
 
-    @Select("SELECT " + BASE_COLUMNS + " FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE u.phone=#{phone} LIMIT 1")
-    SysUser findByPhone(String phone);
+    @Select("SELECT " + BASE_COLUMNS + " FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE u.phone=#{phone} AND r.role_code=#{roleCode} LIMIT 1")
+    SysUser findByPhoneAndRole(@Param("phone") String phone, @Param("roleCode") String roleCode);
+
+    @Select("SELECT " + BASE_COLUMNS + " FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE u.phone=#{phone} AND r.role_code=#{roleCode} FOR UPDATE")
+    SysUser findByPhoneAndRoleForUpdate(@Param("phone") String phone, @Param("roleCode") String roleCode);
+
+    @Select("SELECT " + BASE_COLUMNS + " FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE u.employee_no=#{employeeNo} LIMIT 1")
+    SysUser findByEmployeeNo(String employeeNo);
+
+    @Select("SELECT COUNT(*) FROM sys_user WHERE phone=#{phone}")
+    int countByPhoneAny(String phone);
 
     @Select("SELECT " + BASE_COLUMNS + " FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE u.user_id=#{userId} LIMIT 1")
     SysUser findById(Long userId);
@@ -43,8 +52,8 @@ public interface SysUserMapper {
     @Select("SELECT " + BASE_COLUMNS + " FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE u.user_id=#{userId} FOR UPDATE")
     SysUser findByIdForUpdate(Long userId);
 
-    @Select("SELECT COUNT(*) FROM sys_user WHERE phone=#{phone} AND (#{excludeId} IS NULL OR user_id != #{excludeId})")
-    int countByPhone(@Param("phone") String phone, @Param("excludeId") Long excludeId);
+    @Select("SELECT COUNT(*) FROM sys_user WHERE phone=#{phone} AND role_id=#{roleId} AND (#{excludeId} IS NULL OR user_id != #{excludeId})")
+    int countByPhoneAndRole(@Param("phone") String phone, @Param("roleId") Long roleId, @Param("excludeId") Long excludeId);
 
     @Select("SELECT COUNT(*) FROM sys_user WHERE employee_no=#{employeeNo} AND (#{excludeId} IS NULL OR user_id != #{excludeId})")
     int countByEmployeeNo(@Param("employeeNo") String employeeNo, @Param("excludeId") Long excludeId);
@@ -65,27 +74,29 @@ public interface SysUserMapper {
     int updateProfile(@Param("userId") Long userId, @Param("username") String username,
                       @Param("realName") String realName, @Param("phone") String phone);
 
+    @Update("UPDATE sys_user SET username=#{username} WHERE user_id=#{userId}")
+    int updateUsername(@Param("userId")Long userId,@Param("username")String username);
+
     @Update("UPDATE sys_user SET avatar_url=#{avatarUrl} WHERE user_id=#{userId}")
     int updateAvatarUrl(@Param("userId") Long userId, @Param("avatarUrl") String avatarUrl);
 
     @Update("UPDATE sys_user SET password_hash=#{passwordHash} WHERE user_id=#{userId}")
     int updatePassword(@Param("userId") Long userId, @Param("passwordHash") String passwordHash);
 
-    @Update("""
-            UPDATE sys_user
-            SET username=#{username}, display_name=#{realName}, phone=#{phone}, employee_no=#{employeeNo}, role_id=#{roleId}, club_id=#{clubId}, user_status=#{userStatus}
-            WHERE user_id=#{userId}
-            """)
-    int updateByAdmin(SysUser user);
+    @Update("UPDATE sys_user SET password_hash=#{passwordHash}, user_status='ENABLED', last_login_at=CURRENT_TIMESTAMP WHERE user_id=#{userId} AND user_status='PENDING_ACTIVATION'")
+    int activateManagementAccount(@Param("userId") Long userId, @Param("passwordHash") String passwordHash);
 
     @Update("UPDATE sys_user SET user_status=#{userStatus} WHERE user_id=#{userId}")
     int updateStatus(@Param("userId") Long userId, @Param("userStatus") String userStatus);
 
-    @Update("UPDATE sys_user SET club_id=#{clubId}, user_status='ENABLED' WHERE user_id=#{userId}")
+    @Update("UPDATE sys_user SET club_id=#{clubId}, user_status='ENABLED' WHERE user_id=#{userId} AND user_status='PENDING_CLUB_APPROVAL'")
     int approveClub(@Param("userId") Long userId, @Param("clubId") Long clubId);
 
     @Select("SELECT " + BASE_COLUMNS + " FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE r.role_code='CLUB' AND u.club_id=#{clubId} AND (#{excludeUserId} IS NULL OR u.user_id != #{excludeUserId}) LIMIT 1 FOR UPDATE")
     SysUser findOtherClubLeaderForUpdate(@Param("clubId") Long clubId, @Param("excludeUserId") Long excludeUserId);
+
+    @Select("SELECT " + BASE_COLUMNS + " FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE r.role_code='CLUB' AND u.club_id=#{clubId} LIMIT 1")
+    SysUser findClubLeader(Long clubId);
 
     @Update("UPDATE sys_user SET password_hash=#{passwordHash} WHERE password_hash='DEMO_PASSWORD_NOT_FOR_LOGIN'")
     int initializeDemoPasswords(String passwordHash);

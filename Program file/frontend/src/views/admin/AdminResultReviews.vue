@@ -1,0 +1,9 @@
+<script setup>
+import {onMounted,reactive,ref} from 'vue';import {ElMessage} from 'element-plus';import {confirmMatchResult,getPendingResultReviews} from '../../api/match'
+const rows=ref([]),loading=ref(false),visible=ref(false),selected=ref(null),score=reactive({homeScore:0,awayScore:0})
+const load=async()=>{loading.value=true;try{rows.value=(await getPendingResultReviews()).data}finally{loading.value=false}}
+const open=row=>{selected.value=row;const first=row.submissions?.[0];score.homeScore=first?.homeScore||0;score.awayScore=first?.awayScore||0;visible.value=true}
+const confirm=async()=>{await confirmMatchResult(selected.value.matchId,score);ElMessage.success('最终比分已发布');visible.value=false;await load()};onMounted(load)
+</script>
+<template><el-card><template #header><b>赛果确认</b></template><el-table :data="rows" v-loading="loading"><el-table-column prop="matchId" label="比赛ID"/><el-table-column label="待确认原因"><template #default="{row}">{{row.reviewReason==='CONFLICT'?'多人提交冲突':'仅一人提交'}}</template></el-table-column><el-table-column label="提交记录" min-width="260"><template #default="{row}"><span v-for="s in row.submissions" :key="s.submissionId" class="submission">{{s.submitterName}}：{{s.homeScore}} : {{s.awayScore}}</span></template></el-table-column><el-table-column label="操作"><template #default="{row}"><el-button type="primary" link @click="open(row)">确认最终比分</el-button></template></el-table-column></el-table></el-card><el-dialog v-model="visible" title="ADMIN确认最终比分" width="420px"><el-form label-width="100px"><el-form-item label="主队比分"><el-input-number v-model="score.homeScore" :min="0"/></el-form-item><el-form-item label="客队比分"><el-input-number v-model="score.awayScore" :min="0"/></el-form-item></el-form><template #footer><el-button @click="visible=false">取消</el-button><el-button type="primary" @click="confirm">发布</el-button></template></el-dialog></template>
+<style scoped>.submission{display:block;margin:3px 0}</style>

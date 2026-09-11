@@ -12,7 +12,10 @@ public class RefundApply {
     private Long applicantId;
     private String reason;
     private BigDecimal refundAmount;
+    private BigDecimal refundRate;
+    private BigDecimal feeAmount;
     private String refundStatus;
+    private String processingMode;
     private Long auditorId;
     private String auditRemark;
     private LocalDateTime auditTime;

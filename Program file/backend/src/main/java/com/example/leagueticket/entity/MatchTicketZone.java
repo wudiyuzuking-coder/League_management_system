@@ -12,6 +12,8 @@ public class MatchTicketZone {
     private Long createdBy;
     private String zoneNameSnapshot;
     private String zoneCode;
+    private String zoneDirection;
+    private String ticketType;
     private BigDecimal ticketPrice;
     private String zoneStatus;
     private LocalDateTime saleStartTime;

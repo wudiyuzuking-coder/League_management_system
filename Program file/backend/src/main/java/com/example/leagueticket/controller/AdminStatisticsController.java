@@ -23,4 +23,5 @@ public class AdminStatisticsController {
     @GetMapping("/sales-trend") public Result<List<SalesTrendResponse>> trend(@Valid StatisticsQueryRequest q){return Result.success(service.salesTrend(q));}
     @GetMapping("/refunds") public Result<RefundStatisticsResponse> refunds(@Valid StatisticsQueryRequest q){return Result.success(service.refunds(q));}
     @GetMapping("/checkins") public Result<CheckinStatisticsResponse> checkins(@Valid StatisticsQueryRequest q){return Result.success(service.checkins(q));}
+    @GetMapping("/seasons/{seasonId}/revenue") public Result<SeasonRevenueResponse> seasonRevenue(@PathVariable Long seasonId){return Result.success(service.seasonRevenue(seasonId));}
 }

@@ -13,6 +13,5 @@ public interface MatchInfoService {
     MatchInfo create(MatchRequest request);
     MatchInfo update(Long id,MatchRequest request);
     MatchInfo updateStatus(Long id,String status);
-    MatchInfo updateScore(Long id,MatchScoreRequest request);
     PageResponse<MatchResultReminderResponse> resultReminders(MatchResultReminderQueryRequest query);
 }

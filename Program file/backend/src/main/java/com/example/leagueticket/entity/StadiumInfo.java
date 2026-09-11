@@ -10,5 +10,6 @@ public class StadiumInfo {
     private String address;
     private Integer capacity;
     private String layoutDesc;
+    private String venueModel;
     private String stadiumStatus;
 }

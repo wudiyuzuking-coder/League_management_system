@@ -60,8 +60,9 @@ class Phase20B2AutoSaleIntegrationTest {
 
     @AfterEach void teardown(){jdbc.update("UPDATE sys_config SET config_value='0',config_status='ENABLED' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");cleanup();}
 
-    @Test void automaticFormulaIsSevenCalendarDaysEarlierAtTwentyHundredAndClientValueIsIgnored() throws Exception {
-        assertThat(salePolicy.calculateSaleStartTime(LocalDateTime.parse("2027-06-10T19:30:00"))).isEqualTo(LocalDateTime.parse("2027-06-03T20:00:00"));
+    @Test void persistedSeasonSaleStartIsTheOnlyPolicyBoundary() throws Exception {
+        com.example.leagueticket.entity.MatchInfo policyMatch=new com.example.leagueticket.entity.MatchInfo();policyMatch.setSaleStartTime(LocalDateTime.parse("2027-05-27T20:00:00"));
+        assertThat(salePolicy.calculateSaleStartTime(policyMatch)).isEqualTo(LocalDateTime.parse("2027-05-27T20:00:00"));
         long zone=createZone(staticZoneA,"2027-06-10T19:00:00","2020-01-01T00:00:00");
         assertThat(jdbc.queryForObject("SELECT sale_start_time FROM match_ticket_zone WHERE match_zone_id=?",LocalDateTime.class,zone)).isEqualTo(LocalDateTime.parse("2027-06-03T20:00:00"));
     }

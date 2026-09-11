@@ -34,5 +34,5 @@ public class ETicketServiceImpl implements ETicketService {
         if(!STATUSES.contains(value))throw new BusinessException("invalid ticketStatus");
         return value;
     }
-    static ETicketResponse response(ETicket t){return new ETicketResponse(t.getTicketId(),t.getTicketCode(),t.getOrderId(),t.getItemId(),t.getTicketStatus(),t.getIssuedAt(),t.getUsedAt(),t.getMatchId(),t.getHomeClubName(),t.getAwayClubName(),t.getMatchTime(),t.getStadiumName(),t.getZoneName(),t.getRowNo(),t.getSeatNo(),t.getTicketPrice());}
+    static ETicketResponse response(ETicket t){return new ETicketResponse(t.getTicketId(),t.getTicketCode(),t.getOrderId(),t.getItemId(),t.getTicketStatus(),t.getIssuedAt(),t.getUsedAt(),t.getMatchId(),t.getHomeClubName(),t.getAwayClubName(),t.getMatchTime(),t.getStadiumName(),t.getZoneName(),t.getRowNo(),t.getSeatNo(),t.getPassengerName(),t.getPassengerIdCard(),t.getTicketPrice());}
 }

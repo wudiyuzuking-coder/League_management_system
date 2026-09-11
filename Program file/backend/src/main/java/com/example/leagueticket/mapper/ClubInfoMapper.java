@@ -80,4 +80,7 @@ public interface ClubInfoMapper {
 
     @Update("UPDATE club_info SET club_status=#{status} WHERE club_id=#{clubId}")
     int updateStatus(@Param("clubId") Long clubId, @Param("status") String status);
+
+    @Update("UPDATE club_info SET logo_url=#{logoUrl} WHERE club_id=#{clubId}")
+    int updateLogoUrl(@Param("clubId")Long clubId,@Param("logoUrl")String logoUrl);
 }

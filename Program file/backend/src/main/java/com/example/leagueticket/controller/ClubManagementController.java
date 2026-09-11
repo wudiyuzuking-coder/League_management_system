@@ -1,22 +1,29 @@
 package com.example.leagueticket.controller;
 
 import com.example.leagueticket.common.Result;
-import com.example.leagueticket.dto.ClubRequest;
+import com.example.leagueticket.dto.ClubProfileRequest;
 import com.example.leagueticket.dto.CoachRequest;
 import com.example.leagueticket.dto.CoachStatusRequest;
 import com.example.leagueticket.dto.PlayerRequest;
 import com.example.leagueticket.dto.PlayerSeasonStatRequest;
 import com.example.leagueticket.dto.PlayerStatusRequest;
+import com.example.leagueticket.dto.PlayerAdjustRequest;
+import com.example.leagueticket.dto.PlayerReturnRequest;
+import com.example.leagueticket.dto.CoachAdjustRequest;
 import com.example.leagueticket.entity.ClubInfo;
 import com.example.leagueticket.entity.CoachInfo;
 import com.example.leagueticket.entity.PlayerInfo;
 import com.example.leagueticket.entity.PlayerSeasonStat;
 import com.example.leagueticket.security.AuthenticatedUser;
 import com.example.leagueticket.service.ClubDataScopeService;
-import com.example.leagueticket.service.ClubInfoService;
+import com.example.leagueticket.service.ClubHomeStadiumService;
+import com.example.leagueticket.vo.ClubProfileResponse;
 import com.example.leagueticket.service.CoachInfoService;
 import com.example.leagueticket.service.PlayerInfoService;
 import com.example.leagueticket.service.PlayerSeasonStatService;
+import com.example.leagueticket.service.ClubPersonnelService;
+import com.example.leagueticket.service.ClubLogoService;
+import com.example.leagueticket.vo.PersonnelOverviewResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -29,6 +36,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -39,20 +49,26 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ClubManagementController {
     private final ClubDataScopeService scopeService;
-    private final ClubInfoService clubService;
+    private final ClubHomeStadiumService homeStadiumService;
     private final PlayerInfoService playerService;
     private final CoachInfoService coachService;
     private final PlayerSeasonStatService statService;
+    private final ClubPersonnelService personnelService;
+    private final ClubLogoService logoService;
+
+    @PostMapping("/profile/logo") public Result<com.example.leagueticket.vo.AvatarResponse> uploadLogo(@AuthenticationPrincipal AuthenticatedUser user,@RequestParam("file") MultipartFile file){return Result.success(logoService.upload(scopeService.requireBoundClubId(user),file));}
+
+    @GetMapping("/personnel/overview") public Result<PersonnelOverviewResponse> personnel(@AuthenticationPrincipal AuthenticatedUser user){return Result.success(personnelService.overview(scopeService.requireBoundClubId(user)));}
 
     @GetMapping("/profile")
-    public Result<ClubInfo> profile(@AuthenticationPrincipal AuthenticatedUser user) {
-        return Result.success(clubService.getById(scopeService.requireBoundClubId(user)));
+    public Result<ClubProfileResponse> profile(@AuthenticationPrincipal AuthenticatedUser user) {
+        return Result.success(homeStadiumService.profile(scopeService.requireBoundClubId(user)));
     }
 
     @PutMapping("/profile")
-    public Result<ClubInfo> updateProfile(@AuthenticationPrincipal AuthenticatedUser user,
-                                          @Valid @RequestBody ClubRequest request) {
-        return Result.success(clubService.update(scopeService.requireBoundClubId(user), request));
+    public Result<ClubProfileResponse> updateProfile(@AuthenticationPrincipal AuthenticatedUser user,
+                                          @Valid @RequestBody ClubProfileRequest request) {
+        return Result.success(homeStadiumService.updateProfile(scopeService.requireBoundClubId(user), request));
     }
 
     @GetMapping("/players")
@@ -63,14 +79,19 @@ public class ClubManagementController {
     @PostMapping("/players")
     public Result<PlayerInfo> createPlayer(@AuthenticationPrincipal AuthenticatedUser user,
                                            @Valid @RequestBody PlayerRequest request) {
+        if(request.birthYear()==null||request.nationality()==null||request.nationality().isBlank()||request.lineupRole()==null||request.lineupRole().isBlank())
+            throw new com.example.leagueticket.exception.BusinessException("球员姓名、出生年份、国籍、首发/替补均为必填");
         return Result.success(playerService.create(scopeService.requireBoundClubId(user), request));
     }
 
     @PutMapping("/players/{id}")
     public Result<PlayerInfo> updatePlayer(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long id,
-                                           @Valid @RequestBody PlayerRequest request) {
-        return Result.success(playerService.update(scopeService.requireBoundClubId(user), id, request));
+                                           @Valid @RequestBody PlayerAdjustRequest request) {
+        return Result.success(playerService.adjust(scopeService.requireBoundClubId(user), id, request));
     }
+
+    @PutMapping("/players/{id}/return") public Result<PlayerInfo> returnPlayer(@AuthenticationPrincipal AuthenticatedUser user,@PathVariable Long id,@Valid @RequestBody PlayerReturnRequest request){return Result.success(playerService.returnToTeam(scopeService.requireBoundClubId(user),id,request));}
+    @DeleteMapping("/players/{id}") public Result<Void> cleanupPlayer(@AuthenticationPrincipal AuthenticatedUser user,@PathVariable Long id){playerService.cleanup(scopeService.requireBoundClubId(user),id);return Result.success();}
 
     @PutMapping("/players/{id}/status")
     public Result<Void> updatePlayerStatus(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long id,
@@ -87,14 +108,18 @@ public class ClubManagementController {
     @PostMapping("/coaches")
     public Result<CoachInfo> createCoach(@AuthenticationPrincipal AuthenticatedUser user,
                                          @Valid @RequestBody CoachRequest request) {
+        if(request.birthYear()==null||request.nationality()==null||request.nationality().isBlank())
+            throw new com.example.leagueticket.exception.BusinessException("教练姓名、国籍和出生年份均为必填");
         return Result.success(coachService.create(scopeService.requireBoundClubId(user), request));
     }
 
     @PutMapping("/coaches/{id}")
     public Result<CoachInfo> updateCoach(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long id,
-                                         @Valid @RequestBody CoachRequest request) {
-        return Result.success(coachService.update(scopeService.requireBoundClubId(user), id, request));
+                                         @Valid @RequestBody CoachAdjustRequest request) {
+        return Result.success(coachService.adjust(scopeService.requireBoundClubId(user), id, request));
     }
+
+    @DeleteMapping("/coaches/{id}") public Result<Void> cleanupCoach(@AuthenticationPrincipal AuthenticatedUser user,@PathVariable Long id){coachService.cleanup(scopeService.requireBoundClubId(user),id);return Result.success();}
 
     @PutMapping("/coaches/{id}/status")
     public Result<Void> updateCoachStatus(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long id,

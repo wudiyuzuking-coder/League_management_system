@@ -9,7 +9,8 @@ public interface ETicketMapper {
     String DETAIL_SELECT="""
         SELECT t.*,o.match_id,hc.club_name home_club_name,ac.club_name away_club_name,m.match_time,
           st.stadium_name,oi.zone_name_snapshot zone_name,oi.row_no_snapshot row_no,
-          oi.seat_no_snapshot seat_no,oi.ticket_price
+          oi.seat_no_snapshot seat_no,oi.ticket_price,oi.passenger_name_snapshot passenger_name,
+          oi.passenger_id_card_snapshot passenger_id_card
         FROM e_ticket t JOIN ticket_order o ON o.order_id=t.order_id
         JOIN order_item oi ON oi.item_id=t.item_id AND oi.order_id=t.order_id
         JOIN match_info m ON m.match_id=o.match_id

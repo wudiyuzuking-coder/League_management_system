@@ -13,6 +13,8 @@ public class OrderItem {
     private String zoneNameSnapshot;
     private String rowNoSnapshot;
     private String seatNoSnapshot;
+    private String passengerNameSnapshot;
+    private String passengerIdCardSnapshot;
     private String itemStatus;
     private LocalDateTime createdAt;
 }

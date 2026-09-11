@@ -5,42 +5,29 @@ import com.example.leagueticket.entity.SeasonInfo;
 import com.example.leagueticket.exception.BusinessException;
 import com.example.leagueticket.mapper.RoundInfoMapper;
 import com.example.leagueticket.mapper.SeasonInfoMapper;
-import com.example.leagueticket.service.SeasonInfoService;
+import com.example.leagueticket.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.List;
-import java.util.Map;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.temporal.ChronoUnit;
+import java.time.*;
+import java.util.*;
 
 @Service @Profile("dev") @RequiredArgsConstructor
 public class SeasonInfoServiceImpl implements SeasonInfoService {
     private static final Map<String,String> NEXT=Map.of("DRAFT","ACTIVE","ACTIVE","FINISHED");
     private final SeasonInfoMapper mapper;
     private final RoundInfoMapper roundMapper;
+    private final SystemTimeService timeService;
+    private final DoubleRoundRobinSchedulePlanner planner;
     public List<SeasonInfo> list(){return mapper.findAll();}
     public SeasonInfo getById(Long id){SeasonInfo value=mapper.findById(id);if(value==null)throw new BusinessException(HttpStatus.NOT_FOUND,"season not found");return value;}
-    @Transactional public SeasonInfo create(SeasonRequest request){validate(request,null);SeasonInfo s=copy(new SeasonInfo(),request);s.setSeasonStatus("DRAFT");mapper.insert(s);return getById(s.getSeasonId());}
-    @Transactional public SeasonInfo update(Long id,SeasonRequest request){SeasonInfo s=getById(id);validate(request,id);if(roundMapper.countOutsideRange(id,request.startDate(),request.endDate())>0)throw new BusinessException("season date range cannot exclude existing rounds");mapper.update(copy(s,request));return getById(id);}
+    @Transactional public SeasonInfo create(SeasonRequest request){validate(request);SeasonInfo s=derive(new SeasonInfo(),request);s.setSeasonName(uniqueName(request.startDate()));s.setSeasonStatus("DRAFT");mapper.insert(s);return getById(s.getSeasonId());}
+    @Transactional public SeasonInfo update(Long id,SeasonRequest request){SeasonInfo s=getById(id);if(!"DRAFT".equals(s.getSeasonStatus()))throw new BusinessException(HttpStatus.CONFLICT,"only a DRAFT season can be edited");validate(request);if(!roundMapper.findBySeasonId(id).isEmpty())throw new BusinessException(HttpStatus.CONFLICT,"a scheduled season cannot be edited");mapper.update(derive(s,request));return getById(id);}
     @Transactional public SeasonInfo updateStatus(Long id,String status){SeasonInfo s=getById(id);if(s.getSeasonStatus().equals(status))return s;String next=NEXT.get(s.getSeasonStatus());if(!status.equals(next))throw new BusinessException("invalid season status transition: "+s.getSeasonStatus()+" -> "+status);mapper.updateStatus(id,status);return getById(id);}
-    private void validate(SeasonRequest r,Long id){
-        if(r.endDate().isBefore(r.startDate()))throw new BusinessException("season end date must not be before start date");
-        LocalDateTime startBoundary=LocalDateTime.of(r.startDate(), LocalTime.MIDNIGHT);
-        if(startBoundary.isBefore(r.registrationStartTime().plusMonths(1)))
-            throw new BusinessException("season start must be at least one month after registration starts");
-        if(r.registrationDeadline().isBefore(r.registrationStartTime()))
-            throw new BusinessException("registration deadline must not be before registration start");
-        if(r.registrationDeadline().isAfter(startBoundary.minusDays(7)))
-            throw new BusinessException("registration deadline must be at least seven days before season start");
-        int rounds=r.maxClubs()%2==0?2*(r.maxClubs()-1):2*r.maxClubs();
-        long required=(long)(rounds-1)*6;
-        if(ChronoUnit.DAYS.between(r.startDate(),r.endDate())<required)
-            throw new BusinessException("season date range is insufficient for maxClubs double round-robin schedule with six-day intervals");
-        if(mapper.countByName(r.seasonName().trim(),id)>0)throw new BusinessException(HttpStatus.CONFLICT,"season name already exists");
-    }
-    private SeasonInfo copy(SeasonInfo s,SeasonRequest r){s.setSeasonName(r.seasonName().trim());s.setStartDate(r.startDate());s.setEndDate(r.endDate());s.setRegistrationStartTime(r.registrationStartTime());s.setRegistrationDeadline(r.registrationDeadline());s.setMaxClubs(r.maxClubs());s.setDescription(r.description()==null||r.description().isBlank()?null:r.description().trim());return s;}
+    private void validate(SeasonRequest r){if(r.maxClubs()<2||r.maxClubs()>20)throw new BusinessException("maxClubs must be between 2 and 20");LocalDate minimum=timeService.now().plusMonths(1).toLocalDate();if(r.startDate().isBefore(minimum))throw new BusinessException("赛季开始日期必须不早于系统时间一个月后");}
+    private SeasonInfo derive(SeasonInfo s,SeasonRequest r){LocalDateTime now=timeService.now();LocalDateTime registrationStart=nextTwenty(now);LocalDateTime deadline=r.startDate().minusDays(15).atTime(19,59);if(!deadline.isAfter(registrationStart))throw new BusinessException("自动报名窗口不足，请选择更晚的赛季开始日期");s.setStartDate(r.startDate());s.setEndDate(planner.expectedEndDate(r.maxClubs(),r.startDate()));s.setRegistrationStartTime(registrationStart);s.setRegistrationDeadline(deadline);s.setTicketSaleStartTime(deadline.toLocalDate().plusDays(1).atTime(20,0));s.setMaxClubs(r.maxClubs());s.setDescription(null);return s;}
+    private LocalDateTime nextTwenty(LocalDateTime now){LocalDateTime today=now.toLocalDate().atTime(20,0);return now.isBefore(today)?today:today.plusDays(1);}
+    private String uniqueName(LocalDate start){String base=start.getYear()+"赛季";String name=base;int suffix=2;while(mapper.countByName(name,null)>0)name=base+"-"+suffix++;return name;}
 }

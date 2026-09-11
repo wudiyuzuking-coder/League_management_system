@@ -43,7 +43,23 @@ public interface SeasonScheduleMapper {
         """)
     List<SeasonScheduleBatch> findPage(@Param("q")ScheduleQueryRequest q,@Param("offset")long offset,@Param("limit")int limit);
 
-    @Select("SELECT m.match_id,m.season_id,s.season_name,r.round_no,(m.home_club_id=#{clubId}) home,CASE WHEN m.home_club_id=#{clubId} THEN m.away_club_id ELSE m.home_club_id END opponent_club_id,CASE WHEN m.home_club_id=#{clubId} THEN a.club_name ELSE h.club_name END opponent_club_name,m.match_time match_date_time,m.stadium_id,st.stadium_name FROM season_schedule_batch b JOIN season_schedule_match sm ON sm.batch_id=b.batch_id JOIN match_info m ON m.match_id=sm.match_id JOIN season_info s ON s.season_id=m.season_id JOIN round_info r ON r.round_id=m.round_id JOIN club_info h ON h.club_id=m.home_club_id JOIN club_info a ON a.club_id=m.away_club_id JOIN stadium_info st ON st.stadium_id=m.stadium_id WHERE b.batch_status='CONFIRMED' AND (m.home_club_id=#{clubId} OR m.away_club_id=#{clubId}) ORDER BY m.match_time,m.match_id")
+    @Select("""
+        SELECT m.match_id,m.season_id,s.season_name,r.round_no,(m.home_club_id=#{clubId}) home,
+          CASE WHEN m.home_club_id=#{clubId} THEN m.away_club_id ELSE m.home_club_id END opponent_club_id,
+          CASE WHEN m.home_club_id=#{clubId} THEN a.club_name ELSE h.club_name END opponent_club_name,
+          CASE WHEN m.home_club_id=#{clubId} THEN a.logo_url ELSE h.logo_url END opponent_logo_url,
+          m.match_time match_date_time,m.stadium_id,st.stadium_name,m.match_status,
+          CASE WHEN m.home_club_id=#{clubId} THEN m.home_score ELSE m.away_score END own_score,
+          CASE WHEN m.home_club_id=#{clubId} THEN m.away_score ELSE m.home_score END opponent_score,
+          (SELECT COUNT(*) FROM order_item oi JOIN ticket_order o ON o.order_id=oi.order_id JOIN match_ticket_zone z ON z.match_zone_id=o.match_zone_id JOIN stadium_zone sz ON sz.stadium_zone_id=z.stadium_zone_id WHERE o.match_id=m.match_id AND oi.item_status='PAID' AND sz.ticket_type='VIP') sold_vip_count,
+          (SELECT COUNT(*) FROM order_item oi JOIN ticket_order o ON o.order_id=oi.order_id JOIN match_ticket_zone z ON z.match_zone_id=o.match_zone_id JOIN stadium_zone sz ON sz.stadium_zone_id=z.stadium_zone_id WHERE o.match_id=m.match_id AND oi.item_status='PAID' AND sz.ticket_type='NORMAL') sold_normal_count,
+          CAST(COALESCE((SELECT SUM(oi.ticket_price) FROM order_item oi JOIN ticket_order o ON o.order_id=oi.order_id WHERE o.match_id=m.match_id AND oi.item_status='PAID'),0) AS DECIMAL(14,2)) total_revenue,
+          CAST(COALESCE((SELECT SUM(oi.ticket_price) FROM order_item oi JOIN ticket_order o ON o.order_id=oi.order_id WHERE o.match_id=m.match_id AND oi.item_status='PAID'),0) * CASE WHEN m.home_club_id=#{clubId} THEN 0.60 ELSE 0.30 END AS DECIMAL(14,2)) club_revenue
+        FROM season_schedule_batch b JOIN season_schedule_match sm ON sm.batch_id=b.batch_id JOIN match_info m ON m.match_id=sm.match_id
+        JOIN season_info s ON s.season_id=m.season_id JOIN round_info r ON r.round_id=m.round_id
+        JOIN club_info h ON h.club_id=m.home_club_id JOIN club_info a ON a.club_id=m.away_club_id JOIN stadium_info st ON st.stadium_id=m.stadium_id
+        WHERE b.batch_status='CONFIRMED' AND (m.home_club_id=#{clubId} OR m.away_club_id=#{clubId}) ORDER BY m.match_time,m.match_id
+        """)
     List<ClubScheduleResponse> findConfirmedForClub(Long clubId);
 
     class EnrollmentTeam {

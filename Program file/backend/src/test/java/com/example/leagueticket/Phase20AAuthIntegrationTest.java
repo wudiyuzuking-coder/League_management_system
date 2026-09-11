@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 
@@ -22,6 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
+@Transactional
 @EnabledIfEnvironmentVariable(named = "RUN_DB_TESTS", matches = "true")
 class Phase20AAuthIntegrationTest {
 
@@ -50,7 +52,7 @@ class Phase20AAuthIntegrationTest {
     @Test
     void phonePasswordAndRoleErrorsAreDistinguished() throws Exception {
         login(TestLoginPayload.forRole("13920009999", "123456", "USER", null))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").value("手机号不存在"));
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").value("该账号未注册"));
         login(TestLoginPayload.forRole("13800000001", "wrong-password", "USER", null))
                 .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").value("密码错误"));
         login(TestLoginPayload.forRole("13800000001", "123456", "CLUB", null))
@@ -60,18 +62,18 @@ class Phase20AAuthIntegrationTest {
     @Test
     void managementEmployeeNumberIsRequiredAndMustMatch() throws Exception {
         login(TestLoginPayload.forRole("13800000005", "123456", "EVENT_ADMIN", null))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("请输入工号"));
-        login(TestLoginPayload.forRole("13800000005", "123456", "EVENT_ADMIN", "EA9999"))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").value("工号与账号不匹配"));
-        login(TestLoginPayload.forRole("13800000002", "123456", "ADMIN", "SA9999"))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").value("工号与账号不匹配"));
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("请输入4位工号数字"));
+        login(TestLoginPayload.forRole("13800000005", "123456", "EVENT_ADMIN", "9999"))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").value("该工号不存在"));
+        login(TestLoginPayload.forRole("13800000002", "123456", "ADMIN", "9999"))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").value("该工号不存在"));
     }
 
     @Test
     void disabledAccountIsRejectedAfterIdentityMatches() throws Exception {
         jdbc.update("UPDATE sys_user SET user_status='DISABLED' WHERE phone='13800000001'");
         login(TestLoginPayload.forPhone("13800000001", "123456"))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.message").value("账号尚未启用"));
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.message").value("该账号已被停用，请联系管理员"));
     }
 
     @Test
@@ -85,13 +87,10 @@ class Phase20AAuthIntegrationTest {
     }
 
     @Test
-    void userRegistrationRequiresRealNameAndStoresNicknameSeparately() throws Exception {
+    void userRegistrationDoesNotRequireRealNameAndUsesUsernameAsCompatibilityDisplayName() throws Exception {
         register(Map.of("username", "阶段20昵称", "phone", "13920000003", "password", "safe123", "roleCode", "USER"))
-                .andExpect(status().isBadRequest());
-        register(Map.of("username", "阶段20昵称", "phone", "13920000003", "password", "safe123",
-                        "realName", "真实姓名", "roleCode", "USER"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.username").value("阶段20昵称"))
-                .andExpect(jsonPath("$.data.realName").value("真实姓名"));
+                .andExpect(jsonPath("$.data.realName").value("阶段20昵称"));
     }
 
     private org.springframework.test.web.servlet.ResultActions login(Map<String, String> payload) throws Exception {

@@ -34,7 +34,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/health", "/api/auth/login", "/api/auth/register", "/uploads/**").permitAll()
+                        .requestMatchers("/api/health", "/api/auth/login", "/api/auth/register", "/api/auth/management/probe", "/api/auth/management/activate", "/uploads/**").permitAll()
                         .requestMatchers("/api/user/**").hasRole("USER")
                         .requestMatchers("/api/club/**").hasRole("CLUB")
                         .requestMatchers(
@@ -46,12 +46,6 @@ public class SecurityConfig {
                                 "/api/admin/matches/**",
                                 "/api/admin/match-ticket-zones/**",
                                 "/api/admin/match-seat-inventory/**",
-                                "/api/admin/stadiums",
-                                "/api/admin/stadiums/**",
-                                "/api/admin/stadium-zones/**",
-                                "/api/admin/stadium-seats/**",
-                                "/api/admin/refunds",
-                                "/api/admin/refunds/**",
                                 "/api/admin/enrollments",
                                 "/api/admin/enrollments/**",
                                 "/api/admin/schedules",

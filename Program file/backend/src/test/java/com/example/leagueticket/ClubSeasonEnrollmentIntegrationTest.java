@@ -1,6 +1,5 @@
 package com.example.leagueticket;
 
-import com.example.leagueticket.dto.EnrollmentPlayerRequest;
 import com.example.leagueticket.dto.EnrollmentRequest;
 import com.example.leagueticket.service.ClubSeasonEnrollmentService;
 import com.example.leagueticket.service.SystemTimeService;
@@ -67,21 +66,11 @@ class ClubSeasonEnrollmentIntegrationTest {
         mvc.perform(post("/api/club/enrollments").header("Authorization",bearer(clubToken)).contentType(MediaType.APPLICATION_JSON).content(payload(clubA,season))).andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("赛季报名已截止"));
     }
 
-    @Test void overlappingSeasonAndForeignRosterAreRejectedWithoutResidue() throws Exception {
+    @Test void overlappingSeasonIsRejectedWithoutResidue() throws Exception {
         LocalDate base=time.now().toLocalDate().plusDays(60);long a=season("IT16B冲突A",base,base.plusDays(90),4,-1,30);service.submit(clubA,request(clubA,a));
         long b=season("IT16B冲突B",base.plusDays(30),base.plusDays(120),4,-1,30);
         mvc.perform(post("/api/club/enrollments").header("Authorization",bearer(clubToken)).contentType(MediaType.APPLICATION_JSON).content(payload(clubA,b))).andExpect(status().isConflict()).andExpect(jsonPath("$.message",containsString("时间冲突")));
-        long c=season("IT16B越权阵容",base.plusDays(200),base.plusDays(260),4,-1,30);Map<String,Object> bad=payloadMap(clubA,c);((List<Map<String,Object>>)bad.get("players")).set(0,Map.of("playerId",players(clubB).get(0),"lineupRole","STARTER"));
-        mvc.perform(post("/api/club/enrollments").header("Authorization",bearer(clubToken)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(bad))).andExpect(status().isForbidden());
-        assertThat(countEnrollments(c)).isZero();assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM club_season_enrollment_player ep JOIN club_season_enrollment e ON e.enrollment_id=ep.enrollment_id WHERE e.season_id=?",Integer.class,c)).isZero();
-    }
-
-    @Test void minimumRosterCoachAndHomeStadiumAreEnforced() throws Exception {
-        long season=season("IT16B资格",time.now().toLocalDate().plusDays(60),time.now().toLocalDate().plusDays(100),4,-1,30);Map<String,Object> ten=payloadMap(clubA,season);((List<?>)ten.get("players")).remove(0);
-        mvc.perform(post("/api/club/enrollments").header("Authorization",bearer(clubToken)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(ten))).andExpect(status().isBadRequest());
-        Map<String,Object> noCoach=payloadMap(clubA,season);noCoach.put("coachIds",List.of());mvc.perform(post("/api/club/enrollments").header("Authorization",bearer(clubToken)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(noCoach))).andExpect(status().isBadRequest());
-        Map<String,Object> otherStadium=payloadMap(clubA,season);otherStadium.put("stadiumId",stadium(clubB));mvc.perform(post("/api/club/enrollments").header("Authorization",bearer(clubToken)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(otherStadium))).andExpect(status().isForbidden());
-        assertThat(countEnrollments(season)).isZero();
+        assertThat(countEnrollments(b)).isZero();
     }
 
     @Test void seasonApiRequiresAndValidatesRegistrationConfiguration() throws Exception {
@@ -111,9 +100,9 @@ class ClubSeasonEnrollmentIntegrationTest {
     private void setSystemTime(LocalDateTime value)throws Exception{mvc.perform(put("/api/system-time").header("Authorization",bearer(clubToken)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("targetTime",value)))).andExpect(status().isOk());}
     private long season(String name,LocalDate start,LocalDate end,int max,long regStartDays,long deadlineDays){LocalDateTime now=time.now();return seasonAt(name,start,end,max,now.plusDays(regStartDays),now.plusDays(deadlineDays));}
     private long seasonAt(String name,LocalDate start,LocalDate end,int max,LocalDateTime registrationStart,LocalDateTime deadline){jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,registration_start_time,registration_deadline,max_clubs,season_status) VALUES(?,?,?,?,?,?,'DRAFT')",name,start,end,registrationStart,deadline,max);return jdbc.queryForObject("SELECT season_id FROM season_info WHERE season_name=?",Long.class,name);}
-    private EnrollmentRequest request(long club,long season){List<Long> ps=players(club);List<EnrollmentPlayerRequest> items=new ArrayList<>();for(int i=0;i<11;i++)items.add(new EnrollmentPlayerRequest(ps.get(i),i<5?"STARTER":"SUBSTITUTE"));return new EnrollmentRequest(season,stadium(club),items,List.of(coach(club)));}
+    private EnrollmentRequest request(long club,long season){return new EnrollmentRequest(season);}
     private String payload(long club,long season)throws Exception{return json.writeValueAsString(payloadMap(club,season));}
-    private Map<String,Object> payloadMap(long club,long season){EnrollmentRequest r=request(club,season);Map<String,Object> m=new LinkedHashMap<>();m.put("seasonId",season);m.put("stadiumId",r.stadiumId());m.put("players",new ArrayList<>(r.players().stream().map(x->new LinkedHashMap<String,Object>(Map.of("playerId",x.playerId(),"lineupRole",x.lineupRole()))).toList()));m.put("coachIds",r.coachIds());return m;}
+    private Map<String,Object> payloadMap(long club,long season){return new LinkedHashMap<>(Map.of("seasonId",season));}
     private List<Long> players(long club){return jdbc.queryForList("SELECT player_id FROM player_info WHERE club_id=? AND player_status='ACTIVE' ORDER BY shirt_no LIMIT 11",Long.class,club);}
     private long coach(long club){return jdbc.queryForObject("SELECT coach_id FROM coach_info WHERE club_id=? AND coach_status='ACTIVE' ORDER BY coach_id LIMIT 1",Long.class,club);}
     private long stadium(long club){return jdbc.queryForObject("SELECT home_stadium_id FROM club_info WHERE club_id=?",Long.class,club);}

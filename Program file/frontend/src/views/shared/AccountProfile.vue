@@ -16,8 +16,8 @@ const form = reactive({
 })
 const rules = {
   username: [
-    { required: true, message: '请输入昵称', trigger: 'blur' },
-    { min: 2, max: 50, message: '昵称长度为2到50个字符', trigger: 'blur' },
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 2, max: 50, message: '用户名长度为2到50个字符', trigger: 'blur' },
   ],
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
@@ -35,7 +35,8 @@ const save = async () => {
   await formRef.value.validate()
   saving.value = true
   try {
-    await updateProfile(form)
+    const payload=authStore.user?.roleCode==='USER'?{username:form.username}:{...form}
+    await updateProfile(payload)
     await authStore.fetchMe()
     Object.assign(form, {
       username: authStore.user.username,
@@ -84,7 +85,7 @@ const clearAvatar = async () => {
 <template>
   <el-card class="profile-card">
     <template #header><h2>账号资料</h2></template>
-    <el-alert title="手机号是唯一登录凭证；昵称允许重复，修改昵称或手机号后当前登录仍然有效。" type="info" :closable="false" />
+    <el-alert :title="authStore.user?.roleCode==='USER'?'手机号是唯一登录凭证且不可修改；账号资料仅允许修改用户名。':'手机号是唯一登录凭证。'" type="info" :closable="false" />
     <section class="avatar-section">
       <el-avatar :size="96" :src="authStore.user?.avatarUrl || undefined" :icon="UserFilled" />
       <div class="avatar-actions">
@@ -97,9 +98,9 @@ const clearAvatar = async () => {
     </section>
     <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
       <el-form-item label="角色"><el-input :model-value="roleLabel" disabled /></el-form-item>
-      <el-form-item label="昵称" prop="username"><el-input v-model="form.username" /></el-form-item>
-      <el-form-item label="手机号" prop="phone"><el-input v-model="form.phone" /></el-form-item>
-      <el-form-item label="真实姓名" prop="realName"><el-input v-model="form.realName" /></el-form-item>
+      <el-form-item label="用户名" prop="username"><el-input v-model="form.username" /></el-form-item>
+      <el-form-item label="手机号" prop="phone"><el-input v-model="form.phone" :disabled="authStore.user?.roleCode==='USER'" /></el-form-item>
+      <el-form-item v-if="authStore.user?.roleCode!=='USER'" label="真实姓名" prop="realName"><el-input v-model="form.realName" /></el-form-item>
       <el-form-item v-if="authStore.user?.employeeNo" label="管理工号"><el-input :model-value="authStore.user.employeeNo" disabled /></el-form-item>
       <el-form-item v-if="authStore.user?.roleCode === 'CLUB'" label="绑定俱乐部"><el-input :model-value="authStore.user?.clubId || '尚未绑定'" disabled /></el-form-item>
       <el-form-item><el-button type="primary" :loading="saving" @click="save">保存资料</el-button></el-form-item>
