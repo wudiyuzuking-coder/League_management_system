@@ -40,7 +40,7 @@ public class ClubHomeStadiumServiceImpl implements ClubHomeStadiumService {
     public ClubProfileResponse updateProfile(Long clubId,ClubProfileRequest request){
         ClubInfo club=clubMapper.findByIdForUpdate(clubId);if(club==null)throw new BusinessException(HttpStatus.NOT_FOUND,"club not found");
         if(clubMapper.countByName(request.clubName().trim(),clubId)>0)throw new BusinessException(HttpStatus.CONFLICT,"club name already exists");
-        HomeStadiumRequest home=request.homeStadium();ClubHomeStadiumConfig config=configMapper.findByClubId(clubId);StadiumInfo stadium;
+        HomeStadiumRequest home=request.homeStadium();if(home.vipPrice().compareTo(home.normalPrice())<=0)throw new BusinessException("VIP默认票价必须高于普通票价");ClubHomeStadiumConfig config=configMapper.findByClubId(clubId);StadiumInfo stadium;
         int capacity=capacity(home);
         if(config==null){
             if(stadiumMapper.countDuplicate(home.stadiumName().trim(),home.city().trim(),null)>0)throw new BusinessException(HttpStatus.CONFLICT,"同城市已存在同名场馆");

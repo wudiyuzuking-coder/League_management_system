@@ -71,7 +71,7 @@ class SeasonScheduleIntegrationTest {
     }
 
     @Test void capacityValidationAndTimeRollbackCannotReopenEnrollment(){
-        SeasonRequest shortSeason=new SeasonRequest(LocalDate.of(2045,3,1),4);
+        SeasonRequest shortSeason=new SeasonRequest("IT16C短赛季",LocalDate.of(2045,3,1),4);
         assertThat(seasons.create(shortSeason).getEndDate()).isAfter(shortSeason.startDate());
         long season=season("IT16C回拨",2,LocalDate.of(2046,3,1),LocalDate.of(2046,4,1),time.now().minusDays(1));List<Team> ts=teams(season,2);schedules.generateIfEligible(season,"FULL");
         jdbc.update("UPDATE sys_config SET config_value=? WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'",Long.toString(Duration.between(time.realNow(),time.realNow().minusDays(10)).getSeconds()));

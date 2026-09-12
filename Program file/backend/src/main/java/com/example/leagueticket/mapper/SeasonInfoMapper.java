@@ -33,6 +33,6 @@ public interface SeasonInfoMapper {
     int countByName(@Param("name") String name, @Param("excludeId") Long excludeId);
     @Insert("INSERT INTO season_info(season_name,start_date,end_date,registration_start_time,registration_deadline,ticket_sale_start_time,max_clubs,season_status,description) VALUES(#{seasonName},#{startDate},#{endDate},#{registrationStartTime},#{registrationDeadline},#{ticketSaleStartTime},#{maxClubs},#{seasonStatus},#{description})")
     @Options(useGeneratedKeys=true,keyProperty="seasonId") int insert(SeasonInfo season);
-    @Update("UPDATE season_info SET start_date=#{startDate},end_date=#{endDate},registration_start_time=#{registrationStartTime},registration_deadline=#{registrationDeadline},ticket_sale_start_time=#{ticketSaleStartTime},max_clubs=#{maxClubs} WHERE season_id=#{seasonId}") int update(SeasonInfo season);
+    @Update("UPDATE season_info SET season_name=#{seasonName},start_date=#{startDate},end_date=#{endDate},registration_start_time=#{registrationStartTime},registration_deadline=#{registrationDeadline},ticket_sale_start_time=#{ticketSaleStartTime},max_clubs=#{maxClubs} WHERE season_id=#{seasonId}") int update(SeasonInfo season);
     @Update("UPDATE season_info SET season_status=#{status} WHERE season_id=#{id}") int updateStatus(@Param("id") Long id,@Param("status") String status);
 }

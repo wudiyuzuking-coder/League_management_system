@@ -55,10 +55,12 @@ public interface SeasonScheduleMapper {
           (SELECT COUNT(*) FROM order_item oi JOIN ticket_order o ON o.order_id=oi.order_id JOIN match_ticket_zone z ON z.match_zone_id=o.match_zone_id JOIN stadium_zone sz ON sz.stadium_zone_id=z.stadium_zone_id WHERE o.match_id=m.match_id AND oi.item_status='PAID' AND sz.ticket_type='NORMAL') sold_normal_count,
           CAST(COALESCE((SELECT SUM(oi.ticket_price) FROM order_item oi JOIN ticket_order o ON o.order_id=oi.order_id WHERE o.match_id=m.match_id AND oi.item_status='PAID'),0) AS DECIMAL(14,2)) total_revenue,
           CAST(COALESCE((SELECT SUM(oi.ticket_price) FROM order_item oi JOIN ticket_order o ON o.order_id=oi.order_id WHERE o.match_id=m.match_id AND oi.item_status='PAID'),0) * CASE WHEN m.home_club_id=#{clubId} THEN 0.60 ELSE 0.30 END AS DECIMAL(14,2)) club_revenue
-        FROM season_schedule_batch b JOIN season_schedule_match sm ON sm.batch_id=b.batch_id JOIN match_info m ON m.match_id=sm.match_id
-        JOIN season_info s ON s.season_id=m.season_id JOIN round_info r ON r.round_id=m.round_id
+        FROM match_info m JOIN season_info s ON s.season_id=m.season_id JOIN round_info r ON r.round_id=m.round_id
         JOIN club_info h ON h.club_id=m.home_club_id JOIN club_info a ON a.club_id=m.away_club_id JOIN stadium_info st ON st.stadium_id=m.stadium_id
-        WHERE b.batch_status='CONFIRMED' AND (m.home_club_id=#{clubId} OR m.away_club_id=#{clubId}) ORDER BY m.match_time,m.match_id
+        WHERE (m.home_club_id=#{clubId} OR m.away_club_id=#{clubId})
+          AND (EXISTS(SELECT 1 FROM season_schedule_match linked JOIN season_schedule_batch batch ON batch.batch_id=linked.batch_id WHERE linked.match_id=m.match_id AND batch.batch_status='CONFIRMED')
+            OR (NOT EXISTS(SELECT 1 FROM season_schedule_match linked WHERE linked.match_id=m.match_id) AND m.match_status IN ('PUBLISHED','IN_PROGRESS','FINISHED')))
+        ORDER BY m.match_time,m.match_id
         """)
     List<ClubScheduleResponse> findConfirmedForClub(Long clubId);
 

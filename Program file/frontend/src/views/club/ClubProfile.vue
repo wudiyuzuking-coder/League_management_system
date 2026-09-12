@@ -8,10 +8,12 @@ const form=reactive({clubName:'',shortName:'',logoUrl:'',description:'',venueMod
 const capacity=computed(()=>{const {rowsPerZone:r,longSideSeatsPerRow:l,shortSideSeatsPerRow:s}=form;return r&&l&&s?(l+s)*2*r*2:0})
 const structureLocked=computed(()=>form.venueModel==='STANDARD_8'&&form.standardHomeComplete)
 const required=message=>[{required:true,message,trigger:'blur'}]
-const rules={clubName:required('请输入俱乐部名称'),city:required('请输入主场城市'),stadiumName:required('请输入场馆名称'),address:required('请输入场馆地址'),rowsPerZone:required('请输入每区排数'),longSideSeatsPerRow:required('请输入长边每排座位数'),shortSideSeatsPerRow:required('请输入宽边每排座位数'),vipPrice:required('请输入VIP默认票价'),normalPrice:required('请输入普通默认票价')}
+const vipPriceValidator=(_,value,callback)=>Number(value)>Number(form.normalPrice)?callback():callback(new Error('VIP 默认票价必须高于普通票价'))
+const normalPriceValidator=(_,value,callback)=>Number(form.vipPrice)>Number(value)?callback():callback(new Error('VIP 默认票价必须高于普通票价'))
+const rules={clubName:required('请输入俱乐部名称'),city:required('请输入主场城市'),stadiumName:required('请输入场馆名称'),address:required('请输入场馆地址'),rowsPerZone:required('请输入每区排数'),longSideSeatsPerRow:required('请输入长边每排座位数'),shortSideSeatsPerRow:required('请输入宽边每排座位数'),vipPrice:[...required('请输入VIP默认票价'),{validator:vipPriceValidator,trigger:'change'}],normalPrice:[...required('请输入普通默认票价'),{validator:normalPriceValidator,trigger:'change'}]}
 const load=async()=>{loading.value=true;try{Object.assign(form,(await getClubProfile()).data)}finally{loading.value=false}}
-const save=async()=>{await formRef.value.validate();saving.value=true;try{const payload={clubName:form.clubName,shortName:form.shortName||null,description:form.description||null,homeStadium:{city:form.city,stadiumName:form.stadiumName,address:form.address,rowsPerZone:form.rowsPerZone,longSideSeatsPerRow:form.longSideSeatsPerRow,shortSideSeatsPerRow:form.shortSideSeatsPerRow,vipPrice:form.vipPrice,normalPrice:form.normalPrice}};Object.assign(form,(await updateClubProfile(payload)).data);ElMessage.success('俱乐部及标准私有主场已保存')}finally{saving.value=false}}
-const beforeLogo=file=>{if(!['image/jpeg','image/png'].includes(file.type)){ElMessage.error('队徽仅支持JPEG或PNG格式');return false}if(file.size>2*1024*1024){ElMessage.error('队徽文件不能超过2MB');return false}return true}
+const save=async()=>{await formRef.value.validate();if(Number(form.vipPrice)<=Number(form.normalPrice)){ElMessage.error('VIP 默认票价必须高于普通票价');return}saving.value=true;try{const payload={clubName:form.clubName,shortName:form.shortName||null,description:form.description||null,homeStadium:{city:form.city,stadiumName:form.stadiumName,address:form.address,rowsPerZone:form.rowsPerZone,longSideSeatsPerRow:form.longSideSeatsPerRow,shortSideSeatsPerRow:form.shortSideSeatsPerRow,vipPrice:form.vipPrice,normalPrice:form.normalPrice}};Object.assign(form,(await updateClubProfile(payload)).data);ElMessage.success('俱乐部及标准私有主场已保存')}finally{saving.value=false}}
+const beforeLogo=file=>{const name=(file.name||'').toLowerCase(),declared=file.type||'';if(!/\.(jpg|jpeg|png)$/.test(name)||!['image/jpeg','image/png','application/octet-stream',''].includes(declared)){ElMessage.error('队徽仅支持JPEG或PNG格式');return false}if(file.size>2*1024*1024){ElMessage.error('队徽文件不能超过2MB');return false}return true}
 const uploadLogo=async({file})=>{logoBusy.value=true;try{form.logoUrl=(await uploadClubLogo(file)).data.avatarUrl;ElMessage.success('队徽已更新')}finally{logoBusy.value=false}}
 onMounted(load)
 </script>
@@ -24,7 +26,7 @@ onMounted(load)
       <el-divider content-position="left">俱乐部信息</el-divider>
       <el-form-item label="俱乐部名称" prop="clubName"><el-input v-model="form.clubName"/></el-form-item>
       <el-form-item label="简称"><el-input v-model="form.shortName"/></el-form-item>
-      <el-form-item label="队徽"><div class="logo-row"><el-avatar :size="88" :src="form.logoUrl||undefined">{{form.shortName||form.clubName?.slice(0,1)}}</el-avatar><el-upload accept="image/jpeg,image/png" :show-file-list="false" :before-upload="beforeLogo" :http-request="uploadLogo" :disabled="logoBusy"><el-button type="primary" :loading="logoBusy">上传或更换队徽</el-button></el-upload><small>支持 JPEG、PNG，最大 2MB</small></div></el-form-item>
+      <el-form-item label="队徽"><div class="logo-row"><el-avatar :size="88" :src="form.logoUrl||undefined">{{form.shortName||form.clubName?.slice(0,1)}}</el-avatar><el-upload accept=".jpg,.jpeg,.png,image/jpeg,image/png" :show-file-list="false" :before-upload="beforeLogo" :http-request="uploadLogo" :disabled="logoBusy"><el-button type="primary" :loading="logoBusy">上传或更换队徽</el-button></el-upload><small>支持 JPEG、PNG，最大 2MB</small></div></el-form-item>
       <el-form-item label="简介"><el-input v-model="form.description" type="textarea" :rows="4"/></el-form-item>
       <el-divider content-position="left">标准私有主场</el-divider>
       <el-form-item label="主场城市" prop="city"><el-input v-model="form.city"/></el-form-item>
