@@ -51,13 +51,12 @@ class SeatAllocationIntegrationTest {
         org.assertj.core.api.Assertions.assertThat(after).isEqualTo(before);
     }
 
-    @Test void noSolutionReturnsMaxContinuousAndMatchesStage8Availability()throws Exception{
+    @Test void bestEffortAllocationUsesAvailableStockWhenFullContiguityIsUnavailable()throws Exception{
         long second=jdbc.queryForObject("SELECT i.inventory_id FROM match_seat_inventory i JOIN stadium_seat s ON s.stadium_seat_id=i.stadium_seat_id WHERE i.match_zone_id=? AND s.seat_seq=2",Long.class,matchZoneId);
         jdbc.update("UPDATE match_seat_inventory SET inventory_status='DISABLED' WHERE inventory_id=?",second);
-        String body=preview(4,user).andExpect(status().isConflict()).andReturn().getResponse().getContentAsString();
-        org.assertj.core.api.Assertions.assertThat(objectMapper.readTree(body).path("message").asText()).contains("maxContinuousCount=2");
+        preview(4,user).andExpect(status().isOk()).andExpect(jsonPath("$.data.ticketCount").value(4)).andExpect(jsonPath("$.data.seatIds.length()").value(4));
         mockMvc.perform(get("/api/match-ticket-zones/{id}/availability",matchZoneId).header("Authorization",bearer(user))).andExpect(status().isOk()).andExpect(jsonPath("$.data.maxContinuousCount").value(2));
-        mockMvc.perform(post("/api/admin/match-ticket-zones/{id}/seat-allocation/debug",matchZoneId).header("Authorization",bearer(admin)).contentType(MediaType.APPLICATION_JSON).content("{\"ticketCount\":4}")).andExpect(status().isOk()).andExpect(jsonPath("$.data.maxContinuousCount").value(2)).andExpect(jsonPath("$.data.best").doesNotExist());
+        mockMvc.perform(post("/api/admin/match-ticket-zones/{id}/seat-allocation/debug",matchZoneId).header("Authorization",bearer(admin)).contentType(MediaType.APPLICATION_JSON).content("{\"ticketCount\":4}")).andExpect(status().isOk()).andExpect(jsonPath("$.data.maxContinuousCount").value(2)).andExpect(jsonPath("$.data.best.ticketCount").value(4));
     }
 
     @Test void concurrentConditionalClaimsAllowAtMostOneWinnerAndNoPartialUpdate()throws Exception{

@@ -19,7 +19,10 @@ const offerings=computed(()=>{
     const actual=zones.value.filter(z=>z.ticketType===type)
     if(!actual.length)return null
     const available=actual.reduce((sum,z)=>sum+Number(z.availableSeatCount||0),0)
-    const carrying=actual.map(z=>Math.min(Number(z.availableSeatCount||0),Number(z.maxContinuousCount||0),4))
+    // STANDARD_8 orders remain in a single actual direction zone.  A longest
+    // contiguous run is informational only: the backend will allocate the best
+    // available arrangement if a full run is unavailable.
+    const carrying=actual.map(z=>Math.min(Number(z.availableSeatCount||0),4))
     const sale=actual.find(z=>z.saleAvailable)||actual.find(z=>z.saleState==='NOT_STARTED')||actual[0]
     return {...sale,key:type,label:type==='VIP'?'VIP':'普通',availableSeatCount:available,maxContinuousCount:Math.max(0,...actual.map(z=>Number(z.maxContinuousCount||0))),maxPurchasableCount:Math.max(0,...carrying),standard:true,ticketType:type}
   }).filter(Boolean)
@@ -50,8 +53,8 @@ watch(()=>props.matchId,load);watch(()=>systemTime.revision,load);onMounted(load
             <el-button :disabled="!z.saleAvailable||z.maxPurchasableCount<1" @click="check(z)">预览座位</el-button>
             <el-button type="primary" :disabled="z.maxPurchasableCount<1||(!z.saleAvailable&&z.saleState!=='NOT_STARTED')" @click="openPassengers(z)">{{z.saleState==='NOT_STARTED'?'准备购票人':'选择购票人'}}</el-button>
           </div>
-          <el-alert v-if="!z.standard&&counts[z.key]>z.maxContinuousCount" class="result" type="warning" :closable="false" title="系统无法满足连坐需求，将为您尽量分配连坐座位"/>
-          <el-alert v-else-if="results[z.key]" class="result" type="success" :closable="false" :title="`当前可满足${results[z.key].ticketCount}张连坐：${results[z.key].rowLabel}，${results[z.key].seatLabels.join('、')}`"/>
+          <el-alert v-if="counts[z.key]>z.maxContinuousCount" class="result" type="warning" :closable="false" title="系统无法满足连坐需求，将为您尽量分配连坐座位"/>
+          <el-alert v-else-if="results[z.key]" class="result" type="success" :closable="false" :title="`${results[z.key].zoneName}：${results[z.key].rowLabel}，${results[z.key].seatLabels.join('、')}`"/>
           <p class="hint">预览不会锁座；实际票区和座位以创建订单时为准。</p>
         </el-card>
       </el-col>

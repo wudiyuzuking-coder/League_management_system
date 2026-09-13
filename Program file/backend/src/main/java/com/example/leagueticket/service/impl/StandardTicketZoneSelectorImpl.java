@@ -49,6 +49,9 @@ public class StandardTicketZoneSelectorImpl implements StandardTicketZoneSelecto
     private boolean canCarry(MatchInfo match,MatchTicketZone zone,int ticketCount){
         TicketZoneAvailabilityResponse availability=inventoryService.availability(zone.getMatchZoneId());
         if(!ticketSalePolicy.evaluateSaleAvailability(match,zone,availability.availableSeatCount()).available())return false;
-        return availability.availableSeatCount()>=ticketCount&&availability.maxContinuousCount()>=ticketCount;
+        // A STANDARD_8 purchase must fit one actual direction zone, but it does not
+        // have to fit one contiguous run.  The allocator keeps contiguity as a
+        // preference and falls back to the best available arrangement when needed.
+        return availability.availableSeatCount()>=ticketCount;
     }
 }

@@ -46,6 +46,13 @@ class StandardTicketZoneSelectorImplTest {
         assertThatThrownBy(()->selector.select(9L,"VIP",3,false)).isInstanceOf(BusinessException.class).hasMessage("没有任何单一实际票区能够承载本次购票数量");
     }
 
+    @Test void selectsEastWhenItHasStockEvenIfFullContiguityIsUnavailable(){
+        MatchTicketZone east=zone(1L,"EAST"),west=zone(2L,"WEST");
+        when(zoneMapper.findByMatch(9L)).thenReturn(List.of(west,east));
+        available(east,4,1);available(west,8,4);
+        assertThat(selector.select(9L,"VIP",4,false).getMatchZoneId()).isEqualTo(1L);
+    }
+
     private MatchTicketZone zone(long id,String direction){MatchTicketZone z=new MatchTicketZone();z.setMatchZoneId(id);z.setMatchId(9L);z.setTicketType("VIP");z.setZoneDirection(direction);return z;}
     private void available(MatchTicketZone z,long count,int continuous){when(inventoryService.availability(z.getMatchZoneId())).thenReturn(new TicketZoneAvailabilityResponse(count,count,0,0,0,continuous));when(policy.evaluateSaleAvailability(match,z,count)).thenReturn(new TicketSalePolicy.SaleEvaluation(true,"AVAILABLE"));}
 }

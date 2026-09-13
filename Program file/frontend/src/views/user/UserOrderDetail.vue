@@ -15,7 +15,7 @@ const countdown=computed(()=>{const s=Math.floor(remaining.value/1000);return `$
 const load=async()=>{loading.value=true;try{data.value=(await getOrder(route.params.id)).data}finally{loading.value=false}}
 const cancel=async()=>{await ElMessageBox.confirm('确认取消该待支付订单并释放座位？','取消订单',{type:'warning'});cancelling.value=true;try{data.value=(await cancelOrder(route.params.id)).data;ElMessage.success('订单已取消，座位已经释放')}finally{cancelling.value=false}}
 const pay=async result=>{paying.value=true;try{const r=(await payOrder(route.params.id,result)).data;data.value=r.orderDetail;if(result==='SUCCESS')ElMessage.success(r.idempotent?'订单已经支付，请勿重复操作':'模拟支付成功，电子票已生成');else ElMessage.warning('模拟支付失败，可在订单有效期内重试')}finally{paying.value=false}}
-const refund=async()=>{const {value}=await ElMessageBox.prompt('本系统仅支持整单退票；系统将按比赛时间自动计算100%或50%退款，须在比赛开始24小时前申请。请输入原因：','申请退票',{inputType:'textarea',inputValidator:v=>v?.trim()?'':'请输入退票原因'});refunding.value=true;try{await applyRefund(route.params.id,value);await load();ElMessage.success('退款已自动处理，可在本订单查看退款金额与手续费')}finally{refunding.value=false}}
+const refund=async()=>{const {value}=await ElMessageBox.prompt('本系统仅支持整单退票；系统将按比赛时间自动计算100%或50%退款，须在比赛开始24小时前申请。请输入原因：','申请退票',{inputType:'textarea',inputValidator:v=>v?.trim()?true:'请输入退票原因'});refunding.value=true;try{await applyRefund(route.params.id,value.trim());await load();ElMessage.success('退款已自动处理，可在本订单查看退款金额与手续费')}finally{refunding.value=false}}
 onMounted(async()=>{await Promise.all([load(),systemTime.sync()]);timer=setInterval(async()=>{systemTime.tick();if(order.value.orderStatus==='PENDING_PAYMENT'&&remaining.value===0&&!refreshing.value){refreshing.value=true;try{await load()}finally{refreshing.value=false}}},1000)})
 onBeforeUnmount(()=>clearInterval(timer))
 </script>

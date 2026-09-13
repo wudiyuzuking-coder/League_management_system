@@ -73,7 +73,7 @@ class OrderPassengerSnapshotTest {
                 .when(orderMapper).insert(any());
         when(seatAllocateService.selectAndLockSeats(eq(7L), eq(2), eq(20L), eq(now), any()))
                 .thenReturn(new SeatAllocationResponse(7L, 3L, 2, 1, "1排",
-                        List.of(101L, 102L), List.of(201L, 202L), List.of(1, 2), List.of("1号", "2号"), "test"));
+                        List.of(101L, 102L), List.of(201L, 202L), List.of(1, 2), List.of("1号", "2号"), "test", "东 VIP"));
         when(itemMapper.insert(any())).thenAnswer(invocation -> { inserted.add(invocation.getArgument(0)); return 1; });
         when(itemMapper.countByOrder(20L)).thenReturn(2);
         when(inventoryMapper.countLockedByOrder(20L)).thenReturn(2);
