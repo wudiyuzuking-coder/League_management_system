@@ -32,6 +32,7 @@ const view = row => {
   detailVisible.value = true
 }
 const toggle = async row => {
+  if (row.userStatus === 'CANCELLED') return
   const nextStatus = row.userStatus === 'ENABLED' ? 'DISABLED' : 'ENABLED'
   await updateAdminUserStatus(row.userId, nextStatus)
   ElMessage.success(`账号已${nextStatus === 'ENABLED' ? '启用' : '停用'}`)
@@ -59,6 +60,7 @@ onMounted(async () => {
         <el-select v-model="query.userStatus" clearable style="width: 130px">
           <el-option label="已启用" value="ENABLED" />
           <el-option label="已停用" value="DISABLED" />
+          <el-option label="已注销" value="CANCELLED" />
         </el-select>
       </el-form-item>
       <el-form-item><el-button type="primary" @click="search">查询</el-button></el-form-item>
@@ -72,7 +74,8 @@ onMounted(async () => {
       <el-table-column label="操作" width="150">
         <template #default="{ row }">
           <el-button link type="primary" @click="view(row)">查看</el-button>
-          <el-button link :type="row.userStatus === 'ENABLED' ? 'danger' : 'success'" @click="toggle(row)">{{ row.userStatus === 'ENABLED' ? '停用' : '启用' }}</el-button>
+          <el-button v-if="row.userStatus !== 'CANCELLED'" link :type="row.userStatus === 'ENABLED' ? 'danger' : 'success'" @click="toggle(row)">{{ row.userStatus === 'ENABLED' ? '停用' : '启用' }}</el-button>
+          <span v-else>不可操作</span>
         </template>
       </el-table-column>
     </el-table>

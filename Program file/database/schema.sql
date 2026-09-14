@@ -363,7 +363,7 @@ CREATE TABLE sys_user (
     CONSTRAINT uq_sys_user_club UNIQUE (club_id),
     CONSTRAINT fk_sys_user_role FOREIGN KEY (role_id) REFERENCES sys_role (role_id),
     CONSTRAINT fk_sys_user_club FOREIGN KEY (club_id) REFERENCES club_info (club_id) ON DELETE SET NULL,
-    CONSTRAINT ck_sys_user_status CHECK (user_status IN ('PENDING_ACTIVATION', 'PENDING_CLUB_APPROVAL', 'ENABLED', 'DISABLED', 'LOCKED')),
+    CONSTRAINT ck_sys_user_status CHECK (user_status IN ('PENDING_ACTIVATION', 'PENDING_CLUB_APPROVAL', 'ENABLED', 'DISABLED', 'LOCKED', 'CANCELLED')),
     KEY idx_sys_user_username (username),
     KEY idx_sys_user_role_status (role_id, user_status),
     KEY idx_sys_user_club (club_id)

@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class SysUserServiceImpl implements SysUserService {
 
-    private static final Set<String> USER_STATUSES = Set.of("PENDING_ACTIVATION", "PENDING_CLUB_APPROVAL", "ENABLED", "DISABLED", "LOCKED");
+    private static final Set<String> USER_STATUSES = Set.of("PENDING_ACTIVATION", "PENDING_CLUB_APPROVAL", "ENABLED", "DISABLED", "LOCKED", "CANCELLED");
     private static final Set<String> CLUB_BOUND_ROLES = Set.of("CLUB");
     private static final Set<String> UNBOUND_ROLES = Set.of("USER", "EVENT_ADMIN", "ADMIN");
     private static final Set<String> PUBLIC_REGISTER_ROLES = Set.of("USER", "CLUB");
@@ -124,6 +124,39 @@ public class SysUserServiceImpl implements SysUserService {
     }
 
     @Override
+    @Transactional
+    public void cancelAccount(Long userId, String roleCode) {
+        if ("ADMIN".equals(roleCode)) {
+            if (userMapper.lockRoleByCode("ADMIN") == null) {
+                throw new BusinessException(HttpStatus.CONFLICT, "系统管理员角色不存在");
+            }
+        }
+        SysUser user = userMapper.findByIdForUpdate(userId);
+        if (user == null) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "user not found");
+        }
+        if (!user.getRoleCode().equals(roleCode)) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "登录身份已失效");
+        }
+        if ("CANCELLED".equals(user.getUserStatus())) {
+            throw new BusinessException(HttpStatus.CONFLICT, "该账号已注销");
+        }
+        if (!"ENABLED".equals(user.getUserStatus())) {
+            throw new BusinessException(HttpStatus.CONFLICT, "当前账号状态不允许注销");
+        }
+        if ("CLUB".equals(user.getRoleCode()) && user.getClubId() != null) {
+            throw new BusinessException(HttpStatus.CONFLICT,
+                    "当前账号仍为俱乐部负责人，无法直接注销，请联系系统管理员处理俱乐部负责人关系");
+        }
+        if ("ADMIN".equals(user.getRoleCode()) && userMapper.countEnabledByRole("ADMIN") <= 1) {
+            throw new BusinessException(HttpStatus.CONFLICT, "当前账号是最后一个可用系统管理员，无法注销");
+        }
+        if (userMapper.cancelEnabled(userId) != 1) {
+            throw new BusinessException(HttpStatus.CONFLICT, "账号状态已变化，请重新登录后再试");
+        }
+    }
+
+    @Override
     public PageResponse<UserResponse> listUsers(UserQueryRequest request) {
         validateOptionalFilters(request.getRoleCode(), request.getUserStatus());
         long total = userMapper.countPage(request.getUsername(), request.getPhone(), request.getRoleCode(), request.getUserStatus());
@@ -184,8 +217,14 @@ public class SysUserServiceImpl implements SysUserService {
     @Override
     @Transactional
     public void updateStatus(Long userId, String userStatus) {
-        SysUser user = getById(userId);
+        SysUser user = userMapper.findByIdForUpdate(userId);
+        if (user == null) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "user not found");
+        }
         validateStatus(userStatus);
+        if ("CANCELLED".equals(user.getUserStatus())) {
+            throw new BusinessException(HttpStatus.CONFLICT, "已注销账号不能重新启用或停用");
+        }
         if ("ENABLED".equals(userStatus)
                 && (user.getPhone() == null || !PHONE_PATTERN.matcher(user.getPhone().trim()).matches())) {
             throw new BusinessException(HttpStatus.CONFLICT, "账号启用前必须设置有效手机号");

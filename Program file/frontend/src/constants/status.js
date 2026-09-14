@@ -29,6 +29,7 @@ export const ACCOUNT_STATUS_LABELS = {
   PENDING_CLUB_APPROVAL: '俱乐部审核中',
   ENABLED: '已启用',
   DISABLED: '已停用',
+  CANCELLED: '已注销',
 }
 
 export const CLUB_STATUS_LABELS = {

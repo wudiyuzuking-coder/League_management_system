@@ -17,3 +17,4 @@ export const uploadAvatar = (file) => {
   return request.post('/profile/avatar', data, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
 export const removeAvatar = () => request.delete('/profile/avatar')
+export const cancelAccount = () => request.post('/account/cancel')

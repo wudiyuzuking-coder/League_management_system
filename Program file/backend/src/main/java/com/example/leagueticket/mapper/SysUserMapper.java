@@ -89,6 +89,15 @@ public interface SysUserMapper {
     @Update("UPDATE sys_user SET user_status=#{userStatus} WHERE user_id=#{userId}")
     int updateStatus(@Param("userId") Long userId, @Param("userStatus") String userStatus);
 
+    @Select("SELECT role_id FROM sys_role WHERE role_code=#{roleCode} FOR UPDATE")
+    Long lockRoleByCode(String roleCode);
+
+    @Select("SELECT COUNT(*) FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE r.role_code=#{roleCode} AND u.user_status='ENABLED'")
+    int countEnabledByRole(String roleCode);
+
+    @Update("UPDATE sys_user SET user_status='CANCELLED' WHERE user_id=#{userId} AND user_status='ENABLED'")
+    int cancelEnabled(Long userId);
+
     @Update("UPDATE sys_user SET club_id=#{clubId}, user_status='ENABLED' WHERE user_id=#{userId} AND user_status='PENDING_CLUB_APPROVAL'")
     int approveClub(@Param("userId") Long userId, @Param("clubId") Long clubId);
 

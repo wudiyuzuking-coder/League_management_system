@@ -20,6 +20,7 @@ public interface SysUserService {
     AuthenticatedUser loadAuthenticatedUser(Long userId);
     UserResponse updateProfile(Long userId, UpdateProfileRequest request);
     void changePassword(Long userId, ChangePasswordRequest request);
+    void cancelAccount(Long userId, String roleCode);
     PageResponse<UserResponse> listUsers(UserQueryRequest request);
     UserResponse createByAdmin(AdminCreateUserRequest request);
     UserResponse approveClub(Long userId, ClubApprovalRequest request);

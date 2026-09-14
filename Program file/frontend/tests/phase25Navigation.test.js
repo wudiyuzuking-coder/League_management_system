@@ -24,4 +24,14 @@ test('account states use distinct Chinese labels', () => {
   assert.equal(accountStatusLabel('ENABLED'), '已启用')
   assert.equal(accountStatusLabel('DISABLED'), '已停用')
   assert.equal(accountStatusLabel('LOCKED'), '已锁定')
+  assert.equal(accountStatusLabel('CANCELLED'), '已注销')
+})
+
+test('account menu places cancellation after logout for every authenticated role', async () => {
+  const source = await import('node:fs/promises').then(fs => fs.readFile(new URL('../src/layouts/ManagementLayout.vue', import.meta.url), 'utf8'))
+  const logout = source.indexOf('command="logout"')
+  const cancellation = source.indexOf('command="cancel"')
+  assert.ok(logout >= 0)
+  assert.ok(cancellation > logout)
+  assert.match(source, /注销账号/)
 })

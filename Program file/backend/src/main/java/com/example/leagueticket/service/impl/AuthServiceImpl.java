@@ -55,6 +55,7 @@ public class AuthServiceImpl implements AuthService {
         validateManagementIdentity(user,role,request.employeeNo());
         if("DISABLED".equals(user.getUserStatus()))throw new BusinessException(HttpStatus.FORBIDDEN,"该工号已被停用，请联系管理员");
         if("LOCKED".equals(user.getUserStatus()))throw new BusinessException(HttpStatus.FORBIDDEN,"该工号已锁定，请联系管理员");
+        if("CANCELLED".equals(user.getUserStatus()))throw new BusinessException(HttpStatus.FORBIDDEN,"该账号已注销");
         if(!java.util.Set.of("PENDING_ACTIVATION","ENABLED").contains(user.getUserStatus()))throw new BusinessException(HttpStatus.CONFLICT,"管理账号状态异常");
         return new ManagementAccountStateResponse(role,user.getUserStatus(),"PENDING_ACTIVATION".equals(user.getUserStatus()));
     }
@@ -69,6 +70,7 @@ public class AuthServiceImpl implements AuthService {
         if(user==null)throw new BusinessException(HttpStatus.UNAUTHORIZED,"所选身份与账号不匹配");
         validateManagementIdentity(user,role,request.employeeNo());
         if("DISABLED".equals(user.getUserStatus()))throw new BusinessException(HttpStatus.FORBIDDEN,"该工号已被停用，请联系管理员");
+        if("CANCELLED".equals(user.getUserStatus()))throw new BusinessException(HttpStatus.FORBIDDEN,"该账号已注销");
         if(!"PENDING_ACTIVATION".equals(user.getUserStatus()))throw new BusinessException(HttpStatus.CONFLICT,"该账号已完成首次启用");
         if(!user.getRealName().equals(request.realName().trim()))throw new BusinessException(HttpStatus.UNAUTHORIZED,"姓名与预登记信息不一致");
         if(userMapper.activateManagementAccount(user.getUserId(),passwordEncoder.encode(request.password()))!=1)throw new BusinessException(HttpStatus.CONFLICT,"首次启用已由其他请求完成");
@@ -90,6 +92,7 @@ public class AuthServiceImpl implements AuthService {
             case "PENDING_ACTIVATION" -> throw new BusinessException(HttpStatus.FORBIDDEN,"请先完成管理员首次启用");
             case "DISABLED" -> throw new BusinessException(HttpStatus.FORBIDDEN,MANAGEMENT_ROLES.contains(user.getRoleCode())?"该工号已被停用，请联系管理员":"该账号已被停用，请联系管理员");
             case "LOCKED" -> throw new BusinessException(HttpStatus.FORBIDDEN,"账号已锁定，请联系管理员");
+            case "CANCELLED" -> throw new BusinessException(HttpStatus.FORBIDDEN,"该账号已注销");
             default -> throw new BusinessException(HttpStatus.FORBIDDEN,"账号状态异常");
         }
     }

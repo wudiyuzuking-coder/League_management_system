@@ -7,7 +7,10 @@ import SystemTimeControl from '../components/SystemTimeControl.vue'
 import {useSystemTimeStore} from '../stores/systemTime'
 import {getResultReminders} from '../api/match'
 import { UserFilled } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { MENU_PATHS, ROLE_LABELS, ROLE_MENUS } from '../config/navigation'
+import { cancelAccount } from '../api/auth'
+import { cancelCurrentAccount } from '../utils/accountCancellation'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
@@ -23,6 +26,20 @@ const logout = () => {
   authStore.logout()
   router.replace('/login')
 }
+const cancelSelf = async () => {
+  try {
+    await cancelCurrentAccount({
+      confirm: () => ElMessageBox.confirm('注销后将无法继续使用当前账号登录，历史业务数据将被保留。确定注销吗？', '注销账号', { type: 'warning', confirmButtonText: '确定注销', cancelButtonText: '取消' }),
+      request: cancelAccount,
+      logout: () => authStore.logout(),
+      redirect: path => router.replace(path),
+      notify: message => ElMessage.success(message),
+    })
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    if (!error?.__notified) ElMessage.error(error?.message || '注销失败')
+  }
+}
 const accountPath = computed(() => {
   if (authStore.user?.roleCode === 'USER') return '/user/profile'
   if (authStore.user?.roleCode === 'CLUB') return '/club/account'
@@ -32,6 +49,7 @@ const handleAccountCommand = command => {
   if (command === 'profile') router.push(accountPath.value)
   if (command === 'switch') router.push('/switch-account')
   if (command === 'logout') logout()
+  if (command === 'cancel') cancelSelf()
 }
 const menuLabel=item=>item[0]==='/admin/matches/result-reminders'?`${item[1]}（${resultReminderCount.value}）`:item[1]
 onMounted(loadReminderCount)
@@ -67,6 +85,7 @@ watch(()=>systemTimeStore.revision,loadReminderCount)
                 <el-dropdown-item command="profile">账号资料</el-dropdown-item>
                 <el-dropdown-item command="switch">切换账户</el-dropdown-item>
                 <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+                <el-dropdown-item command="cancel">注销账号</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
