@@ -60,27 +60,27 @@ class Phase20B2AutoSaleIntegrationTest {
 
     @AfterEach void teardown(){jdbc.update("UPDATE sys_config SET config_value='0',config_status='ENABLED' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");cleanup();}
 
-    @Test void persistedSeasonSaleStartIsTheOnlyPolicyBoundary() throws Exception {
-        com.example.leagueticket.entity.MatchInfo policyMatch=new com.example.leagueticket.entity.MatchInfo();policyMatch.setSaleStartTime(LocalDateTime.parse("2027-05-27T20:00:00"));
+    @Test void matchDateFourteenDaysEarlierAtTwentyIsTheOnlyPolicyBoundary() throws Exception {
+        com.example.leagueticket.entity.MatchInfo policyMatch=new com.example.leagueticket.entity.MatchInfo();policyMatch.setMatchTime(LocalDateTime.parse("2027-06-10T19:30:00"));
         assertThat(salePolicy.calculateSaleStartTime(policyMatch)).isEqualTo(LocalDateTime.parse("2027-05-27T20:00:00"));
         long zone=createZone(staticZoneA,"2027-06-10T19:00:00","2020-01-01T00:00:00");
-        assertThat(jdbc.queryForObject("SELECT sale_start_time FROM match_ticket_zone WHERE match_zone_id=?",LocalDateTime.class,zone)).isEqualTo(LocalDateTime.parse("2027-06-03T20:00:00"));
+        assertThat(jdbc.queryForObject("SELECT sale_start_time FROM match_ticket_zone WHERE match_zone_id=?",LocalDateTime.class,zone)).isEqualTo(LocalDateTime.parse("2027-05-27T20:00:00"));
     }
 
     @Test void preEnableThen1959RejectsAnd2000AutomaticallyAllowsQueryPreviewAndOrder() throws Exception {
         long zone=createReadyZone(staticZoneA,"2027-06-10T19:00:00");
         setTime("2027-06-01T12:00:00");transition(zone,"ON_SALE").andExpect(status().isOk());
-        setTime("2027-06-03T19:59:59");
-        detail(zone).andExpect(status().isOk()).andExpect(jsonPath("$.data.saleStartTime").value("2027-06-03T20:00:00")).andExpect(jsonPath("$.data.saleAvailable").value(false)).andExpect(jsonPath("$.data.saleState").value("NOT_STARTED"));
+        setTime("2027-05-27T19:59:59");
+        detail(zone).andExpect(status().isOk()).andExpect(jsonPath("$.data.saleStartTime").value("2027-05-27T20:00:00")).andExpect(jsonPath("$.data.saleAvailable").value(false)).andExpect(jsonPath("$.data.saleState").value("NOT_STARTED"));
         preview(zone,2).andExpect(status().isConflict());order(zone,2).andExpect(status().isConflict());
-        setTime("2027-06-03T20:00:00");
+        setTime("2027-05-27T20:00:00");
         detail(zone).andExpect(status().isOk()).andExpect(jsonPath("$.data.saleAvailable").value(true)).andExpect(jsonPath("$.data.saleState").value("AVAILABLE"));
         preview(zone,2).andExpect(status().isOk()).andExpect(jsonPath("$.data.ticketCount").value(2));
         order(zone,2).andExpect(status().isOk()).andExpect(jsonPath("$.data.order.orderStatus").value("PENDING_PAYMENT"));
     }
 
     @Test void draftPausedClosedAndZeroInventoryNeverBecomePurchasable() throws Exception {
-        setTime("2027-06-03T20:00:00");
+        setTime("2027-05-27T20:00:00");
         long draft=createReadyZone(staticZoneA,"2027-06-10T19:00:00");
         jdbc.update("UPDATE match_info SET match_status='DRAFT' WHERE match_id=?",matchId);
         preview(draft,1).andExpect(status().isConflict());order(draft,1).andExpect(status().isConflict());
@@ -101,7 +101,7 @@ class Phase20B2AutoSaleIntegrationTest {
         jdbc.update("UPDATE match_info SET match_time='2027-06-20 19:30:00' WHERE match_id=?",matchId);
         long a=createZone(staticZoneA,"2027-06-20T19:00:00",null),b=createZone(staticZoneB,"2027-06-20T18:00:00",null);
         updateMatch("2027-06-25T19:30:00").andExpect(status().isOk());
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM match_ticket_zone WHERE match_id=? AND sale_start_time='2027-06-18 20:00:00'",Integer.class,matchId)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM match_ticket_zone WHERE match_id=? AND sale_start_time='2027-06-11 20:00:00'",Integer.class,matchId)).isEqualTo(2);
         LocalDateTime oldMatch=jdbc.queryForObject("SELECT match_time FROM match_info WHERE match_id=?",LocalDateTime.class,matchId);
         Map<Long,LocalDateTime> starts=Map.of(a,jdbc.queryForObject("SELECT sale_start_time FROM match_ticket_zone WHERE match_zone_id=?",LocalDateTime.class,a),b,jdbc.queryForObject("SELECT sale_start_time FROM match_ticket_zone WHERE match_zone_id=?",LocalDateTime.class,b));
         updateMatch("2027-06-28T19:30:00").andExpect(status().isConflict());
@@ -127,7 +127,7 @@ class Phase20B2AutoSaleIntegrationTest {
         long zone=createReadyZone(staticZoneA,"2027-06-09T19:00:00");setTime("2027-06-04T12:00:00");transition(zone,"ON_SALE").andExpect(status().isOk());
         detail(zone).andExpect(jsonPath("$.data.saleAvailable").value(false));
         updateMatch("2027-06-10T19:30:00").andExpect(status().isOk());
-        detail(zone).andExpect(jsonPath("$.data.saleStartTime").value("2027-06-03T20:00:00")).andExpect(jsonPath("$.data.saleAvailable").value(true));
+        detail(zone).andExpect(jsonPath("$.data.saleStartTime").value("2027-05-27T20:00:00")).andExpect(jsonPath("$.data.saleAvailable").value(true));
     }
 
     private long createReadyZone(long staticZone,String end) throws Exception {long id=createZone(staticZone,end,null);mvc.perform(post("/api/admin/match-ticket-zones/{id}/inventory/generate",id).header("Authorization",bearer(eventAdmin))).andExpect(status().isOk());return id;}

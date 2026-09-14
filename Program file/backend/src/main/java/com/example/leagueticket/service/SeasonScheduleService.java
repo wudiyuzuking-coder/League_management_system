@@ -8,6 +8,7 @@ import java.util.List;
 public interface SeasonScheduleService {
     ScheduleDetailResponse generateIfEligible(Long seasonId,String triggerType);
     ScheduleDetailResponse get(Long seasonId);
+    UserSeasonScheduleResponse getPublicConfirmed(Long seasonId);
     PageResponse<SeasonScheduleBatch> list(ScheduleQueryRequest query);
     ScheduleDetailResponse confirm(Long seasonId,Long userId);
     List<ClubScheduleResponse> clubSchedules(Long clubId);

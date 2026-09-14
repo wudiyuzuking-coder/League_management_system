@@ -47,7 +47,7 @@ watch(()=>props.matchId,load);watch(()=>systemTime.revision,load);onMounted(load
           <template #header><div class="head"><b>{{z.label}}</b><el-tag :type="z.saleAvailable?'success':'info'">{{saleStateLabel(z)}}</el-tag></div></template>
           <div class="price">￥{{Number(z.price).toFixed(2)}}</div>
           <div class="remaining">余票 <strong>{{z.availableSeatCount}}</strong></div>
-          <el-alert v-if="z.saleState==='NOT_STARTED'" class="sale-time" type="warning" :closable="false" :title="`具体开售时间：${z.saleStartTime}`"/>
+          <el-alert v-if="z.saleState==='NOT_STARTED'" class="sale-time" type="warning" :closable="false" :title="`本场比赛将于 ${z.saleStartTime} 开售`"/>
           <div class="check-row">
             <el-select v-model="counts[z.key]" :disabled="z.maxPurchasableCount<1" style="width:92px"><el-option v-for="n in z.maxPurchasableCount" :key="n" :label="`${n}张`" :value="n"/></el-select>
             <el-button :disabled="!z.saleAvailable||z.maxPurchasableCount<1" @click="check(z)">预览座位</el-button>

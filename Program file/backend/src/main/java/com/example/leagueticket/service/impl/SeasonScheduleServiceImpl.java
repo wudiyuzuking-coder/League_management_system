@@ -27,6 +27,7 @@ public class SeasonScheduleServiceImpl implements SeasonScheduleService {
     private final ClubSeasonRecordMapper recordMapper;
     private final SystemTimeService timeService;
     private final DoubleRoundRobinSchedulePlanner planner;
+    private final TicketSalePolicy ticketSalePolicy;
 
     @Override @Transactional
     public ScheduleDetailResponse generateIfEligible(Long seasonId,String triggerType){
@@ -64,20 +65,34 @@ public class SeasonScheduleServiceImpl implements SeasonScheduleService {
                 SeasonScheduleMapper.EnrollmentTeam away=teams.get(game.awayIndex());
                 MatchInfo match=new MatchInfo();match.setSeasonId(seasonId);match.setRoundId(round.getRoundId());
                 match.setHomeClubId(home.getClubId());match.setAwayClubId(away.getClubId());match.setStadiumId(home.getStadiumId());
-                match.setMatchTime(LocalDateTime.of(game.date(),kickoff));match.setSaleStartTime(season.getTicketSaleStartTime());match.setSaleEndTime(match.getMatchTime().minusHours(1));matchMapper.insert(match);scheduleMapper.insertMatchLink(batch.getBatchId(),match.getMatchId());
+                match.setMatchTime(LocalDateTime.of(game.date(),kickoff));ticketSalePolicy.applySaleWindow(match);matchMapper.insert(match);scheduleMapper.insertMatchLink(batch.getBatchId(),match.getMatchId());
             }
         }
         return detail(scheduleMapper.findBySeason(seasonId));
     }
 
     @Override public ScheduleDetailResponse get(Long seasonId){SeasonScheduleBatch b=scheduleMapper.findBySeason(seasonId);if(b==null)throw new BusinessException(HttpStatus.NOT_FOUND,"schedule not found");return detail(b);}
+    @Override public UserSeasonScheduleResponse getPublicConfirmed(Long seasonId){
+        SeasonInfo season=seasonMapper.findById(seasonId);if(season==null)throw new BusinessException(HttpStatus.NOT_FOUND,"season not found");
+        SeasonScheduleBatch batch=scheduleMapper.findBySeason(seasonId);if(batch==null||!"CONFIRMED".equals(batch.getBatchStatus()))throw new BusinessException(HttpStatus.NOT_FOUND,"confirmed schedule not found");
+        Map<Integer,List<ScheduleMatchResponse>> grouped=new LinkedHashMap<>();
+        for(ScheduleMatchResponse row:scheduleMapper.findConfirmedPublicMatches(seasonId)){
+            MatchInfo match=new MatchInfo();match.setMatchStatus(row.getMatchStatus());match.setMatchTime(row.getMatchDateTime());
+            ticketSalePolicy.applySaleWindow(match);row.setSaleStartTime(match.getSaleStartTime());row.setSaleEndTime(match.getSaleEndTime());
+            TicketSalePolicy.SaleEvaluation sale=ticketSalePolicy.evaluateMatchAvailability(match,timeService.now(),row.getRemainingTickets(),row.getOnSaleZoneCount()>0);
+            row.setPurchasable(sale.available());row.setSaleStatus("AVAILABLE".equals(sale.state())?"ON_SALE":sale.state());
+            grouped.computeIfAbsent(row.getRoundNo(),key->new ArrayList<>()).add(row);
+        }
+        return new UserSeasonScheduleResponse(seasonId,season.getSeasonName(),season.getStartDate(),season.getEndDate(),batch.getClubCount(),grouped.entrySet().stream().map(e->new ScheduleRoundResponse(e.getKey(),e.getValue())).toList());
+    }
     @Override public PageResponse<SeasonScheduleBatch> list(ScheduleQueryRequest q){if(q.batchStatus()!=null&&!q.batchStatus().isBlank()&&!BATCH_STATUSES.contains(q.batchStatus()))throw new BusinessException("invalid batch status");int page=q.safePage(),size=q.safeSize();long total=scheduleMapper.countPage(q);return new PageResponse<>(scheduleMapper.findPage(q,(long)(page-1)*size,size),total,page,size);}
 
     @Override @Transactional
     public ScheduleDetailResponse confirm(Long seasonId,Long userId){
         SeasonInfo season=seasonMapper.findByIdForUpdate(seasonId);if(season==null)throw new BusinessException(HttpStatus.NOT_FOUND,"season not found");
         SeasonScheduleBatch batch=scheduleMapper.findBySeason(seasonId);if(batch==null)throw new BusinessException(HttpStatus.NOT_FOUND,"schedule not found");
-        if("GENERATED".equals(batch.getBatchStatus()))scheduleMapper.confirm(seasonId,userId,timeService.now());
+        LocalDateTime now=timeService.now();if("GENERATED".equals(batch.getBatchStatus()))scheduleMapper.confirm(seasonId,userId,now);
+        scheduleMapper.publishConfirmedRounds(seasonId);scheduleMapper.publishConfirmedMatches(seasonId,now);
         for(SeasonScheduleMapper.EnrollmentTeam team:scheduleMapper.findTeams(seasonId))recordMapper.ensureRecord(seasonId,team.getClubId());
         return detail(scheduleMapper.findBySeason(seasonId));
     }

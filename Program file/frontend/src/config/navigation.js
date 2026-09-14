@@ -8,7 +8,6 @@ export const ROLE_LABELS = {
 export const ROLE_MENUS = {
   USER: [
     ['/user/seasons', '联赛赛季'],
-    ['/user/matches', '比赛列表'],
     ['/user/orders', '我的订单'],
     ['/user/tickets', '我的电子票'],
     ['/user/passengers', '预填购票人'],

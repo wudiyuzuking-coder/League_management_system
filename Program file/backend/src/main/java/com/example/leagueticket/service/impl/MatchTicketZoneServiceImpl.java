@@ -96,7 +96,7 @@ public class MatchTicketZoneServiceImpl implements MatchTicketZoneService {
         MatchInfo match=matchService.getById(zone.getMatchId());
         if(!"PUBLISHED".equals(match.getMatchStatus()))throw new BusinessException("only a PUBLISHED match can sell tickets");
         ticketSalePolicy.validateSaleWindow(match);
-        if(!systemTimeService.now().isBefore(zone.getSaleEndTime()))throw new BusinessException("ticket sales have already ended");
+        if(!systemTimeService.now().isBefore(ticketSalePolicy.calculateSaleEndTime(match.getMatchTime())))throw new BusinessException("ticket sales have already ended");
         StadiumZone staticZone=stadiumZoneService.getById(zone.getStadiumZoneId());if(!"ACTIVE".equals(staticZone.getZoneStatus()))throw new BusinessException("disabled stadium zone cannot go on sale");
         if(inventoryMapper.countTotal(zone.getMatchZoneId())==0)throw new BusinessException("inventory must be generated explicitly before going on sale");
         if(inventoryMapper.countStatus(zone.getMatchZoneId(),"AVAILABLE")==0)throw new BusinessException("at least one AVAILABLE seat is required before going on sale");
@@ -113,7 +113,7 @@ public class MatchTicketZoneServiceImpl implements MatchTicketZoneService {
 
     private void validateMatchConfigurable(MatchInfo match){if(!Set.of("DRAFT","PUBLISHED").contains(match.getMatchStatus()))throw new BusinessException("ticket zones cannot be configured in current match status");}
     private void copy(MatchTicketZone zone,MatchTicketZoneRequest request,StadiumZone staticZone){MatchInfo match=matchService.getById(zone.getMatchId());zone.setStadiumZoneId(request.stadiumZoneId());zone.setZoneNameSnapshot(staticZone.getZoneName());zone.setTicketPrice(request.price());zone.setSaleStartTime(match.getSaleStartTime());zone.setSaleEndTime(match.getSaleEndTime());}
-    private MatchTicketZoneResponse response(MatchTicketZone zone,MatchInfo match){TicketZoneAvailabilityResponse a=inventoryService.availability(zone.getMatchZoneId());TicketSalePolicy.SaleEvaluation sale=ticketSalePolicy.evaluateSaleAvailability(match,zone,a.availableSeatCount());return new MatchTicketZoneResponse(zone.getMatchZoneId(),zone.getMatchId(),zone.getStadiumZoneId(),zone.getCreatedBy(),zone.getZoneNameSnapshot(),zone.getZoneCode(),zone.getZoneDirection(),zone.getTicketType(),zone.getTicketPrice(),zone.getZoneStatus(),zone.getSaleStartTime(),zone.getSaleEndTime(),a.totalSeatCount(),a.availableSeatCount(),a.lockedSeatCount(),a.soldSeatCount(),a.disabledSeatCount(),a.maxContinuousCount(),sale.available(),sale.state());}
+    private MatchTicketZoneResponse response(MatchTicketZone zone,MatchInfo match){TicketZoneAvailabilityResponse a=inventoryService.availability(zone.getMatchZoneId());TicketSalePolicy.SaleEvaluation sale=ticketSalePolicy.evaluateSaleAvailability(match,zone,a.availableSeatCount());return new MatchTicketZoneResponse(zone.getMatchZoneId(),zone.getMatchId(),zone.getStadiumZoneId(),zone.getCreatedBy(),zone.getZoneNameSnapshot(),zone.getZoneCode(),zone.getZoneDirection(),zone.getTicketType(),zone.getTicketPrice(),zone.getZoneStatus(),ticketSalePolicy.calculateSaleStartTime(match),ticketSalePolicy.calculateSaleEndTime(match.getMatchTime()),a.totalSeatCount(),a.availableSeatCount(),a.lockedSeatCount(),a.soldSeatCount(),a.disabledSeatCount(),a.maxContinuousCount(),sale.available(),sale.state());}
     private UserMatchTicketZoneResponse publicResponse(MatchTicketZone zone,MatchInfo match,StadiumSeatMapper.ZoneSeatSummary summary){
         TicketZoneAvailabilityResponse a=inventoryService.availability(zone.getMatchZoneId());
         TicketSalePolicy.SaleEvaluation sale=ticketSalePolicy.evaluateSaleAvailability(match,zone,a.availableSeatCount());
@@ -121,7 +121,7 @@ public class MatchTicketZoneServiceImpl implements MatchTicketZoneService {
         int rows=summary==null?0:summary.getRowCount();Integer min=summary==null?null:summary.getMinSeatNo();Integer max=summary==null?null:summary.getMaxSeatNo();
         return new UserMatchTicketZoneResponse(zone.getMatchZoneId(),zone.getMatchId(),zone.getStadiumZoneId(),
                 zone.getZoneNameSnapshot(),zone.getZoneCode(),zone.getZoneDirection(),zone.getTicketType(),zone.getTicketPrice(),zone.getZoneStatus(),
-                zone.getSaleStartTime(),zone.getSaleEndTime(),physical,active,rows,min,max,
+                ticketSalePolicy.calculateSaleStartTime(match),ticketSalePolicy.calculateSaleEndTime(match.getMatchTime()),physical,active,rows,min,max,
                 a.totalSeatCount(),a.availableSeatCount(),a.maxContinuousCount(),sale.available(),sale.state());
     }
     private Map<Long,StadiumSeatMapper.ZoneSeatSummary> seatSummaries(Long stadiumId){

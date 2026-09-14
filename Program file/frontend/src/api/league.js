@@ -2,6 +2,7 @@ import request from '../utils/request'
 export const getSeasons=()=>request.get('/seasons')
 export const getSeason=(id)=>request.get(`/seasons/${id}`)
 export const getRounds=(seasonId)=>request.get(`/seasons/${seasonId}/rounds`)
+export const getSeasonSchedule=(seasonId)=>request.get(`/seasons/${seasonId}/schedule`)
 export const getStandings=(seasonId)=>request.get(`/seasons/${seasonId}/standings`)
 export const createSeason=(data)=>request.post('/admin/seasons',data)
 export const updateSeason=(id,data)=>request.put(`/admin/seasons/${id}`,data)

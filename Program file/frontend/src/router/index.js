@@ -18,7 +18,7 @@ const routes = [
       {path:'seasons',name:'user-seasons',component:view('user/UserSeasons')},
       {path:'seasons/:id/rounds',name:'user-rounds',component:view('user/UserRounds')},
       {path:'seasons/:id/standings',name:'user-standings',component:view('user/UserStandings')},
-      {path:'matches',name:'user-matches',component:view('user/UserMatches')},
+      {path:'matches',name:'user-matches',redirect:'/user/seasons'},
       {path:'matches/:id',name:'user-match-detail',component:view('user/UserMatchDetail')},
       {path:'clubs/:clubId',name:'user-club-detail',component:view('user/UserClubDetail')},
       {path:'orders',name:'user-orders',component:view('user/UserOrders')},

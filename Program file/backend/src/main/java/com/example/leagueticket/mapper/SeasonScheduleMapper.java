@@ -29,6 +29,51 @@ public interface SeasonScheduleMapper {
     List<ScheduleMatchResponse> findBatchMatches(Long batchId);
 
     @Select("""
+        SELECT m.match_id,r.round_no,m.match_time match_date_time,
+          m.home_club_id,h.club_name home_club_name,h.logo_url home_logo_url,
+          m.away_club_id,a.club_name away_club_name,a.logo_url away_logo_url,
+          m.stadium_id,st.stadium_name,st.address stadium_address,m.match_status,
+          m.sale_start_time,m.sale_end_time,
+          COALESCE(SUM(CASE WHEN i.inventory_status='AVAILABLE' THEN 1 ELSE 0 END),0) remaining_tickets,
+          COUNT(DISTINCT CASE WHEN z.zone_status='ON_SALE' THEN z.match_zone_id END) on_sale_zone_count
+        FROM season_schedule_batch b
+        JOIN season_schedule_match sm ON sm.batch_id=b.batch_id
+        JOIN match_info m ON m.match_id=sm.match_id
+        JOIN round_info r ON r.round_id=m.round_id
+        JOIN club_info h ON h.club_id=m.home_club_id
+        JOIN club_info a ON a.club_id=m.away_club_id
+        JOIN stadium_info st ON st.stadium_id=m.stadium_id
+        LEFT JOIN match_ticket_zone z ON z.match_id=m.match_id
+        LEFT JOIN match_seat_inventory i ON i.match_zone_id=z.match_zone_id
+        WHERE b.season_id=#{seasonId} AND b.batch_status='CONFIRMED'
+          AND m.match_status IN ('PUBLISHED','IN_PROGRESS','FINISHED')
+        GROUP BY m.match_id,r.round_no,m.match_time,m.home_club_id,h.club_name,h.logo_url,
+          m.away_club_id,a.club_name,a.logo_url,m.stadium_id,st.stadium_name,st.address,
+          m.match_status,m.sale_start_time,m.sale_end_time
+        ORDER BY r.round_no,m.match_time,m.match_id
+        """)
+    List<ScheduleMatchResponse> findConfirmedPublicMatches(Long seasonId);
+
+    @Update("""
+        UPDATE match_info m
+        JOIN season_schedule_match sm ON sm.match_id=m.match_id
+        JOIN season_schedule_batch b ON b.batch_id=sm.batch_id
+        SET m.match_status='PUBLISHED',m.published_at=COALESCE(m.published_at,#{now})
+        WHERE b.season_id=#{seasonId} AND b.batch_status='CONFIRMED' AND m.match_status='DRAFT'
+        """)
+    int publishConfirmedMatches(@Param("seasonId")Long seasonId,@Param("now")LocalDateTime now);
+
+    @Update("""
+        UPDATE round_info r
+        JOIN match_info m ON m.round_id=r.round_id
+        JOIN season_schedule_match sm ON sm.match_id=m.match_id
+        JOIN season_schedule_batch b ON b.batch_id=sm.batch_id
+        SET r.round_status='PUBLISHED'
+        WHERE b.season_id=#{seasonId} AND b.batch_status='CONFIRMED' AND r.round_status='DRAFT'
+        """)
+    int publishConfirmedRounds(Long seasonId);
+
+    @Select("""
         <script>SELECT COUNT(*) FROM season_schedule_batch b <where>
         <if test='q.seasonId!=null'>AND b.season_id=#{q.seasonId}</if>
         <if test='q.batchStatus!=null and q.batchStatus!=""'>AND b.batch_status=#{q.batchStatus}</if>

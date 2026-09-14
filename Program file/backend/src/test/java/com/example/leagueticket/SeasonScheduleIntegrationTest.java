@@ -3,6 +3,7 @@ package com.example.leagueticket;
 import com.example.leagueticket.dto.*;
 import com.example.leagueticket.service.*;
 import com.example.leagueticket.vo.ScheduleDetailResponse;
+import com.example.leagueticket.vo.UserSeasonScheduleResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.*;
@@ -49,6 +50,10 @@ class SeasonScheduleIntegrationTest {
         assertRoundRobin(season,teams,6,12,3,3);assertVenuesUseEnrollmentSnapshot(season);
         assertThat(schedules.clubSchedules(teams.get(0).clubId())).isEmpty();
         ScheduleDetailResponse confirmed=schedules.confirm(season,eventAdminId());assertThat(confirmed.getBatchStatus()).isEqualTo("CONFIRMED");
+        UserSeasonScheduleResponse publicSchedule=schedules.getPublicConfirmed(season);
+        assertThat(publicSchedule.rounds()).hasSize(6);
+        assertThat(publicSchedule.rounds().stream().flatMap(round->round.matches().stream()).toList()).hasSize(12).allSatisfy(match->assertThat(match.getMatchStatus()).isEqualTo("PUBLISHED"));
+        assertThat(matches.listPublic(publicQuery).total()).isEqualTo(12);
         assertThat(schedules.clubSchedules(teams.get(0).clubId())).hasSize(6);assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM club_season_record WHERE season_id=?",Integer.class,season)).isEqualTo(4);
         schedules.confirm(season,eventAdminId());assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM club_season_record WHERE season_id=?",Integer.class,season)).isEqualTo(4);
     }

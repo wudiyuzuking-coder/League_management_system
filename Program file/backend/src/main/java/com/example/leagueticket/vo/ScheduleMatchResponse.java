@@ -10,9 +10,18 @@ public class ScheduleMatchResponse {
     private LocalDateTime matchDateTime;
     private Long homeClubId;
     private String homeClubName;
+    private String homeLogoUrl;
     private Long awayClubId;
     private String awayClubName;
+    private String awayLogoUrl;
     private Long stadiumId;
     private String stadiumName;
+    private String stadiumAddress;
     private String matchStatus;
+    private LocalDateTime saleStartTime;
+    private LocalDateTime saleEndTime;
+    private long remainingTickets;
+    private int onSaleZoneCount;
+    private String saleStatus;
+    private boolean purchasable;
 }

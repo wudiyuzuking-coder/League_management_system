@@ -60,7 +60,7 @@ onMounted(load)
     </el-card>
   </div>
   <el-dialog v-model="visible" :title="editingId?'编辑比赛票区':'新增比赛票区'" width="560px">
-    <el-alert title="开售时间由报名截止次日20:00统一生成，停售时间固定为赛前1小时。" type="info" :closable="false"/>
+    <el-alert title="每场比赛开始日期前14天晚上8点开售，停售时间固定为赛前1小时。" type="info" :closable="false"/>
     <el-form ref="formRef" :model="form" :rules="rules" label-width="120px"><el-form-item label="静态票区" prop="stadiumZoneId"><el-select v-model="form.stadiumZoneId" :disabled="editingId&&zones.find(v=>v.matchZoneId===editingId)?.totalSeatCount>0"><el-option v-for="z in staticZones" :key="z.stadiumZoneId" :label="`${z.zoneName}（${z.zoneCode}）`" :value="z.stadiumZoneId" :disabled="z.zoneStatus!=='ACTIVE'"/></el-select></el-form-item><el-form-item label="票价" prop="price"><el-input-number v-model="form.price" :min="0" :precision="2"/></el-form-item><el-form-item label="自动开售时间"><el-input :model-value="automaticSaleStart" readonly/></el-form-item><el-form-item label="自动停售时间"><el-input :model-value="match.saleEndTime" readonly/></el-form-item></el-form>
     <template #footer><el-button @click="visible=false">取消</el-button><el-button type="primary" :loading="saving" @click="save">保存</el-button></template>
   </el-dialog>

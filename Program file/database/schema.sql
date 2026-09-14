@@ -64,7 +64,7 @@ CREATE TABLE season_info (
     end_date DATE NOT NULL COMMENT '结束日期',
     registration_start_time DATETIME NULL COMMENT '报名开始时间，历史赛季可为空',
     registration_deadline DATETIME NULL COMMENT '报名截止时间，历史赛季可为空',
-    ticket_sale_start_time DATETIME NULL COMMENT '报名截止次日20:00，历史赛季可为空',
+    ticket_sale_start_time DATETIME NULL COMMENT '历史兼容字段，不参与单场售票判定',
     max_clubs INT UNSIGNED NULL COMMENT '最大报名俱乐部数，历史赛季可为空',
     season_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '赛季状态',
     description VARCHAR(500) NULL COMMENT '赛季说明',
