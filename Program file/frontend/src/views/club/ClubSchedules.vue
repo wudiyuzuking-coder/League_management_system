@@ -1,17 +1,25 @@
 <script setup>
 import {computed,onMounted,ref} from 'vue'
 import {getClubSchedules} from '../../api/club'
-import {formatDateTime} from '../../utils/format'
 
-const rows=ref([]),loading=ref(false),expanded=ref([])
+const rows=ref([]),loading=ref(false),error=ref(''),expanded=ref([])
 const groups=computed(()=>[
-  {key:'upcoming',title:'未开始',rows:rows.value.filter(r=>!['IN_PROGRESS','FINISHED'].includes(r.matchStatus))},
-  {key:'ongoing',title:'进行中',rows:rows.value.filter(r=>r.matchStatus==='IN_PROGRESS')},
-  {key:'finished',title:'已结束',rows:rows.value.filter(r=>r.matchStatus==='FINISHED')},
+  {key:'upcoming',title:'未开始',rows:rows.value.filter(row=>!['IN_PROGRESS','FINISHED'].includes(row.matchStatus))},
+  {key:'ongoing',title:'进行中',rows:rows.value.filter(row=>row.matchStatus==='IN_PROGRESS')},
+  {key:'finished',title:'已结束',rows:rows.value.filter(row=>row.matchStatus==='FINISHED')},
 ])
-const money=value=>`￥${Number(value||0).toFixed(2)}`
-const load=async()=>{loading.value=true;try{rows.value=(await getClubSchedules()).data}finally{loading.value=false}}
+const load=async()=>{loading.value=true;error.value='';try{rows.value=(await getClubSchedules()).data}catch(e){error.value=e?.message||'加载俱乐部赛程失败，请稍后重试。'}finally{loading.value=false}}
+const toggle=row=>{expanded.value=expanded.value.includes(row.matchId)?expanded.value.filter(id=>id!==row.matchId):[...expanded.value,row.matchId]}
 onMounted(load)
 </script>
-<template><div v-loading="loading"><div class="page-head"><h2>已确认赛程</h2><el-button @click="load">刷新</el-button></div><el-card v-for="group in groups" :key="group.key" class="section"><template #header><b>{{group.title}} <span class="count">{{group.rows.length}}</span></b></template><div v-if="!group.rows.length" class="empty">暂无比赛</div><article v-for="row in group.rows" :key="row.matchId" class="match"><div class="identity"><el-avatar :size="50" :src="row.opponentLogoUrl||undefined">{{row.opponentClubName?.slice(0,1)}}</el-avatar><div><strong>{{row.home?'主场 vs ':'客场 vs '}}{{row.opponentClubName}}</strong><p>{{row.seasonName}} · 第{{row.roundNo}}轮 · {{formatDateTime(row.matchDateTime)}}</p><p>{{row.stadiumName}}</p></div></div><div v-if="row.matchStatus==='FINISHED'" class="score">{{row.ownScore}} : {{row.opponentScore}}</div><el-button link type="primary" @click="expanded.includes(row.matchId)?expanded=expanded.filter(id=>id!==row.matchId):expanded.push(row.matchId)">票务详情</el-button><router-link :to="`/club/matches/${row.matchId}/tickets`"><el-button link>进入票务</el-button></router-link><div v-if="expanded.includes(row.matchId)" class="ticketing"><span>已售 VIP：<b>{{row.soldVipCount||0}}</b></span><span>已售普通票：<b>{{row.soldNormalCount||0}}</b></span><span v-if="row.home">总营收：<b>{{money(row.totalRevenue)}}</b></span><span>本队收益（{{row.home?'60%':'30%'}}）：<b>{{money(row.clubRevenue)}}</b></span></div></article></el-card></div></template>
-<style scoped>.page-head,.match{display:flex;align-items:center}.page-head{justify-content:space-between}.page-head h2{margin:0}.section{margin-top:16px}.count{color:#94a3b8;margin-left:6px}.empty{color:#94a3b8;text-align:center;padding:24px}.match{position:relative;gap:16px;padding:15px 0;border-bottom:1px solid #edf0f4;flex-wrap:wrap}.match:last-child{border-bottom:0}.identity{display:flex;align-items:center;gap:12px;min-width:360px;flex:1}.identity strong{font-size:17px}.identity p{margin:4px 0 0;color:#6b7280}.score{font-size:24px;font-weight:700}.ticketing{flex-basis:100%;display:flex;gap:30px;background:#f8fafc;padding:12px 16px;border-radius:8px}.ticketing span{color:#64748b}.ticketing b{color:#111827}</style>
+
+<template>
+  <div>
+    <PageHeader title="已确认赛程" subtitle="按比赛状态查看本俱乐部正式赛程与票务概览。"><template #actions><el-button @click="load">刷新</el-button></template></PageHeader>
+    <DataState :loading="loading" :error="error" :empty="!rows.length" empty-title="暂无已确认赛程" empty-description="赛事管理员确认赛程后会显示在这里。" @retry="load">
+      <section v-for="group in groups" :key="group.key" class="schedule-group"><div class="schedule-group__heading"><h2>{{group.title}}</h2><span>{{group.rows.length}} 场</span></div><div v-if="!group.rows.length" class="group-empty">该分组暂无比赛</div><article v-for="row in group.rows" :key="row.matchId" class="club-fixture"><div class="club-fixture__identity"><el-avatar :size="50" :src="row.opponentLogoUrl||undefined" :alt="`${row.opponentClubName}队徽`">{{row.opponentClubName?.slice(0,1)}}</el-avatar><div><span>{{row.home?'主场':'客场'}} · {{row.seasonName}} · 第 {{row.roundNo}} 轮</span><h3>{{row.home?'VS ':''}}{{row.opponentClubName}}{{row.home?'':' VS'}}</h3><p>{{$formatDateTime(row.matchDateTime)}} · {{row.stadiumName}}</p></div></div><div v-if="row.matchStatus==='FINISHED'" class="score tabular-nums">{{row.ownScore}} : {{row.opponentScore}}</div><StatusTag :value="row.matchStatus"/><div class="club-fixture__actions"><el-button link @click="toggle(row)">{{expanded.includes(row.matchId)?'收起票务':'票务概览'}}</el-button><RouterLink :to="`/club/matches/${row.matchId}/tickets`" class="el-button el-button--primary is-link">进入票务</RouterLink></div><div v-if="expanded.includes(row.matchId)" class="ticketing"><span>已售 VIP <b>{{row.soldVipCount||0}}</b></span><span>已售普通票 <b>{{row.soldNormalCount||0}}</b></span><span v-if="row.home">总营收 <b>{{$formatMoney(row.totalRevenue)}}</b></span><span>本队收益（{{row.home?'60%':'30%'}}）<b>{{$formatMoney(row.clubRevenue)}}</b></span></div></article></section>
+    </DataState>
+  </div>
+</template>
+
+<style scoped>.schedule-group{overflow:hidden;margin-bottom:var(--space-lg);border:1px solid var(--border-color);border-radius:var(--radius-lg);background:var(--surface)}.schedule-group__heading{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-color);background:var(--surface-muted)}.schedule-group__heading h2{margin:0;font-size:18px}.schedule-group__heading span{color:var(--text-muted);font-size:13px}.group-empty{padding:26px;color:var(--text-muted);text-align:center}.club-fixture{display:grid;grid-template-columns:minmax(360px,1fr) auto auto auto;align-items:center;gap:var(--space-lg);padding:18px 20px;border-bottom:1px solid var(--border-color)}.club-fixture:last-child{border-bottom:0}.club-fixture__identity{display:flex;align-items:center;gap:12px;min-width:0}.club-fixture__identity span,.club-fixture__identity p{color:var(--text-muted);font-size:12px}.club-fixture__identity h3{margin:4px 0;font-size:17px}.club-fixture__identity p{margin:0}.score{font-size:24px;font-weight:800}.club-fixture__actions{display:flex;align-items:center;gap:var(--space-sm)}.ticketing{grid-column:1/-1;display:flex;gap:30px;padding:13px 16px;border-radius:var(--radius-md);background:var(--surface-muted);color:var(--text-secondary)}.ticketing b{margin-left:5px;color:var(--text-primary)}</style>

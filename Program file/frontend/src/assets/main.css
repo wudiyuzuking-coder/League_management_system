@@ -1,8 +1,44 @@
 :root {
+  --app-bg: #f3f6f4;
+  --surface: #ffffff;
+  --surface-muted: #f7f9f8;
+  --text-primary: #17211c;
+  --text-secondary: #53635a;
+  --text-muted: #75837b;
+  --border-color: #dfe7e2;
+  --primary: #176b45;
+  --primary-hover: #125a39;
+  --primary-soft: #d9efe3;
+  --success: #168a54;
+  --warning: #b7791f;
+  --danger: #c2413b;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgb(16 44 29 / 6%);
+  --shadow-md: 0 10px 26px rgb(16 44 29 / 10%);
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --el-color-primary: var(--primary);
+  --el-color-primary-light-3: #4f9271;
+  --el-color-primary-light-5: #80ae96;
+  --el-color-primary-light-7: #b4d2c1;
+  --el-color-primary-light-8: #d1e4d9;
+  --el-color-primary-light-9: #edf6f1;
+  --el-color-primary-dark-2: var(--primary-hover);
+  --el-color-success: var(--success);
+  --el-color-warning: var(--warning);
+  --el-color-danger: var(--danger);
+  --el-border-color: var(--border-color);
+  --el-border-radius-base: var(--radius-sm);
+  --el-bg-color-page: var(--app-bg);
   font-family:
     Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
-  color: #1f2937;
-  background: #f5f7fa;
+  color: var(--text-primary);
+  background: var(--app-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -22,12 +58,55 @@ body,
 
 body {
   min-height: 100vh;
+  background: var(--app-bg);
 }
 
 a {
   color: inherit;
   text-decoration: none;
 }
+
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid var(--primary-soft);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.app-surface {
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.el-card {
+  --el-card-border-color: var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.el-table { --el-table-header-bg-color: var(--surface-muted); --el-table-row-hover-bg-color: #f2f8f4; color: var(--text-primary); }
+.el-table th.el-table__cell { color: var(--text-secondary); font-weight: 700; }
+.el-table .cell { padding-top: 3px; padding-bottom: 3px; }
+.el-pagination { justify-content: flex-end; margin-top: var(--space-md); }
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+.app-dialog { --el-dialog-border-radius: var(--radius-lg); }
+.app-dialog .el-dialog__header { padding-bottom: var(--space-md); border-bottom: 1px solid var(--border-color); }
+.app-dialog .el-dialog__footer { padding-top: var(--space-md); border-top: 1px solid var(--border-color); }
 
 .auth-page {
   display: grid;

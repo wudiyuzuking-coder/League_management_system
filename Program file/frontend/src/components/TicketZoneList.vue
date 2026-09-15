@@ -6,9 +6,10 @@ import {getTicketZones,previewSeatAllocation,previewTicketTypeAllocation} from '
 import {createOrder} from '../api/order'
 import {addPrefilledPassenger,getPrefilledPassengers} from '../api/passenger'
 import {useSystemTimeStore} from '../stores/systemTime'
+import {maskIdCard} from '../utils/privacy'
 
 const props=defineProps({matchId:{type:[Number,String],required:true}})
-const zones=ref([]),loading=ref(false),counts=reactive({}),results=reactive({})
+const zones=ref([]),loading=ref(false),error=ref(''),counts=reactive({}),results=reactive({}),previewKey=ref('')
 const router=useRouter(),buying=ref(null),systemTime=useSystemTimeStore()
 const passengerVisible=ref(false),passengers=ref([]),selectedPassengers=ref([]),currentOffering=ref(null),addingPassenger=ref(false)
 const passengerForm=reactive({passengerName:'',idCardNo:''})
@@ -27,8 +28,11 @@ const offerings=computed(()=>{
     return {...sale,key:type,label:type==='VIP'?'VIP':'普通',availableSeatCount:available,maxContinuousCount:Math.max(0,...actual.map(z=>Number(z.maxContinuousCount||0))),maxPurchasableCount:Math.max(0,...carrying),standard:true,ticketType:type}
   }).filter(Boolean)
 })
-const load=async()=>{if(!props.matchId)return;loading.value=true;try{zones.value=(await getTicketZones(props.matchId)).data;offerings.value.forEach(z=>{const max=Math.max(1,z.maxPurchasableCount);if(!counts[z.key]||counts[z.key]>max)counts[z.key]=1})}finally{loading.value=false}}
-const check=async z=>{delete results[z.key];results[z.key]=(await (z.standard?previewTicketTypeAllocation(props.matchId,z.ticketType,counts[z.key]):previewSeatAllocation(z.matchZoneId,counts[z.key]))).data}
+const previewOffering=computed(()=>offerings.value.find(item=>item.key===previewKey.value))
+const previewResult=computed(()=>previewKey.value?results[previewKey.value]:null)
+const previewTotal=computed(()=>Number(previewOffering.value?.price||0)*Number(counts[previewKey.value]||0))
+const load=async()=>{if(!props.matchId)return;loading.value=true;error.value='';try{zones.value=(await getTicketZones(props.matchId)).data;offerings.value.forEach(z=>{const max=Math.max(1,z.maxPurchasableCount);if(!counts[z.key]||counts[z.key]>max)counts[z.key]=1})}catch(e){error.value=e?.message||'加载票务失败，请稍后重试。'}finally{loading.value=false}}
+const check=async z=>{delete results[z.key];previewKey.value='';results[z.key]=(await (z.standard?previewTicketTypeAllocation(props.matchId,z.ticketType,counts[z.key]):previewSeatAllocation(z.matchZoneId,counts[z.key]))).data;previewKey.value=z.key}
 const openPassengers=async z=>{currentOffering.value=z;selectedPassengers.value=[];passengers.value=(await getPrefilledPassengers()).data;passengerVisible.value=true}
 const passengerSelection=rows=>{selectedPassengers.value=rows}
 const addPassenger=async()=>{if(!passengerForm.passengerName.trim()||!/^\d{17}[\dXx]$/.test(passengerForm.idCardNo))return ElMessage.error('请填写姓名和正确的18位身份证号');addingPassenger.value=true;try{await addPrefilledPassenger(passengerForm);passengerForm.passengerName='';passengerForm.idCardNo='';passengers.value=(await getPrefilledPassengers()).data;ElMessage.success('购票人已添加')}finally{addingPassenger.value=false}}
@@ -38,29 +42,48 @@ watch(()=>props.matchId,load);watch(()=>systemTime.revision,load);onMounted(load
 </script>
 
 <template>
-  <section class="tickets" v-loading="loading">
-    <h3>票务信息</h3>
-    <el-empty v-if="!offerings.length" description="本场比赛暂未配置票务"/>
-    <el-row v-else :gutter="16">
-      <el-col v-for="z in offerings" :key="z.key" :md="12">
-        <el-card class="zone">
-          <template #header><div class="head"><b>{{z.label}}</b><el-tag :type="z.saleAvailable?'success':'info'">{{saleStateLabel(z)}}</el-tag></div></template>
-          <div class="price">￥{{Number(z.price).toFixed(2)}}</div>
-          <div class="remaining">余票 <strong>{{z.availableSeatCount}}</strong></div>
-          <el-alert v-if="z.saleState==='NOT_STARTED'" class="sale-time" type="warning" :closable="false" :title="`本场比赛将于 ${z.saleStartTime} 开售`"/>
-          <div class="check-row">
-            <el-select v-model="counts[z.key]" :disabled="z.maxPurchasableCount<1" style="width:92px"><el-option v-for="n in z.maxPurchasableCount" :key="n" :label="`${n}张`" :value="n"/></el-select>
+  <section class="tickets">
+    <div class="section-heading"><span>STEP 1</span><div><h2>选择票种与数量</h2><p>每单最多 4 张，实际方向票区由系统分配。</p></div></div>
+    <DataState :loading="loading" :error="error" :empty="!offerings.length" empty-title="本场比赛暂未配置票务" empty-description="票务启用后可在这里选择票种。" @retry="load">
+      <div class="ticket-offers">
+        <article v-for="z in offerings" :key="z.key" class="ticket-offer" :class="{'ticket-offer--vip':z.ticketType==='VIP'||z.label==='VIP'}">
+          <div class="ticket-offer__top"><div><span>赛事门票</span><h3>{{z.label}}</h3></div><StatusTag :value="z.saleState"/></div>
+          <div class="ticket-offer__price tabular-nums"><strong>{{$formatMoney(z.price)}}</strong><span>/ 张</span></div>
+          <div class="ticket-offer__inventory"><span>剩余</span><b class="tabular-nums">{{z.availableSeatCount}}</b><span>张</span></div>
+          <p>东 / 西 / 南 / 北实际票区由系统按库存自动分配。</p>
+          <el-alert v-if="z.saleState==='NOT_STARTED'" class="sale-time" type="warning" :closable="false" :title="`本场比赛将于 ${$formatDateTime(z.saleStartTime)} 开售`"/>
+          <div class="ticket-offer__controls">
+            <label :for="`ticket-count-${z.key}`">数量</label>
+            <el-select :id="`ticket-count-${z.key}`" v-model="counts[z.key]" :disabled="z.maxPurchasableCount<1" aria-label="购票数量"><el-option v-for="n in z.maxPurchasableCount" :key="n" :label="`${n} 张`" :value="n"/></el-select>
             <el-button :disabled="!z.saleAvailable||z.maxPurchasableCount<1" @click="check(z)">预览座位</el-button>
             <el-button type="primary" :disabled="z.maxPurchasableCount<1||(!z.saleAvailable&&z.saleState!=='NOT_STARTED')" @click="openPassengers(z)">{{z.saleState==='NOT_STARTED'?'准备购票人':'选择购票人'}}</el-button>
           </div>
-          <el-alert v-if="counts[z.key]>z.maxContinuousCount" class="result" type="warning" :closable="false" title="系统无法满足连坐需求，将为您尽量分配连坐座位"/>
-          <el-alert v-else-if="results[z.key]" class="result" type="success" :closable="false" :title="`${results[z.key].zoneName}：${results[z.key].rowLabel}，${results[z.key].seatLabels.join('、')}`"/>
-          <p class="hint">预览不会锁座；实际票区和座位以创建订单时为准。</p>
-        </el-card>
-      </el-col>
-    </el-row>
-    <el-dialog v-model="passengerVisible" :title="`${currentOffering?.label||''} · 选择购票人`" width="680px"><el-alert v-if="currentOffering?.saleState==='NOT_STARTED'" :title="`门票尚未开售，您仍可提前维护购票人；开售时间：${currentOffering.saleStartTime}`" type="warning" :closable="false"/><p>本次购买 {{counts[currentOffering?.key]||0}} 张，必须选择相同数量的购票人。</p><el-table :data="passengers" @selection-change="passengerSelection"><el-table-column type="selection" width="48"/><el-table-column prop="passengerName" label="姓名"/><el-table-column prop="idCardNo" label="身份证号"/></el-table><el-divider>直接新增购票人</el-divider><div class="passenger-add"><el-input v-model="passengerForm.passengerName" placeholder="姓名"/><el-input v-model="passengerForm.idCardNo" maxlength="18" placeholder="身份证号"/><el-button :disabled="passengers.length>=4" :loading="addingPassenger" @click="addPassenger">新增</el-button></div><template #footer><el-button @click="router.push('/user/passengers')">管理购票人</el-button><el-button @click="passengerVisible=false">关闭</el-button><el-button v-if="currentOffering?.saleAvailable" type="primary" :loading="buying===currentOffering?.key" @click="buy">确认创建订单</el-button></template></el-dialog>
+          <p v-if="counts[z.key]>z.maxContinuousCount" class="ticket-offer__warning" role="status">当前数量可能无法完全连坐，系统会尽量连续分配。</p>
+        </article>
+      </div>
+      <section v-if="previewResult" class="seat-preview" aria-live="polite">
+        <div class="section-heading"><span>STEP 2</span><div><h2>座位预览</h2><p>确认订单前核对票种、票区与座位。</p></div></div>
+        <div class="seat-preview__body">
+          <dl><div><dt>票种</dt><dd>{{previewOffering.label}}</dd></div><div><dt>实际票区</dt><dd>{{previewResult.zoneName}}</dd></div><div><dt>座位</dt><dd>{{previewResult.rowLabel}}，{{previewResult.seatLabels.join('、')}}</dd></div><div><dt>数量</dt><dd>{{counts[previewKey]}} 张</dd></div></dl>
+          <div class="seat-preview__total"><span>合计</span><strong>{{$formatMoney(previewTotal)}}</strong><small>预览不会锁座，最终以创建订单时为准。</small></div>
+        </div>
+        <div class="seat-preview__actions"><el-button @click="previewKey=''">重新选择</el-button><el-button type="primary" @click="openPassengers(previewOffering)">选择购票人</el-button></div>
+      </section>
+    </DataState>
+    <el-dialog v-model="passengerVisible" class="app-dialog" :title="`${currentOffering?.label||''} · 选择购票人`" width="680px">
+      <div class="dialog-step"><span>STEP 3</span><b>为 {{counts[currentOffering?.key]||0}} 张门票选择相同数量的购票人</b></div>
+      <el-alert v-if="currentOffering?.saleState==='NOT_STARTED'" :title="`门票尚未开售，您仍可提前维护购票人；开售时间：${$formatDateTime(currentOffering.saleStartTime)}`" type="warning" :closable="false"/>
+      <el-table :data="passengers" empty-text="暂无预填购票人" @selection-change="passengerSelection"><el-table-column type="selection" width="48"/><el-table-column prop="passengerName" label="姓名"/><el-table-column label="身份证号"><template #default="{row}">{{maskIdCard(row.idCardNo)}}</template></el-table-column></el-table>
+      <el-divider content-position="left">直接新增购票人</el-divider>
+      <div class="passenger-add"><el-input v-model="passengerForm.passengerName" name="passenger-name" autocomplete="off" placeholder="例如：张三…" aria-label="购票人姓名"/><el-input v-model="passengerForm.idCardNo" name="passenger-id-card" autocomplete="off" inputmode="text" maxlength="18" placeholder="18 位身份证号…" aria-label="购票人身份证号"/><el-button :disabled="passengers.length>=4" :loading="addingPassenger" @click="addPassenger">新增购票人</el-button></div>
+      <template #footer><el-button @click="router.push('/user/passengers')">管理购票人</el-button><el-button @click="passengerVisible=false">取消</el-button><el-button v-if="currentOffering?.saleAvailable" type="primary" :loading="buying===currentOffering?.key" @click="buy">确认创建订单</el-button></template>
+    </el-dialog>
   </section>
 </template>
 
-<style scoped>.tickets{margin-top:22px}.head{display:flex;justify-content:space-between;align-items:center}.zone{margin-bottom:16px}.price{font-size:32px;font-weight:700;color:#e65d2f;margin:8px 0}.remaining{font-size:17px;margin-bottom:14px}.sale-time{margin-bottom:14px}.check-row{display:flex;gap:10px}.check-row .el-button{flex:1}.result{margin-top:12px}.hint{font-size:12px;color:#909399;margin:10px 0 0}.passenger-add{display:grid;grid-template-columns:1fr 2fr auto;gap:10px}</style>
+<style scoped>
+.tickets{margin-top:var(--space-xl)}.section-heading{display:flex;align-items:flex-start;gap:12px;margin-bottom:var(--space-md)}.section-heading>span,.dialog-step span{margin-top:4px;color:var(--primary);font-size:10px;font-weight:800;letter-spacing:.14em}.section-heading h2{margin:0;font-size:22px}.section-heading p{margin:5px 0 0;color:var(--text-secondary)}
+.ticket-offers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-md)}.ticket-offer{padding:22px;border:1px solid var(--border-color);border-top:4px solid #567568;border-radius:var(--radius-lg);background:var(--surface)}.ticket-offer--vip{border-top-color:#b07a26}.ticket-offer__top{display:flex;align-items:flex-start;justify-content:space-between}.ticket-offer__top span{color:var(--text-muted);font-size:11px;letter-spacing:.1em}.ticket-offer h3{margin:5px 0 0;font-size:22px}.ticket-offer__price{display:flex;align-items:baseline;gap:5px;margin:22px 0 10px}.ticket-offer__price strong{font-size:34px}.ticket-offer__price span,.ticket-offer>p{color:var(--text-muted)}.ticket-offer__inventory{display:flex;align-items:baseline;gap:6px}.ticket-offer__inventory b{font-size:20px}.sale-time{margin-top:var(--space-md)}.ticket-offer__controls{display:grid;grid-template-columns:auto 90px 1fr 1fr;align-items:center;gap:var(--space-sm);margin-top:var(--space-lg);padding-top:var(--space-md);border-top:1px solid var(--border-color)}.ticket-offer__warning{margin-bottom:0;color:var(--warning)!important;font-size:13px}
+.seat-preview{margin-top:var(--space-lg);padding:22px;border:1px solid #b9d8c7;border-radius:var(--radius-lg);background:#f5fbf7}.seat-preview__body{display:grid;grid-template-columns:1fr 230px;gap:var(--space-lg)}.seat-preview dl{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-md);margin:0}.seat-preview dl div{padding:12px;border-radius:var(--radius-sm);background:var(--surface)}.seat-preview dt{color:var(--text-muted);font-size:12px}.seat-preview dd{margin:5px 0 0;font-weight:700}.seat-preview__total{display:flex;align-items:flex-end;flex-direction:column;justify-content:center}.seat-preview__total span,.seat-preview__total small{color:var(--text-muted)}.seat-preview__total strong{margin:5px 0;font-size:30px}.seat-preview__actions{display:flex;justify-content:flex-end;gap:var(--space-sm);margin-top:var(--space-md)}
+.dialog-step{display:flex;gap:10px;margin-bottom:var(--space-md)}.passenger-add{display:grid;grid-template-columns:1fr 1.8fr auto;gap:10px}
+</style>

@@ -102,10 +102,10 @@ const submit = async () => {
       </template>
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <div class="form-grid">
-          <el-form-item label="用户名" prop="username"><el-input v-model="form.username" /></el-form-item>
-          <el-form-item label="手机号" prop="phone"><el-input v-model="form.phone" /></el-form-item>
-          <el-form-item label="密码" prop="password"><el-input v-model="form.password" type="password" show-password /></el-form-item>
-          <el-form-item label="确认密码" prop="confirmPassword"><el-input v-model="form.confirmPassword" type="password" show-password /></el-form-item>
+          <el-form-item label="用户名" prop="username"><el-input v-model="form.username" name="username" autocomplete="username" spellcheck="false" /></el-form-item>
+          <el-form-item label="手机号" prop="phone"><el-input v-model="form.phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" /></el-form-item>
+          <el-form-item label="密码" prop="password"><el-input v-model="form.password" name="password" type="password" show-password autocomplete="new-password" /></el-form-item>
+          <el-form-item label="确认密码" prop="confirmPassword"><el-input v-model="form.confirmPassword" name="confirm-password" type="password" show-password autocomplete="new-password" /></el-form-item>
         </div>
         <el-form-item label="注册身份" prop="roleCode" required>
           <el-select v-model="form.roleCode" class="role-select" placeholder="请选择注册身份" clearable>
@@ -114,8 +114,8 @@ const submit = async () => {
         </el-form-item>
         <div v-if="form.roleCode" class="form-grid">
           <template v-if="form.roleCode === 'CLUB'">
-            <el-form-item label="负责人姓名" prop="realName" required><el-input v-model="form.realName" /></el-form-item>
-            <el-form-item label="俱乐部名称" prop="clubName" required><el-input v-model="form.clubName" /></el-form-item>
+            <el-form-item label="负责人姓名" prop="realName" required><el-input v-model="form.realName" name="real-name" autocomplete="name" /></el-form-item>
+            <el-form-item label="俱乐部名称" prop="clubName" required><el-input v-model="form.clubName" name="club-name" autocomplete="organization" /></el-form-item>
           </template>
         </div>
         <el-button class="auth-submit" type="primary" :disabled="!canSubmit || loading" :loading="loading" @click="submit">注册</el-button>

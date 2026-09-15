@@ -38,3 +38,14 @@ export const ROLE_MENUS = {
 
 export const MENU_PATHS = [...new Set(Object.values(ROLE_MENUS).flat().map(([path]) => path))]
   .sort((left, right) => right.length - left.length)
+
+export const ROLE_MENU_GROUPS = {
+  USER: [{ label: '赛事与票务', paths: ROLE_MENUS.USER.map(([path]) => path) }],
+  CLUB: [{ label: '俱乐部运营', paths: ROLE_MENUS.CLUB.map(([path]) => path) }],
+  EVENT_ADMIN: [
+    { label: '赛事运营', paths: ['/admin/seasons', '/admin/enrollments', '/admin/schedules'] },
+    { label: '比赛执行', paths: ['/admin/matches', '/admin/matches/result-reminders'] },
+    { label: '数据', paths: ['/admin/statistics', '/admin/season-revenue'] },
+  ],
+  ADMIN: [{ label: '系统管理', paths: ROLE_MENUS.ADMIN.map(([path]) => path) }],
+}
