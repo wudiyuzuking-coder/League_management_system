@@ -7,24 +7,24 @@ SET @phase20b2_conflict_count := (
     FROM match_ticket_zone mz
     JOIN match_info m ON m.match_id = mz.match_id
     WHERE mz.sale_end_time IS NULL
-       OR mz.sale_end_time <= DATE_ADD(DATE_SUB(DATE(m.match_time), INTERVAL 7 DAY), INTERVAL 20 HOUR)
+       OR mz.sale_end_time <= DATE_ADD(DATE_SUB(DATE(m.match_time), INTERVAL 14 DAY), INTERVAL 20 HOUR)
 );
 
 SELECT mz.match_zone_id,
        mz.match_id,
        m.match_time,
        mz.sale_start_time AS old_sale_start_time,
-       DATE_ADD(DATE_SUB(DATE(m.match_time), INTERVAL 7 DAY), INTERVAL 20 HOUR) AS new_auto_sale_start_time,
+       DATE_ADD(DATE_SUB(DATE(m.match_time), INTERVAL 14 DAY), INTERVAL 20 HOUR) AS new_auto_sale_start_time,
        mz.sale_end_time
 FROM match_ticket_zone mz
 JOIN match_info m ON m.match_id = mz.match_id
 WHERE mz.sale_end_time IS NULL
-   OR mz.sale_end_time <= DATE_ADD(DATE_SUB(DATE(m.match_time), INTERVAL 7 DAY), INTERVAL 20 HOUR)
+   OR mz.sale_end_time <= DATE_ADD(DATE_SUB(DATE(m.match_time), INTERVAL 14 DAY), INTERVAL 20 HOUR)
 ORDER BY mz.match_zone_id;
 
 UPDATE match_ticket_zone mz
 JOIN match_info m ON m.match_id = mz.match_id
-SET mz.sale_start_time = DATE_ADD(DATE_SUB(DATE(m.match_time), INTERVAL 7 DAY), INTERVAL 20 HOUR)
+SET mz.sale_start_time = DATE_ADD(DATE_SUB(DATE(m.match_time), INTERVAL 14 DAY), INTERVAL 20 HOUR)
 WHERE @phase20b2_conflict_count = 0;
 
 SELECT @phase20b2_conflict_count AS conflict_count,
