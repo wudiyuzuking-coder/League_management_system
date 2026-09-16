@@ -12,6 +12,8 @@ import java.util.List;
 public interface SeasonScheduleMapper {
     @Select("SELECT b.*,s.season_name FROM season_schedule_batch b JOIN season_info s ON s.season_id=b.season_id WHERE b.season_id=#{seasonId}")
     SeasonScheduleBatch findBySeason(Long seasonId);
+    @Select("SELECT b.*,s.season_name FROM season_schedule_batch b JOIN season_info s ON s.season_id=b.season_id WHERE b.season_id=#{seasonId} FOR UPDATE")
+    SeasonScheduleBatch findBySeasonForUpdate(Long seasonId);
     @Select("SELECT COUNT(*) FROM season_schedule_batch WHERE season_id=#{seasonId}") int countBySeason(Long seasonId);
     @Insert("INSERT INTO season_schedule_batch(season_id,batch_status,trigger_type,club_count,round_count,match_count,generated_at) VALUES(#{seasonId},'GENERATED',#{triggerType},#{clubCount},#{roundCount},#{matchCount},#{generatedAt})")
     @Options(useGeneratedKeys=true,keyProperty="batchId") int insertBatch(SeasonScheduleBatch batch);

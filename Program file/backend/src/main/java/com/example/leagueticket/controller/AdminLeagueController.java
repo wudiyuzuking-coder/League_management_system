@@ -20,10 +20,12 @@ public class AdminLeagueController {
     private final RoundInfoService roundService;
     private final ClubSeasonRecordService recordService;
     @GetMapping("/seasons") public Result<List<SeasonInfo>> seasons(){return Result.success(seasonService.list());}
+    @GetMapping("/seasons/{id}") public Result<SeasonInfo> season(@PathVariable Long id){return Result.success(seasonService.getById(id));}
     @PostMapping("/seasons") public Result<SeasonInfo> createSeason(@Valid @RequestBody SeasonRequest request){return Result.success(seasonService.create(request));}
     @PutMapping("/seasons/{id}") public Result<SeasonInfo> updateSeason(@PathVariable Long id,@Valid @RequestBody SeasonRequest request){return Result.success(seasonService.update(id,request));}
     @PutMapping("/seasons/{id}/status") public Result<SeasonInfo> updateSeasonStatus(@PathVariable Long id,@Valid @RequestBody SeasonStatusRequest request){return Result.success(seasonService.updateStatus(id,request.seasonStatus()));}
     @GetMapping("/seasons/{seasonId}/rounds") public Result<List<RoundInfo>> rounds(@PathVariable Long seasonId){return Result.success(roundService.listBySeason(seasonId));}
+    @GetMapping("/seasons/{seasonId}/standings") public Result<List<StandingResponse>> standings(@PathVariable Long seasonId){return Result.success(recordService.standings(seasonId));}
     @PostMapping("/seasons/{seasonId}/rounds") public Result<RoundInfo> createRound(@PathVariable Long seasonId,@Valid @RequestBody RoundRequest request){return Result.success(roundService.create(seasonId,request));}
     @PutMapping("/rounds/{id}") public Result<RoundInfo> updateRound(@PathVariable Long id,@Valid @RequestBody RoundRequest request){return Result.success(roundService.update(id,request));}
     @PutMapping("/rounds/{id}/status") public Result<RoundInfo> updateRoundStatus(@PathVariable Long id,@Valid @RequestBody RoundStatusRequest request){return Result.success(roundService.updateStatus(id,request.roundStatus()));}

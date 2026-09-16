@@ -7,6 +7,7 @@ import com.example.leagueticket.exception.BusinessException;
 import com.example.leagueticket.mapper.RoundInfoMapper;
 import com.example.leagueticket.service.RoundInfoService;
 import com.example.leagueticket.service.SeasonInfoService;
+import com.example.leagueticket.service.PublicSeasonVisibilityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -20,8 +21,10 @@ public class RoundInfoServiceImpl implements RoundInfoService {
     private static final Map<String,String> NEXT=Map.of("DRAFT","PUBLISHED","PUBLISHED","FINISHED");
     private final RoundInfoMapper mapper;
     private final SeasonInfoService seasonService;
+    private final PublicSeasonVisibilityService publicVisibility;
     public List<RoundInfo> listBySeason(Long seasonId){seasonService.getById(seasonId);return mapper.findBySeasonId(seasonId);}
     public RoundInfo getById(Long id){RoundInfo value=mapper.findById(id);if(value==null)throw new BusinessException(HttpStatus.NOT_FOUND,"round not found");return value;}
+    public RoundInfo getPublicById(Long id){RoundInfo value=getById(id);publicVisibility.requirePublicVisibleSeason(value.getSeasonId());return value;}
     @Transactional public RoundInfo create(Long seasonId,RoundRequest request){SeasonInfo season=seasonService.getById(seasonId);validate(season,request,null);RoundInfo round=copy(new RoundInfo(),request);round.setSeasonId(seasonId);round.setRoundStatus("DRAFT");mapper.insert(round);return getById(round.getRoundId());}
     @Transactional public RoundInfo update(Long id,RoundRequest request){RoundInfo round=getById(id);SeasonInfo season=seasonService.getById(round.getSeasonId());validate(season,request,id);mapper.update(copy(round,request));return getById(id);}
     @Transactional public RoundInfo updateStatus(Long id,String status){RoundInfo round=getById(id);if(round.getRoundStatus().equals(status))return round;String next=NEXT.get(round.getRoundStatus());if(!status.equals(next))throw new BusinessException("invalid round status transition: "+round.getRoundStatus()+" -> "+status);mapper.updateStatus(id,status);return getById(id);}

@@ -2,6 +2,7 @@ package com.example.leagueticket;
 
 import com.example.leagueticket.dto.EnrollmentRequest;
 import com.example.leagueticket.service.ClubSeasonEnrollmentService;
+import com.example.leagueticket.service.SeasonScheduleService;
 import com.example.leagueticket.service.SystemTimeService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +24,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -32,13 +34,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ClubSeasonEnrollmentIntegrationTest {
     @Autowired MockMvc mvc; @Autowired ObjectMapper json; @Autowired JdbcTemplate jdbc;
     @Autowired PasswordEncoder encoder; @Autowired ClubSeasonEnrollmentService service; @Autowired SystemTimeService time;
+    @Autowired SeasonScheduleService schedules;
     String clubToken,eventToken,userToken; long clubA,clubB,clubC;
 
     @BeforeEach void setup() throws Exception {
         cleanup();jdbc.update("UPDATE sys_config SET config_value='0',config_status='ENABLED' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");
         List<Long> clubs=jdbc.queryForList("SELECT club_id FROM club_info WHERE home_stadium_id IS NOT NULL AND club_status='ACTIVE' ORDER BY club_id LIMIT 3",Long.class);
         clubA=clubs.get(0);clubB=clubs.get(1);clubC=clubs.get(2);ensureRoster(clubA,60);ensureRoster(clubB,40);ensureRoster(clubC,20);
-        jdbc.update("UPDATE sys_user SET password_hash=?,club_id=?,user_status='ENABLED' WHERE username='demo_club'",encoder.encode("123456"),clubA);
+        String hash=encoder.encode("123456");
+        jdbc.update("UPDATE sys_user SET password_hash=?,user_status='ENABLED' WHERE username IN ('demo_user','demo_club','demo_event_admin','demo_admin')",hash);
+        jdbc.update("UPDATE sys_user SET club_id=? WHERE username='demo_club'",clubA);
         clubToken=loginByPhone("13800000003");eventToken=loginByPhone("13800000005");userToken=loginByPhone("13800000001");
     }
     @AfterEach void tearDown(){jdbc.update("UPDATE sys_config SET config_value='0' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");cleanup();}
@@ -95,6 +100,21 @@ class ClubSeasonEnrollmentIntegrationTest {
         assertThat(countEnrollments(season)).isEqualTo(1);
     }
 
+    @Test void earlyCloseBlocksFurtherEnrollmentAndSerializesWithSubmission() throws Exception {
+        long season=season("IT16B提前截止并发",time.now().toLocalDate().plusDays(70),time.now().toLocalDate().plusDays(120),4,-1,30);
+        service.submit(clubA,request(clubA,season));service.submit(clubB,request(clubB,season));
+        ExecutorService pool=Executors.newFixedThreadPool(2);CyclicBarrier gate=new CyclicBarrier(2);
+        try{
+            Future<Boolean> enrollment=pool.submit(()->submitAtGate(gate,clubC,season));
+            Future<Boolean> closing=pool.submit(()->{try{gate.await(5,TimeUnit.SECONDS);schedules.closeRegistrationAndGenerate(season);return true;}catch(Exception e){return false;}});
+            assertThat(closing.get(20,TimeUnit.SECONDS)).isTrue();enrollment.get(20,TimeUnit.SECONDS);
+        }finally{pool.shutdownNow();}
+        int enrolled=countEnrollments(season);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM season_schedule_batch WHERE season_id=?",Integer.class,season)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT club_count FROM season_schedule_batch WHERE season_id=?",Integer.class,season)).isEqualTo(enrolled);
+        assertThatThrownBy(()->service.submit(clubC,request(clubC,season))).hasMessage("赛程已生成，不能继续报名");
+    }
+
     private boolean submitAtGate(CyclicBarrier gate,long club,long season){try{gate.await(5,TimeUnit.SECONDS);service.submit(club,request(club,season));return true;}catch(Exception e){return false;}}
     private org.springframework.test.web.servlet.ResultActions available(long season)throws Exception{return mvc.perform(get("/api/club/enrollments/available-seasons").header("Authorization",bearer(clubToken))).andExpect(status().isOk());}
     private void setSystemTime(LocalDateTime value)throws Exception{mvc.perform(put("/api/system-time").header("Authorization",bearer(clubToken)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("targetTime",value)))).andExpect(status().isOk());}
@@ -106,9 +126,9 @@ class ClubSeasonEnrollmentIntegrationTest {
     private List<Long> players(long club){return jdbc.queryForList("SELECT player_id FROM player_info WHERE club_id=? AND player_status='ACTIVE' ORDER BY shirt_no LIMIT 11",Long.class,club);}
     private long coach(long club){return jdbc.queryForObject("SELECT coach_id FROM coach_info WHERE club_id=? AND coach_status='ACTIVE' ORDER BY coach_id LIMIT 1",Long.class,club);}
     private long stadium(long club){return jdbc.queryForObject("SELECT home_stadium_id FROM club_info WHERE club_id=?",Long.class,club);}
-    private void ensureRoster(long club,int first){jdbc.update("UPDATE player_info SET birth_date='2000-01-01' WHERE club_id=? AND birth_date IS NULL",club);for(int i=0;i<11;i++){int shirt=first+i;jdbc.update("INSERT INTO player_info(club_id,player_name,shirt_no,position,nationality,birth_date,player_status) VALUES(?,?,?,?,?,'2000-01-01','ACTIVE') ON DUPLICATE KEY UPDATE player_status='ACTIVE',birth_date='2000-01-01'",club,"IT16B球员"+club+"-"+shirt,shirt,i==0?"GOALKEEPER":i<5?"DEFENDER":i<8?"MIDFIELDER":"FORWARD","中国");}jdbc.update("INSERT INTO coach_info(club_id,coach_name,title,coach_status) SELECT ?,?,'HEAD_COACH','ACTIVE' WHERE NOT EXISTS(SELECT 1 FROM coach_info WHERE club_id=? AND coach_name=?)",club,"IT16B教练"+club,club,"IT16B教练"+club);}
+    private void ensureRoster(long club,int first){jdbc.update("UPDATE player_info SET player_status='INACTIVE',lineup_role=NULL WHERE club_id=?",club);jdbc.update("UPDATE coach_info SET coach_status='INACTIVE' WHERE club_id=?",club);for(int i=0;i<11;i++){int shirt=first+i;jdbc.update("INSERT INTO player_info(club_id,player_name,shirt_no,position,nationality,birth_date,player_status,lineup_role) VALUES(?,?,?,?,?,'2000-01-01','ACTIVE','STARTER') ON DUPLICATE KEY UPDATE player_status='ACTIVE',birth_date='2000-01-01',position=VALUES(position),lineup_role='STARTER'",club,"IT16B球员"+club+"-"+shirt,shirt,i==0?"GOALKEEPER":i<5?"DEFENDER":i<8?"MIDFIELDER":"FORWARD","中国");}jdbc.update("INSERT INTO coach_info(club_id,coach_name,title,coach_status) SELECT ?,?,'HEAD_COACH','ACTIVE' WHERE NOT EXISTS(SELECT 1 FROM coach_info WHERE club_id=? AND coach_name=?)",club,"IT16B教练"+club,club,"IT16B教练"+club);jdbc.update("UPDATE coach_info SET title='HEAD_COACH',coach_status='ACTIVE' WHERE club_id=? AND coach_name=?",club,"IT16B教练"+club);}
     private int countEnrollments(long season){return jdbc.queryForObject("SELECT COUNT(*) FROM club_season_enrollment WHERE season_id=?",Integer.class,season);}
     private String loginByPhone(String phone)throws Exception{return response(mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(TestLoginPayload.forPhone(phone,"123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("data").path("token").asText();}
     private JsonNode response(String value)throws Exception{return json.readTree(value);} private static String bearer(String token){return "Bearer "+token;}
-    private void cleanup(){jdbc.update("DELETE FROM club_season_enrollment_player WHERE enrollment_id IN (SELECT enrollment_id FROM club_season_enrollment WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT16B%'))");jdbc.update("DELETE FROM club_season_enrollment_coach WHERE enrollment_id IN (SELECT enrollment_id FROM club_season_enrollment WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT16B%'))");jdbc.update("DELETE FROM club_season_enrollment WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT16B%')");jdbc.update("DELETE FROM season_info WHERE season_name LIKE 'IT16B%'");}
+    private void cleanup(){jdbc.update("DELETE sm FROM season_schedule_match sm JOIN match_info m ON m.match_id=sm.match_id JOIN season_info s ON s.season_id=m.season_id WHERE s.season_name LIKE 'IT16B%'");jdbc.update("DELETE FROM season_schedule_batch WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT16B%')");jdbc.update("DELETE FROM match_info WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT16B%')");jdbc.update("DELETE FROM round_info WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT16B%')");jdbc.update("DELETE FROM club_season_enrollment_player WHERE enrollment_id IN (SELECT enrollment_id FROM club_season_enrollment WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT16B%'))");jdbc.update("DELETE FROM club_season_enrollment_coach WHERE enrollment_id IN (SELECT enrollment_id FROM club_season_enrollment WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT16B%'))");jdbc.update("DELETE FROM club_season_enrollment WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT16B%')");jdbc.update("DELETE FROM season_info WHERE season_name LIKE 'IT16B%'");}
 }

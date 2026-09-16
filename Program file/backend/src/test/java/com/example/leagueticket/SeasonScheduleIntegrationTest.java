@@ -58,6 +58,63 @@ class SeasonScheduleIntegrationTest {
         schedules.confirm(season,eventAdminId());assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM club_season_record WHERE season_id=?",Integer.class,season)).isEqualTo(4);
     }
 
+    @Test void publicSeasonListHidesUnconfirmedDraftAndReturnsConfirmedCounts(){
+        long season=season("IT16C公开赛季",4,LocalDate.of(2039,3,1),LocalDate.of(2039,5,1),time.now().plusDays(2));
+        teams(season,4);
+        assertThat(seasons.listPublic()).noneMatch(row->row.getSeasonId().equals(season));
+
+        schedules.generateIfEligible(season,"FULL");
+        assertThat(seasons.listPublic()).noneMatch(row->row.getSeasonId().equals(season));
+
+        schedules.confirm(season,eventAdminId());
+        var row=seasons.listPublic().stream().filter(value->value.getSeasonId().equals(season)).findFirst().orElseThrow();
+        assertThat(row.isScheduleConfirmed()).isTrue();
+        assertThat(row.getTeamCount()).isEqualTo(4);
+        assertThat(row.getRoundCount()).isEqualTo(6);
+        assertThat(row.getMatchCount()).isEqualTo(12);
+        assertThat(row.getPublicStatus()).isEqualTo("SCHEDULE_PUBLISHED");
+    }
+
+    @Test void publicRoundDetailCannotBypassSeasonVisibility() throws Exception {
+        long season=season("IT16C轮次公开校验",2,LocalDate.of(2039,7,1),LocalDate.of(2039,9,1),time.now().minusMinutes(1));
+        teams(season,2);schedules.generateIfEligible(season,"DEADLINE");
+        long roundId=jdbc.queryForObject("SELECT round_id FROM round_info WHERE season_id=? ORDER BY round_no LIMIT 1",Long.class,season);
+        String hash=encoder.encode("123456");jdbc.update("UPDATE sys_user SET password_hash=?,user_status='ENABLED' WHERE username='demo_user'",hash);
+        String userToken=loginByPhone("13800000001");
+        mvc.perform(get("/api/rounds/{id}",roundId).header("Authorization",bearer(userToken))).andExpect(status().isNotFound());
+        schedules.confirm(season,eventAdminId());
+        mvc.perform(get("/api/rounds/{id}",roundId).header("Authorization",bearer(userToken))).andExpect(status().isOk()).andExpect(jsonPath("$.data.roundId").value((int)roundId));
+    }
+
+    @Test void earlyCloseGeneratesBatchAndEnforcesPermissions() throws Exception {
+        long season=season("IT16C提前截止",4,LocalDate.of(2039,10,1),LocalDate.of(2039,12,1),time.now().plusDays(10));teams(season,2);
+        String hash=encoder.encode("123456");jdbc.update("UPDATE sys_user SET password_hash=?,user_status='ENABLED' WHERE username IN ('demo_user','demo_club','demo_event_admin','demo_admin')",hash);
+        for(String phone:List.of("13800000001","13800000003","13800000002"))
+            mvc.perform(post("/api/admin/seasons/{id}/close-registration",season).header("Authorization",bearer(loginByPhone(phone)))).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/seasons/{id}/close-registration",season).header("Authorization",bearer(loginByPhone("13800000005"))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.batchStatus").value("GENERATED")).andExpect(jsonPath("$.data.triggerType").value("MANUAL"));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM season_schedule_batch WHERE season_id=?",Integer.class,season)).isEqualTo(1);
+    }
+
+    @Test void earlyCloseRejectsInsufficientTeamsWithoutResidue(){
+        long season=season("IT16C提前截止单队",4,LocalDate.of(2040,7,1),LocalDate.of(2040,9,1),time.now().plusDays(10));teams(season,1);
+        assertThatThrownBy(()->schedules.closeRegistrationAndGenerate(season)).hasMessage("当前报名球队不足，无法生成赛程");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM season_schedule_batch WHERE season_id=?",Integer.class,season)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM match_info WHERE season_id=?",Integer.class,season)).isZero();
+    }
+
+    @Test void concurrentEarlyCloseCreatesOnlyOneBatch() throws Exception {
+        long season=season("IT16C并发提前截止",4,LocalDate.of(2040,10,1),LocalDate.of(2040,12,1),time.now().plusDays(10));teams(season,2);
+        ExecutorService pool=Executors.newFixedThreadPool(2);CyclicBarrier gate=new CyclicBarrier(2);
+        try{
+            Callable<Boolean> call=()->{try{gate.await(5,TimeUnit.SECONDS);schedules.closeRegistrationAndGenerate(season);return true;}catch(Exception e){return false;}};
+            Future<Boolean>a=pool.submit(call),b=pool.submit(call);
+            assertThat(List.of(a.get(20,TimeUnit.SECONDS),b.get(20,TimeUnit.SECONDS))).containsExactlyInAnyOrder(true,false);
+        }finally{pool.shutdownNow();}
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM season_schedule_batch WHERE season_id=?",Integer.class,season)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM match_info WHERE season_id=?",Integer.class,season)).isEqualTo(2);
+    }
+
     @Test void fiveClubByeNeverPersistsAndEveryPairReverses(){
         long season=season("IT16C五队",5,LocalDate.of(2041,3,1),LocalDate.of(2041,6,1),LocalDateTime.now().minusDays(1));List<Team> teams=teams(season,5);
         ScheduleDetailResponse out=schedules.generateIfEligible(season,"MANUAL");assertThat(out.getRoundCount()).isEqualTo(10);assertThat(out.getMatchCount()).isEqualTo(20);

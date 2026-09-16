@@ -1,6 +1,6 @@
 export const STATUS_LABELS = {
   PENDING_ACTIVATION: '待激活', PENDING_CLUB_APPROVAL: '待俱乐部审核', ENABLED: '正常', DISABLED: '已停用', LOCKED: '已锁定', ACTIVE: '进行中', INACTIVE: '已停用',
-  DRAFT: '草稿', PUBLISHED: '已发布', IN_PROGRESS: '进行中', FINISHED: '已结束', CANCELLED: '已取消',
+  DRAFT: '草稿', PUBLISHED: '已发布', SCHEDULE_PUBLISHED: '赛程已公布', REGISTRATION: '报名阶段', IN_PROGRESS: '比赛进行中', FINISHED: '已结束', CANCELLED: '已取消',
   GENERATED: '待确认', CONFIRMED: '已确认', PENDING_ADMIN_REVIEW: '待管理员确认',
   NOT_STARTED: '未开售', ON_SALE: '售票中', ENDED: '已停售', SOLD_OUT: '已售罄', NOT_ENABLED: '票务未启用', MATCH_UNAVAILABLE: '不可售', PAUSED: '已暂停', CLOSED: '已关闭',
   AVAILABLE: '可售', SOLD: '已售',
@@ -14,10 +14,10 @@ export const STATUS_LABELS = {
 }
 
 export const STATUS_TYPES = {
-  ENABLED: 'success', ACTIVE: 'success', PUBLISHED: 'success', ON_SALE: 'success', AVAILABLE: 'success',
+  ENABLED: 'success', ACTIVE: 'success', PUBLISHED: 'success', SCHEDULE_PUBLISHED: 'success', ON_SALE: 'success', AVAILABLE: 'success',
   PAID: 'success', SUCCESS: 'success', USED: 'success', APPROVED: 'success',
   DRAFT: 'info', DISABLED: 'info', INACTIVE: 'info', CLOSED: 'info', ENDED: 'info', CANCELLED: 'info', VOID: 'info', FINISHED: 'info',
-  PENDING_ACTIVATION: 'warning', PENDING_CLUB_APPROVAL: 'warning', PENDING_PAYMENT: 'warning', REFUND_PENDING: 'warning', LOCKED: 'warning', PAUSED: 'warning', CREATED: 'warning', PENDING: 'warning', GENERATED: 'warning', NOT_STARTED: 'warning', PENDING_ADMIN_REVIEW: 'warning',
+  PENDING_ACTIVATION: 'warning', PENDING_CLUB_APPROVAL: 'warning', PENDING_PAYMENT: 'warning', REFUND_PENDING: 'warning', LOCKED: 'warning', PAUSED: 'warning', CREATED: 'warning', PENDING: 'warning', GENERATED: 'warning', NOT_STARTED: 'warning', PENDING_ADMIN_REVIEW: 'warning', REGISTRATION: 'warning',
   CONFIRMED: 'success', SOLD_OUT: 'danger',
   FAILED: 'danger', REFUNDED: 'danger', REJECTED: 'danger', CODE_NOT_FOUND: 'danger', WRONG_MATCH: 'danger',
   ORDER_INVALID: 'danger', TICKET_USED: 'danger', TICKET_REFUNDED: 'danger', TICKET_VOID: 'danger',

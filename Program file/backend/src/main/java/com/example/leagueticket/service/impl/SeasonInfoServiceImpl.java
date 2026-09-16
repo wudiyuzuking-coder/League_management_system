@@ -6,6 +6,7 @@ import com.example.leagueticket.exception.BusinessException;
 import com.example.leagueticket.mapper.RoundInfoMapper;
 import com.example.leagueticket.mapper.SeasonInfoMapper;
 import com.example.leagueticket.service.*;
+import com.example.leagueticket.vo.PublicSeasonResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -21,7 +22,10 @@ public class SeasonInfoServiceImpl implements SeasonInfoService {
     private final RoundInfoMapper roundMapper;
     private final SystemTimeService timeService;
     private final DoubleRoundRobinSchedulePlanner planner;
+    private final PublicSeasonVisibilityService publicVisibility;
     public List<SeasonInfo> list(){return mapper.findAll();}
+    public List<PublicSeasonResponse> listPublic(){return mapper.findPublic();}
+    public PublicSeasonResponse getPublicById(Long id){publicVisibility.requirePublicVisibleSeason(id);PublicSeasonResponse value=mapper.findPublicById(id);if(value==null)throw new BusinessException(HttpStatus.NOT_FOUND,"public season not found");return value;}
     public SeasonInfo getById(Long id){SeasonInfo value=mapper.findById(id);if(value==null)throw new BusinessException(HttpStatus.NOT_FOUND,"season not found");return value;}
     @Transactional public SeasonInfo create(SeasonRequest request){validate(request);SeasonInfo s=derive(new SeasonInfo(),request);s.setSeasonStatus("DRAFT");mapper.insert(s);return getById(s.getSeasonId());}
     @Transactional public SeasonInfo update(Long id,SeasonRequest request){SeasonInfo s=getById(id);if(!"DRAFT".equals(s.getSeasonStatus()))throw new BusinessException(HttpStatus.CONFLICT,"only a DRAFT season can be edited");validate(request);if(!roundMapper.findBySeasonId(id).isEmpty())throw new BusinessException(HttpStatus.CONFLICT,"a scheduled season cannot be edited");mapper.update(derive(s,request));return getById(id);}

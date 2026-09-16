@@ -2,14 +2,14 @@
 import {onMounted,reactive,ref} from 'vue'
 import {useRoute,useRouter} from 'vue-router'
 import {ElMessage} from 'element-plus'
-import {createRound,getRounds,getSeason,getStandings,initStandings,updateRound,updateRoundStatus,updateSeasonRecord} from '../../api/league'
+import {createRound,getAdminRounds,getAdminSeason,getAdminStandings,initStandings,updateRound,updateRoundStatus,updateSeasonRecord} from '../../api/league'
 const route=useRoute(),router=useRouter(),seasonId=Number(route.params.id),season=ref({}),rounds=ref([]),standings=ref([]),loading=ref(false)
 const roundVisible=ref(false),recordVisible=ref(false),roundId=ref(null),recordId=ref(null),roundRef=ref(),recordRef=ref()
 const blankRound=()=>({roundNo:1,roundName:'',startDate:'',endDate:''}),round=reactive(blankRound())
 const blankRecord=()=>({wins:0,draws:0,losses:0,goalsFor:0,goalsAgainst:0}),record=reactive(blankRecord())
 const roundRules={roundNo:[{required:true,type:'number',min:1,message:'轮次必须大于0'}],roundName:[{required:true,message:'请输入轮次名称'}],startDate:[{required:true,message:'请选择开始日期'}],endDate:[{required:true,message:'请选择结束日期'}]}
 const nonnegative={type:'number',min:0,message:'不能小于0'},recordRules={wins:[nonnegative],draws:[nonnegative],losses:[nonnegative],goalsFor:[nonnegative],goalsAgainst:[nonnegative]}
-const load=async()=>{loading.value=true;try{const [s,r,t]=await Promise.all([getSeason(seasonId),getRounds(seasonId),getStandings(seasonId)]);season.value=s.data;rounds.value=r.data;standings.value=t.data}finally{loading.value=false}}
+const load=async()=>{loading.value=true;try{const [s,r,t]=await Promise.all([getAdminSeason(seasonId),getAdminRounds(seasonId),getAdminStandings(seasonId)]);season.value=s.data;rounds.value=r.data;standings.value=t.data}finally{loading.value=false}}
 const openRound=row=>{roundId.value=row?.roundId||null;Object.assign(round,blankRound(),row||{});roundVisible.value=true}
 const saveRound=async()=>{await roundRef.value.validate();if(round.endDate<round.startDate)return ElMessage.error('结束日期不能早于开始日期');roundId.value?await updateRound(roundId.value,round):await createRound(seasonId,round);roundVisible.value=false;ElMessage.success('轮次已保存');await load()}
 const advance=async row=>{const next={DRAFT:'PUBLISHED',PUBLISHED:'FINISHED'}[row.roundStatus];if(!next)return;await updateRoundStatus(row.roundId,next);ElMessage.success('状态已更新');await load()}

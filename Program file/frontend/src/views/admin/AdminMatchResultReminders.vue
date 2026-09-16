@@ -2,7 +2,7 @@
 import {onMounted,reactive,ref,watch} from 'vue'
 import {useRouter} from 'vue-router'
 import {getResultReminders} from '../../api/match'
-import {getSeasons} from '../../api/league'
+import {getAdminSeasons} from '../../api/league'
 import {useSystemTimeStore} from '../../stores/systemTime'
 
 const router=useRouter(),systemTimeStore=useSystemTimeStore(),rows=ref([]),total=ref(0),seasons=ref([]),loading=ref(false)
@@ -10,7 +10,7 @@ const query=reactive({page:1,size:10,seasonId:null,reminderType:''})
 const load=async()=>{loading.value=true;try{const data=(await getResultReminders(query)).data;rows.value=data.records;total.value=data.total}finally{loading.value=false}}
 const search=()=>{query.page=1;load()}
 watch(()=>systemTimeStore.revision,load)
-onMounted(async()=>{seasons.value=(await getSeasons()).data;await load()})
+onMounted(async()=>{seasons.value=(await getAdminSeasons()).data;await load()})
 </script>
 
 <template>

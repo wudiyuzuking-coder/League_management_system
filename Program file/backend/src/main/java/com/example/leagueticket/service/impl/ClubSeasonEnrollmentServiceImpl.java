@@ -43,7 +43,7 @@ public class ClubSeasonEnrollmentServiceImpl implements ClubSeasonEnrollmentServ
         if(club==null||!"ACTIVE".equals(club.getClubStatus()))throw new BusinessException(HttpStatus.FORBIDDEN,"current club is unavailable");
         SeasonInfo season=seasonMapper.findByIdForUpdate(request.seasonId());
         if(season==null)throw new BusinessException(HttpStatus.NOT_FOUND,"season not found");
-        if(scheduleMapper.countBySeason(season.getSeasonId())>0)throw new BusinessException(HttpStatus.CONFLICT,"赛程已生成，不能继续报名");
+        if(scheduleMapper.findBySeasonForUpdate(season.getSeasonId())!=null)throw new BusinessException(HttpStatus.CONFLICT,"赛程已生成，不能继续报名");
         LocalDateTime now=timeService.now();
         validateWindow(season,now);
         if(mapper.countBySeasonClub(season.getSeasonId(),clubId)>0)

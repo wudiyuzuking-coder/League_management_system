@@ -1,24 +1,24 @@
 <script setup>
 import {computed,onMounted,ref} from 'vue'
 import {useRoute} from 'vue-router'
-import {getSeasonSchedule} from '../../api/league'
+import {getSeason,getSeasonSchedule} from '../../api/league'
 
 const route=useRoute(),season=ref({}),loading=ref(false),error=ref('')
 const rounds=computed(()=>season.value.rounds||[])
 const matchCount=computed(()=>rounds.value.reduce((sum,round)=>sum+(round.matches?.length||0),0))
-const load=async()=>{loading.value=true;error.value='';try{season.value=(await getSeasonSchedule(route.params.id)).data}catch(e){error.value=e?.message||'加载赛程失败，请稍后重试。'}finally{loading.value=false}}
+const load=async()=>{loading.value=true;error.value='';try{const summary=(await getSeason(route.params.id)).data;season.value=summary;if(!summary.scheduleConfirmed)return;season.value={...summary,...(await getSeasonSchedule(route.params.id)).data}}catch(e){error.value=e?.message||'加载赛程失败，请稍后重试。'}finally{loading.value=false}}
 onMounted(load)
 </script>
 
 <template>
   <div class="season-detail">
     <PageHeader :title="season.seasonName||'赛季详情'" subtitle="按轮次查看完整赛程、比赛状态与售票信息。" :breadcrumb="[{label:'联赛赛季',to:'/user/seasons'},{label:'完整赛程'}]">
-      <template #status><StatusTag v-if="season.seasonStatus" :value="season.seasonStatus"/></template>
+      <template #status><StatusTag v-if="season.publicStatus" :value="season.publicStatus"/></template>
       <template #actions><RouterLink :to="`/user/seasons/${route.params.id}/standings`" class="el-button">查看积分榜</RouterLink></template>
     </PageHeader>
-    <DataState :loading="loading" :error="error" :empty="!rounds.length" empty-title="赛程尚未正式确认" empty-description="赛程确认后会按轮次显示在这里。" @retry="load">
+    <DataState :loading="loading" :error="error" :empty="!season.scheduleConfirmed||!rounds.length" :empty-title="season.scheduleConfirmed?'暂无可展示比赛':'当前赛季正在报名阶段'" :empty-description="season.scheduleConfirmed?'正式赛程中尚无可展示的比赛。':'完整赛程将在报名结束后公布。'" @retry="load">
       <section class="season-summary" aria-label="赛季摘要">
-        <div><span>参赛球队</span><strong>{{season.clubCount??'—'}}<small>支</small></strong></div>
+        <div><span>参赛球队</span><strong>{{season.teamCount??season.clubCount??'—'}}<small>支</small></strong></div>
         <div><span>比赛轮次</span><strong>{{rounds.length}}<small>轮</small></strong></div>
         <div><span>比赛总数</span><strong>{{matchCount}}<small>场</small></strong></div>
         <div class="season-summary__dates"><span>赛季周期</span><strong>{{$formatDate(season.startDate)}} — {{$formatDate(season.endDate)}}</strong></div>

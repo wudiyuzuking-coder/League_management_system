@@ -16,6 +16,8 @@ public class SeasonInfo {
     private Integer maxClubs;
     private String seasonStatus;
     private String description;
+    private Integer submittedTeamCount;
+    private String scheduleBatchStatus;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

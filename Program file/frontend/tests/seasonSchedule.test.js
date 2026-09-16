@@ -27,6 +27,48 @@ test('season detail renders the complete confirmed schedule by round', async () 
   assert.match(page, /<RouterLink[^>]+user\/matches/)
 })
 
+test('USER season cards expose confirmed counts and protect the schedule entry', async () => {
+  const list = await source('../src/views/user/UserSeasons.vue')
+  const detail = await source('../src/views/user/UserRounds.vue')
+  assert.match(list, /season\.teamCount/)
+  assert.match(list, /season\.roundCount/)
+  assert.match(list, /season\.matchCount/)
+  assert.match(list, /season\.teamCount\?\?0/)
+  assert.match(list, /season\.roundCount\?\?0/)
+  assert.match(list, /season\.matchCount\?\?0/)
+  assert.doesNotMatch(list, /season\.(?:teamCount|roundCount|matchCount)\?\?['"]—['"]/)
+  assert.match(list, /v-if="season\.scheduleConfirmed"[^>]+user\/seasons/)
+  assert.match(list, /赛程将在报名结束后公布/)
+  assert.match(detail, /getSeason\(route\.params\.id\)/)
+  assert.match(detail, /if\(!summary\.scheduleConfirmed\)return/)
+  assert.match(detail, /getSeasonSchedule\(route\.params\.id\)/)
+})
+
+test('EVENT_ADMIN season actions distinguish lifecycle start from registration closing', async () => {
+  const page = await source('../src/views/admin/AdminSeasons.vue')
+  const api = await source('../src/api/league.js')
+  assert.match(page, /开始赛季/)
+  assert.match(page, /状态调整为 ACTIVE/)
+  assert.match(page, /提前截止报名并生成赛程/)
+  assert.doesNotMatch(page, /启用赛季|确认启用/)
+  assert.match(api, /closeSeasonRegistration=.*\/admin\/seasons\/\$\{seasonId\}\/close-registration/)
+})
+
+test('management season pages use admin endpoints instead of the public list', async () => {
+  const api = await source('../src/api/league.js')
+  const pages = await Promise.all([
+    '../src/views/admin/AdminSeasons.vue',
+    '../src/views/admin/AdminMatches.vue',
+    '../src/views/admin/AdminMatchResultReminders.vue',
+    '../src/views/admin/AdminSeasonRevenue.vue',
+  ].map(source))
+  assert.match(api, /getAdminSeasons=.*\/admin\/seasons/)
+  pages.forEach(page => {
+    assert.match(page, /getAdminSeasons/)
+    assert.doesNotMatch(page, /\bgetSeasons\b/)
+  })
+})
+
 test('visibility and purchasing controls use backend sale state independently', async () => {
   const page = await source('../src/views/user/UserRounds.vue')
   const ticketUi = await source('../src/components/TicketZoneList.vue')

@@ -22,12 +22,14 @@ public class SeasonScheduleServiceImpl implements SeasonScheduleService {
     private static final Set<String> BATCH_STATUSES=Set.of("GENERATED","CONFIRMED");
     private final SeasonInfoMapper seasonMapper;
     private final SeasonScheduleMapper scheduleMapper;
+    private final ClubSeasonEnrollmentMapper enrollmentMapper;
     private final RoundInfoMapper roundMapper;
     private final MatchInfoMapper matchMapper;
     private final ClubSeasonRecordMapper recordMapper;
     private final SystemTimeService timeService;
     private final DoubleRoundRobinSchedulePlanner planner;
     private final TicketSalePolicy ticketSalePolicy;
+    private final PublicSeasonVisibilityService publicVisibility;
 
     @Override @Transactional
     public ScheduleDetailResponse generateIfEligible(Long seasonId,String triggerType){
@@ -43,6 +45,23 @@ public class SeasonScheduleServiceImpl implements SeasonScheduleService {
         boolean deadline=!now.isBefore(season.getRegistrationDeadline());
         if(!full&&!deadline)throw conflict("赛季未满额且报名尚未截止，暂不能生成赛程");
         if(teams.size()<2)throw conflict("参赛俱乐部不足，至少需要2支球队");
+        return generateLocked(season,teams,triggerType,now);
+    }
+
+    @Override @Transactional
+    public ScheduleDetailResponse closeRegistrationAndGenerate(Long seasonId){
+        SeasonInfo season=seasonMapper.findByIdForUpdate(seasonId);
+        if(season==null)throw new BusinessException(HttpStatus.NOT_FOUND,"season not found");
+        if(!"DRAFT".equals(season.getSeasonStatus()))throw conflict("仅DRAFT赛季可以提前截止报名");
+        if(scheduleMapper.findBySeason(seasonId)!=null)throw conflict("报名已关闭或赛程已生成");
+        enrollmentMapper.findSubmittedIdsForUpdate(seasonId);
+        List<SeasonScheduleMapper.EnrollmentTeam> teams=scheduleMapper.findTeams(seasonId);
+        if(teams.size()<2)throw conflict("当前报名球队不足，无法生成赛程");
+        return generateLocked(season,teams,"MANUAL",timeService.now());
+    }
+
+    private ScheduleDetailResponse generateLocked(SeasonInfo season,List<SeasonScheduleMapper.EnrollmentTeam> teams,String triggerType,LocalDateTime now){
+        Long seasonId=season.getSeasonId();
         if(scheduleMapper.countSeasonMatches(seasonId)>0)throw conflict("赛季已存在人工比赛，无法直接执行自动排赛");
 
         List<DoubleRoundRobinSchedulePlanner.PlannedGame> games=planner.plan(teams.size(),season.getStartDate());
@@ -73,6 +92,7 @@ public class SeasonScheduleServiceImpl implements SeasonScheduleService {
 
     @Override public ScheduleDetailResponse get(Long seasonId){SeasonScheduleBatch b=scheduleMapper.findBySeason(seasonId);if(b==null)throw new BusinessException(HttpStatus.NOT_FOUND,"schedule not found");return detail(b);}
     @Override public UserSeasonScheduleResponse getPublicConfirmed(Long seasonId){
+        publicVisibility.requirePublicVisibleSeason(seasonId);
         SeasonInfo season=seasonMapper.findById(seasonId);if(season==null)throw new BusinessException(HttpStatus.NOT_FOUND,"season not found");
         SeasonScheduleBatch batch=scheduleMapper.findBySeason(seasonId);if(batch==null||!"CONFIRMED".equals(batch.getBatchStatus()))throw new BusinessException(HttpStatus.NOT_FOUND,"confirmed schedule not found");
         Map<Integer,List<ScheduleMatchResponse>> grouped=new LinkedHashMap<>();
