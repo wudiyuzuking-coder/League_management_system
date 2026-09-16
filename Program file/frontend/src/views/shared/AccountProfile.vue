@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { UserFilled } from '@element-plus/icons-vue'
 import { removeAvatar, updateProfile, uploadAvatar } from '../../api/auth'
 import { useAuthStore } from '../../stores/auth'
+import { maskPhone } from '../../utils/privacy'
 
 const authStore = useAuthStore()
 const formRef = ref()
@@ -83,36 +84,47 @@ const clearAvatar = async () => {
 </script>
 
 <template>
-  <el-card class="profile-card">
-    <template #header><h2>账号资料</h2></template>
-    <el-alert :title="authStore.user?.roleCode==='USER'?'手机号是唯一登录凭证且不可修改；账号资料仅允许修改用户名。':'手机号是唯一登录凭证。'" type="info" :closable="false" />
-    <section class="avatar-section">
-      <el-avatar :size="96" :src="authStore.user?.avatarUrl || undefined" :icon="UserFilled" />
-      <div class="avatar-actions">
-        <el-upload accept="image/jpeg,image/png" :show-file-list="false" :before-upload="beforeAvatarUpload" :http-request="uploadAvatarFile" :disabled="avatarBusy">
-          <el-button type="primary" :loading="avatarBusy">上传或更换头像</el-button>
-        </el-upload>
-        <el-button v-if="authStore.user?.avatarUrl" :disabled="avatarBusy" @click="clearAvatar">移除头像</el-button>
-        <small>支持JPEG、PNG，最大2MB</small>
-      </div>
-    </section>
-    <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-      <el-form-item label="角色"><el-input :model-value="roleLabel" disabled /></el-form-item>
-      <el-form-item label="用户名" prop="username"><el-input v-model="form.username" /></el-form-item>
-      <el-form-item label="手机号" prop="phone"><el-input v-model="form.phone" :disabled="authStore.user?.roleCode==='USER'" /></el-form-item>
-      <el-form-item v-if="authStore.user?.roleCode!=='USER'" label="真实姓名" prop="realName"><el-input v-model="form.realName" /></el-form-item>
-      <el-form-item v-if="authStore.user?.employeeNo" label="管理工号"><el-input :model-value="authStore.user.employeeNo" disabled /></el-form-item>
-      <el-form-item v-if="authStore.user?.roleCode === 'CLUB'" label="绑定俱乐部"><el-input :model-value="authStore.user?.clubId || '尚未绑定'" disabled /></el-form-item>
-      <el-form-item><el-button type="primary" :loading="saving" @click="save">保存资料</el-button></el-form-item>
-    </el-form>
-  </el-card>
+  <div v-if="authStore.user?.roleCode==='USER'" class="user-profile">
+    <PageHeader title="用户资料" subtitle="维护赛事账户头像和显示名称。" />
+    <CardShell title="个人资料" subtitle="手机号是唯一登录凭证且不可修改。" variant="action">
+      <section class="avatar-section">
+        <el-avatar :size="96" :src="authStore.user?.avatarUrl || undefined" :icon="UserFilled" />
+        <div class="avatar-actions"><strong>{{form.username}}</strong><span>{{maskPhone(form.phone)}}</span><div><el-upload accept="image/jpeg,image/png" :show-file-list="false" :before-upload="beforeAvatarUpload" :http-request="uploadAvatarFile" :disabled="avatarBusy"><el-button type="primary" :loading="avatarBusy">上传或更换头像</el-button></el-upload><el-button v-if="authStore.user?.avatarUrl" :disabled="avatarBusy" @click="clearAvatar">移除头像</el-button></div><small>支持 JPEG、PNG，最大 2MB</small></div>
+      </section>
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" class="user-profile__form"><el-form-item label="用户名" prop="username"><el-input v-model="form.username" name="username" autocomplete="username" /></el-form-item><el-form-item label="手机号"><el-input :model-value="maskPhone(form.phone)" disabled /></el-form-item><el-form-item><el-button type="primary" :loading="saving" @click="save">保存资料</el-button></el-form-item></el-form>
+    </CardShell>
+  </div>
+  <div v-else class="management-profile">
+    <PageHeader :breadcrumb="[{label:'账号设置'},{label:'账号资料'}]" title="账号资料" :subtitle="`维护${roleLabel}的身份与联系方式。`"><template #status><StatusTag v-if="authStore.user?.userStatus" :value="authStore.user.userStatus" /></template></PageHeader>
+    <CardShell title="基本资料" subtitle="头像、用户名、手机号和真实姓名用于账号识别。">
+      <section class="avatar-section">
+        <el-avatar :size="96" :src="authStore.user?.avatarUrl || undefined" :icon="UserFilled" :alt="`${form.username||roleLabel}头像`" />
+        <div class="avatar-actions">
+          <strong>{{form.username||roleLabel}}</strong>
+          <span>{{maskPhone(form.phone)}}</span>
+          <div><el-upload accept="image/jpeg,image/png" :show-file-list="false" :before-upload="beforeAvatarUpload" :http-request="uploadAvatarFile" :disabled="avatarBusy"><el-button type="primary" :loading="avatarBusy">上传或更换头像</el-button></el-upload><el-button v-if="authStore.user?.avatarUrl" :disabled="avatarBusy" @click="clearAvatar">移除头像</el-button></div>
+          <small>支持 JPEG、PNG，最大 2MB</small>
+        </div>
+      </section>
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" class="management-profile__form">
+        <el-form-item label="角色"><el-input :model-value="roleLabel" disabled /></el-form-item>
+        <el-form-item label="用户名" prop="username"><el-input v-model="form.username" name="management-username" autocomplete="username" /></el-form-item>
+        <el-form-item label="手机号" prop="phone"><el-input v-model="form.phone" name="management-phone" type="tel" inputmode="tel" autocomplete="tel" /></el-form-item>
+        <el-form-item label="真实姓名" prop="realName"><el-input v-model="form.realName" name="management-real-name" autocomplete="name" /></el-form-item>
+      </el-form>
+    </CardShell>
+    <CardShell class="security-card" title="安全与账号状态" subtitle="手机号是唯一登录凭证；账号注销继续由全局账号菜单处理。">
+      <dl class="security-list"><div><dt>角色</dt><dd>{{roleLabel}}</dd></div><div><dt>账号状态</dt><dd><StatusTag v-if="authStore.user?.userStatus" :value="authStore.user.userStatus" /><span v-else>以当前登录状态为准</span></dd></div><div v-if="authStore.user?.employeeNo"><dt>管理工号</dt><dd class="score-nums">{{authStore.user.employeeNo}}</dd></div><div v-if="authStore.user?.roleCode==='CLUB'"><dt>绑定俱乐部</dt><dd>{{authStore.user?.clubId||'尚未绑定'}}</dd></div></dl>
+    </CardShell>
+    <ActionToolbar class="profile-actions" title="保存账号资料" description="保存后会刷新当前账号信息。"><template #actions><el-button type="primary" :loading="saving" @click="save">保存资料</el-button></template></ActionToolbar>
+  </div>
 </template>
 
 <style scoped>
-.profile-card { max-width: 720px; }
-.profile-card h2 { margin: 0; }
 .el-alert { margin-bottom: 20px; }
 .avatar-section { display: flex; align-items: center; gap: 20px; margin: 0 0 24px; }
 .avatar-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.avatar-actions small { width: 100%; color: #6b7280; }
+.avatar-actions small { width: 100%; color: var(--color-text-muted); }
+.user-profile{max-width:820px}.user-profile .avatar-section{padding-bottom:var(--space-6);border-bottom:1px solid var(--color-line)}.user-profile .avatar-actions{align-items:flex-start;flex-direction:column}.user-profile .avatar-actions>strong{font-size:var(--font-size-xl)}.user-profile .avatar-actions>span{color:var(--color-text-muted)}.user-profile .avatar-actions>div{display:flex;gap:var(--space-2)}.user-profile__form{max-width:560px;margin-top:var(--space-6)}
+.management-profile{max-width:900px}.management-profile .avatar-section{padding-bottom:var(--space-6);border-bottom:1px solid var(--color-line)}.management-profile .avatar-actions{align-items:flex-start;flex-direction:column}.management-profile .avatar-actions>strong{font-size:var(--font-size-xl)}.management-profile .avatar-actions>span{color:var(--color-text-muted)}.management-profile .avatar-actions>div{display:flex;gap:var(--space-2)}.management-profile__form{max-width:620px;margin-top:var(--space-6)}.security-card,.profile-actions{margin-top:var(--space-4)}.security-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4);margin:0}.security-list dt{color:var(--color-text-muted);font-size:var(--font-size-xs)}.security-list dd{margin:var(--space-1) 0 0;font-weight:var(--font-weight-semibold)}
 </style>

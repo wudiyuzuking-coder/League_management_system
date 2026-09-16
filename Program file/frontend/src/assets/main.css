@@ -1,42 +1,5 @@
 :root {
-  --app-bg: #f3f6f4;
-  --surface: #ffffff;
-  --surface-muted: #f7f9f8;
-  --text-primary: #17211c;
-  --text-secondary: #53635a;
-  --text-muted: #75837b;
-  --border-color: #dfe7e2;
-  --primary: #176b45;
-  --primary-hover: #125a39;
-  --primary-soft: #d9efe3;
-  --success: #168a54;
-  --warning: #b7791f;
-  --danger: #c2413b;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --shadow-sm: 0 1px 2px rgb(16 44 29 / 6%);
-  --shadow-md: 0 10px 26px rgb(16 44 29 / 10%);
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
-  --el-color-primary: var(--primary);
-  --el-color-primary-light-3: #4f9271;
-  --el-color-primary-light-5: #80ae96;
-  --el-color-primary-light-7: #b4d2c1;
-  --el-color-primary-light-8: #d1e4d9;
-  --el-color-primary-light-9: #edf6f1;
-  --el-color-primary-dark-2: var(--primary-hover);
-  --el-color-success: var(--success);
-  --el-color-warning: var(--warning);
-  --el-color-danger: var(--danger);
-  --el-border-color: var(--border-color);
-  --el-border-radius-base: var(--radius-sm);
-  --el-bg-color-page: var(--app-bg);
-  font-family:
-    Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  font-family: var(--font-ui);
   color: var(--text-primary);
   background: var(--app-bg);
   font-synthesis: none;
@@ -66,11 +29,25 @@ a {
   text-decoration: none;
 }
 
+a,
+button,
+[role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: var(--tap-highlight);
+}
+
+h1,
+h2,
+h3 {
+  scroll-margin-top: var(--space-16);
+}
+
 a:focus-visible,
 button:focus-visible,
 [role="button"]:focus-visible {
-  outline: 3px solid var(--primary-soft);
+  outline: none;
   outline-offset: 2px;
+  box-shadow: var(--focus-ring);
 }
 
 .sr-only {
@@ -87,44 +64,34 @@ button:focus-visible,
 
 .app-surface {
   padding: var(--space-lg);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-}
-
-.el-card {
-  --el-card-border-color: var(--border-color);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-none);
 }
 
-.el-table { --el-table-header-bg-color: var(--surface-muted); --el-table-row-hover-bg-color: #f2f8f4; color: var(--text-primary); }
-.el-table th.el-table__cell { color: var(--text-secondary); font-weight: 700; }
-.el-table .cell { padding-top: 3px; padding-bottom: 3px; }
 .el-pagination { justify-content: flex-end; margin-top: var(--space-md); }
-.tabular-nums { font-variant-numeric: tabular-nums; }
+.tabular-nums { font-variant-numeric: tabular-nums lining-nums; }
+.score-nums { font-family: var(--font-score); font-variant-numeric: tabular-nums lining-nums; }
 
 .app-dialog { --el-dialog-border-radius: var(--radius-lg); }
-.app-dialog .el-dialog__header { padding-bottom: var(--space-md); border-bottom: 1px solid var(--border-color); }
-.app-dialog .el-dialog__footer { padding-top: var(--space-md); border-top: 1px solid var(--border-color); }
 
 .auth-page {
   display: grid;
   min-height: 100vh;
   padding: 32px 20px;
   place-items: center;
-  background: radial-gradient(circle at 15% 15%, rgb(34 197 94 / 18%), transparent 32%),
-    linear-gradient(135deg, #f0fdf4, #f8fafc 55%, #ecfdf5);
+  background: var(--color-canvas);
 }
 
-.auth-card { width: min(420px, 100%); border: 0; border-radius: 18px; }
+.auth-card { width: min(420px, 100%); border-color: var(--color-line); border-radius: var(--radius-lg); box-shadow: var(--shadow-raised); }
 .auth-card-wide { width: min(720px, 100%); }
-.auth-heading h1 { margin: 8px 0; color: #14532d; font-size: 26px; }
-.auth-heading p, .role-home p { color: #64748b; }
-.auth-kicker { color: #16a34a; font-size: 12px; font-weight: 800; letter-spacing: 0.16em; }
+.auth-heading h1 { margin: var(--space-2) 0; color: var(--color-text-primary); font-size: var(--font-size-2xl); }
+.auth-heading p, .role-home p { color: var(--color-text-secondary); }
+.auth-kicker { color: var(--color-pitch); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); letter-spacing: 0.12em; }
 .auth-submit { width: 100%; margin-top: 8px; }
-.auth-switch { margin: 22px 0 4px; color: #64748b; text-align: center; }
-.auth-switch a { color: #15803d; font-weight: 700; }
+.auth-switch { margin: var(--space-5) 0 var(--space-1); color: var(--color-text-secondary); text-align: center; }
+.auth-switch a { color: var(--color-pitch); font-weight: var(--font-weight-semibold); }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
 .state-page { display: grid; min-height: 100vh; place-items: center; }
 .role-home { max-width: 760px; margin: 36px auto; }

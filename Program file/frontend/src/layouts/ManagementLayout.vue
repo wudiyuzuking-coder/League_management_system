@@ -72,7 +72,7 @@ watch(()=>systemTimeStore.revision,loadReminderCount)
   <a class="skip-link" href="#main-content">跳至主要内容</a>
   <el-container class="management-layout">
     <el-aside width="220px" class="management-aside">
-      <h1>{{ appStore.appName }}</h1>
+      <div class="app-brand">{{ appStore.appName }}</div>
       <p>{{ ROLE_LABELS[authStore.user?.roleCode] || authStore.user?.roleCode }}入口</p>
       <nav aria-label="一级导航">
         <section v-for="group in menuGroups" :key="group.label" class="menu-group">
@@ -131,9 +131,10 @@ watch(()=>systemTimeStore.revision,loadReminderCount)
   background: #123b29;
 }
 
-.management-aside h1 {
+.management-aside .app-brand {
   margin: 0 0 12px;
   font-size: 20px;
+  font-weight: var(--font-weight-bold);
 }
 
 .management-aside p {

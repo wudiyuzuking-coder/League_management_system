@@ -1,4 +1,6 @@
 <script setup>
+import EmptyState from './EmptyState.vue'
+
 defineProps({
   loading: { type: Boolean, default: false },
   error: { type: [String, Boolean, Error], default: '' },
@@ -19,25 +21,19 @@ defineEmits(['retry'])
       <span class="sr-only">正在加载…</span>
       <el-skeleton :rows="skeletonRows" animated />
     </div>
-    <el-result
-      v-else-if="error"
-      icon="error"
-      :title="errorTitle"
-      :sub-title="typeof error === 'string' ? error : errorDescription"
-      role="alert"
-    >
-      <template #extra><el-button type="primary" @click="$emit('retry')">重新加载</el-button></template>
-    </el-result>
-    <el-empty v-else-if="empty" :description="emptyTitle">
-      <p v-if="emptyDescription" class="data-state__description">{{ emptyDescription }}</p>
+    <div v-else-if="error" role="alert" aria-live="assertive">
+      <EmptyState tone="danger" :title="errorTitle" :description="typeof error === 'string' ? error : errorDescription">
+        <el-button type="primary" @click="$emit('retry')">重新加载</el-button>
+      </EmptyState>
+    </div>
+    <EmptyState v-else-if="empty" :title="emptyTitle" :description="emptyDescription">
       <slot name="empty-action" />
-    </el-empty>
+    </EmptyState>
     <slot v-else />
   </section>
 </template>
 
 <style scoped>
 .data-state { min-width: 0; }
-.data-state__loading { padding: var(--space-md) 0; }
-.data-state__description { margin: 0 0 var(--space-md); color: var(--text-muted); }
+.data-state__loading { min-height: 180px; padding: var(--space-6) 0; }
 </style>

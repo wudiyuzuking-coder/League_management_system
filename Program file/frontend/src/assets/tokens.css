@@ -1,0 +1,108 @@
+:root {
+  /* Touchline Operations: pitch, chalk, floodlight, and operations ink. */
+  --color-ink: #142019;
+  --color-canvas: #f3f6f4;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f8faf9;
+  --color-surface-strong: #edf2ef;
+  --color-pitch: #176b45;
+  --color-pitch-hover: #125a39;
+  --color-pitch-active: #0e4930;
+  --color-pitch-soft: #e7f3ec;
+  --color-line: #dce5df;
+  --color-line-strong: #c6d3cb;
+
+  --color-text-primary: #142019;
+  --color-text-secondary: #536159;
+  --color-text-muted: #748079;
+  --color-text-disabled: #a5aea9;
+  --color-text-inverse: #ffffff;
+
+  --color-success: #147a45;
+  --color-success-soft: #e9f6ee;
+  --color-success-border: #b7dfc6;
+  --color-warning: #a85a0a;
+  --color-warning-soft: #fff3e3;
+  --color-warning-border: #f0d2a7;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+  --color-danger-border: #efbeb9;
+  --color-info: #315d8a;
+  --color-info-soft: #ecf3fa;
+  --color-neutral: #5e6b64;
+  --color-neutral-soft: #f0f3f1;
+  --color-neutral-border: #d7dfda;
+  --color-live: #c51f2d;
+  --color-live-soft: #fdecee;
+  --color-live-border: #efbebf;
+
+  --role-user: #2563eb;
+  --role-club: #176b45;
+  --role-event-admin: #c25b18;
+  --role-admin: #5b5bd6;
+  --role-accent: var(--color-pitch);
+
+  --font-ui: "Noto Sans SC", Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  --font-score: "Barlow Condensed", "Arial Narrow", var(--font-ui);
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 28px;
+  --font-size-display: 48px;
+  --line-height-tight: 1.2;
+  --line-height-heading: 1.4;
+  --line-height-body: 1.6;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+
+  --shadow-none: none;
+  --shadow-raised: 0 2px 8px rgb(20 32 25 / 6%);
+  --shadow-overlay: 0 10px 30px rgb(20 32 25 / 12%);
+  --shadow-dialog: 0 24px 64px rgb(20 32 25 / 18%);
+  --focus-ring: 0 0 0 3px rgb(23 107 69 / 22%);
+  --tap-highlight: rgb(23 107 69 / 12%);
+
+  /* Compatibility aliases for existing pages during phased migration. */
+  --app-bg: var(--color-canvas);
+  --surface: var(--color-surface);
+  --surface-muted: var(--color-surface-subtle);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --border-color: var(--color-line);
+  --primary: var(--color-pitch);
+  --primary-hover: var(--color-pitch-hover);
+  --primary-soft: var(--color-pitch-soft);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --danger: var(--color-danger);
+  --shadow-sm: var(--shadow-raised);
+  --shadow-md: var(--shadow-overlay);
+  --space-xs: var(--space-1);
+  --space-sm: var(--space-2);
+  --space-md: var(--space-4);
+  --space-lg: var(--space-6);
+  --space-xl: var(--space-8);
+}
