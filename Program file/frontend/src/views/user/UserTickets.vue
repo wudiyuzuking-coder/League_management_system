@@ -17,7 +17,7 @@ onMounted(load)
         <CardShell v-for="row in records" :key="row.ticketId" variant="fixture" compact class="ticket-card">
           <template #header><div class="ticket-card__header"><span>比赛门票</span><StatusTag :value="row.ticketStatus"/></div></template>
           <div class="ticket-card__match"><h2>{{row.homeClubName}} <span>VS</span> {{row.awayClubName}}</h2><p>{{$formatDateTime(row.matchTime)}}</p></div>
-          <dl><div><dt>票区</dt><dd>{{row.zoneName}}</dd></div><div><dt>座位</dt><dd>{{row.rowNo}}排 {{row.seatNo}}座</dd></div><div><dt>购票人</dt><dd>{{row.passengerName}}</dd></div></dl>
+          <dl><div><dt>票区</dt><dd>{{row.zoneName}}</dd></div><div><dt>座位</dt><dd>{{row.rowNo}} {{row.seatNo}}</dd></div><div><dt>购票人</dt><dd>{{row.passengerName}}</dd></div></dl>
           <template #footer><div class="ticket-card__footer"><span>{{$statusLabel(row.ticketStatus)}}</span><RouterLink :to="`/user/tickets/${row.ticketId}`" class="el-button el-button--primary">查看电子票</RouterLink></div></template>
         </CardShell>
       </div>

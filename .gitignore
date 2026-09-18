@@ -44,6 +44,9 @@ Program file/frontend/.vite/
 .DS_Store
 Thumbs.db
 
+# AI agent local configuration
+.agents/
+
 # Logs
 *.log
 

@@ -22,7 +22,7 @@ onMounted(load)
         <header><span>联赛比赛电子票</span><StatusTag :value="ticket.ticketStatus"/></header>
         <div class="event-ticket__match"><h2>{{ticket.homeClubName}} <span>VS</span> {{ticket.awayClubName}}</h2><p>{{$formatDateTime(ticket.matchTime)}}</p><p>{{ticket.stadiumName}}</p></div>
         <div class="event-ticket__tear" aria-hidden="true"/>
-        <dl><div><dt>票种</dt><dd>{{String(ticket.zoneName||'').toUpperCase().includes('VIP')?'VIP':'普通票'}}</dd></div><div><dt>实际票区</dt><dd>{{ticket.zoneName}}</dd></div><div><dt>排号</dt><dd>{{ticket.rowNo}}排</dd></div><div><dt>座号</dt><dd>{{ticket.seatNo}}座</dd></div><div><dt>购票人</dt><dd>{{ticket.passengerName}}</dd></div><div><dt>身份证</dt><dd>{{maskIdCard(ticket.passengerIdCard)}}</dd></div></dl>
+        <dl><div><dt>票种</dt><dd>{{String(ticket.zoneName||'').toUpperCase().includes('VIP')?'VIP':'普通票'}}</dd></div><div><dt>实际票区</dt><dd>{{ticket.zoneName}}</dd></div><div><dt>排号</dt><dd>{{ticket.rowNo}}</dd></div><div><dt>座号</dt><dd>{{ticket.seatNo}}</dd></div><div><dt>购票人</dt><dd>{{ticket.passengerName}}</dd></div><div><dt>身份证</dt><dd>{{maskIdCard(ticket.passengerIdCard)}}</dd></div></dl>
         <div class="event-ticket__code"><span>入场票码</span><strong>{{ticket.ticketCode}}</strong><small>请妥善保管票码，入场时由检票员核验。</small></div>
       </article>
     </DataState>

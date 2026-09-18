@@ -167,8 +167,8 @@ cd "Program file"
 使用具有创建数据库和表权限的本地 MySQL 账号，按顺序执行：
 
 ```powershell
-mysql --default-character-set=utf8mb4 -u db_user -p -e "source database/schema.sql"
-mysql --default-character-set=utf8mb4 -u db_user -p -e "source database/seed.sql"
+mysql --default-character-set=utf8mb4 -u root -p -e "source database/schema.sql"
+mysql --default-character-set=utf8mb4 -u root -p -e "source database/seed.sql"
 ```
 
 需要本地样例数据时再执行：
@@ -192,7 +192,7 @@ $env:JWT_SECRET = "replace-with-a-random-secret-of-at-least-32-bytes"
 $env:JWT_EXPIRATION_MINUTES = "120"
 $env:APP_UPLOAD_DIR = "./uploads"
 
-cd backend
+cd "Program file\backend"
 .\mvnw.cmd spring-boot:run
 ```
 
