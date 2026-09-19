@@ -87,6 +87,20 @@ npm run dev
 
 开发服务器默认将 `/api` 和 `/uploads` 转发到后端。上传仅接受不超过 2MB 的真实 JPEG/PNG 文件，文件名使用 UUID，运行时上传目录不进入 Git。
 
+## Release / 课程设计运行
+
+从仓库根目录执行以下命令可生成一套不依赖 Node、npm、Maven 或 Vite 的运行包：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ".\Program file\scripts\build-release.ps1"
+```
+
+输出目录为 `release/LeagueTicket/`。第一次换电脑时，先启动 MySQL，双击 `init-db.bat`，复制 `config.bat.example` 为 `config.bat` 并填写本机配置，最后双击 `start.bat`。以后只需确保 MySQL 已启动并双击 `start.bat`。
+
+Release 只要求 Java 17+ 和 MySQL 8。Spring Boot 在 `:8080` 同时提供 Vue 页面、`/api/**` 和 `/uploads/**`；Vue history 路由刷新由后端对已知页面路由转发至 `index.html`，不会捕获 API、上传文件或静态 assets。`test-data.sql` 仍是可选且具有数据清理行为的本地演示数据，初始化脚本不会自动导入。
+
+课程提交应包含完整仓库源码和生成的 `release/LeagueTicket/`，无需把 `node_modules/`、`backend/target/` 或 `frontend/dist/` 放入源码备份。
+
 ## 测试与构建
 
 ```powershell
@@ -101,7 +115,7 @@ npm run build
 
 数据库集成测试必须使用允许测试写入或事务回滚的隔离数据库，并显式设置 `RUN_DB_TESTS=true`。不得把破坏性测试指向正式库或保留答辩数据的开发库。
 
-最近一次 Freeze Audit：后端发现 153 项测试，实际运行 41、跳过 112、失败 0；前端 21 项测试全部运行通过；后端打包和前端生产构建成功。跳过的数据库门控测试不计作实际通过。
+最近一次 Release Audit：后端发现 166 项测试，实际运行 48、跳过 118、失败 0；前端生产构建成功；Release fat JAR、56 个 runtime 第三方 JAR 及单端口运行验收成功。跳过的数据库门控测试不计作实际通过。
 
 ## 安全边界
 

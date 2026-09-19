@@ -36,6 +36,14 @@ Program file/frontend/.vite/
 .env
 .env.*
 !.env.example
+config.bat
+Program file/config.bat
+release/**/config.bat
+Program file/release/**/config.bat
+
+# Generated course-delivery packages
+release/
+Program file/release/
 
 # IDE and operating system files
 .idea/

@@ -34,7 +34,14 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/health", "/api/auth/login", "/api/auth/register", "/api/auth/management/probe", "/api/auth/management/activate", "/uploads/**").permitAll()
+                        .requestMatchers(
+                                "/", "/index.html", "/favicon.ico", "/assets/**",
+                                "/login", "/register", "/switch-account", "/403",
+                                "/user", "/user/**", "/club", "/club/**", "/admin", "/admin/**",
+                                "/api/health", "/api/auth/login", "/api/auth/register",
+                                "/api/auth/management/probe", "/api/auth/management/activate",
+                                "/uploads/**")
+                        .permitAll()
                         .requestMatchers("/api/user/**").hasRole("USER")
                         .requestMatchers("/api/club/**").hasRole("CLUB")
                         .requestMatchers(

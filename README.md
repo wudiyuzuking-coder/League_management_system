@@ -152,7 +152,9 @@ League_management_system/
 
 项目提供 Maven Wrapper，不要求预先安装系统 Maven。
 
-## 快速启动
+## 开发模式
+
+开发模式保持现有前后端分离结构：MySQL 8 → Spring Boot `:8080` → Vite `:5173`。Vite 继续代理 `/api` 和 `/uploads`，不受 Release 方案影响。
 
 以下命令以 Windows PowerShell 为例。目录名包含空格，请保留引号。
 
@@ -217,7 +219,47 @@ npm run dev
 
 前端默认地址为 `http://localhost:5173`。如后端不在默认地址，可在启动前设置 `VITE_API_TARGET`，该值同时用于 `/api` 和 `/uploads` 代理。
 
-### Windows 辅助脚本
+## Release / 课程设计运行模式
+
+Release 由 Spring Boot 在 `http://localhost:8080` 同时提供 Vue 静态页面、`/api/**` 接口和 `/uploads/**` 文件。运行已经生成的 Release 不需要 Node.js、npm、Maven，也不需要运行 Vite；只需要 Java 17+、MySQL 8。
+
+### 一键构建交付包
+
+构建机需要 JDK 17+、Node.js/npm，以及可由 Maven Wrapper 使用的本地/在线依赖缓存。在仓库根目录执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ".\Program file\scripts\build-release.ps1"
+```
+
+脚本严格依次执行 `npm ci`、`npm run build`、`mvnw.cmd clean test` 和 release profile 打包，并验证最终 JAR 中的 `static/index.html`、前端 assets 与 Spring Boot 运行依赖。成功后生成：
+
+```text
+Program file/release/LeagueTicket/
+```
+
+Release profile 只在打包时把 `frontend/dist` 作为 `static` 资源加入 JAR，不会把生成文件复制到 `backend/src/main/resources/static`。同一 profile 通过 Maven Dependency Plugin 把 runtime scope 依赖复制到 `third-party-jars/`；可执行 JAR 自身仍是包含运行依赖的 Spring Boot fat JAR。
+
+### 第一次部署
+
+1. 安装并启动 MySQL 8 与 Java 17+。
+2. 在 `release/LeagueTicket` 中双击 `init-db.bat`，按提示输入 MySQL 连接信息。脚本只执行 `schema.sql` 和 `seed.sql`。
+3. 把 `config.bat.example` 复制为 `config.bat`，配置数据库连接和至少 32 个随机字节的 `JWT_SECRET`。`config.bat` 已被 Git 忽略。
+4. 双击 `start.bat`。后端健康检查成功后会自动打开 `http://localhost:8080`。
+
+`database/test-data.sql` 是会清理并重建业务演示记录的可选本地演示数据，`init-db.bat` 永远不会自动导入它。全新数据库也不需要执行 `database/migrations/`。
+
+### 日常答辩启动
+
+1. 确保 MySQL 服务已启动。
+2. 双击 `release/LeagueTicket/start.bat`，保持启动窗口开启。
+
+`start.bat` 不调用 Maven、Node 或 npm。它从本地 `config.bat` 读取 `SPRING_PROFILES_ACTIVE=dev`、`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`JWT_SECRET`、`JWT_EXPIRATION_MINUTES` 和 `APP_UPLOAD_DIR`，再执行 `java -jar league-ticket.jar`。
+
+### 课程提交内容
+
+提交时保留当前完整仓库源码，并附带脚本生成的 `Program file/release/LeagueTicket/` 可运行目录。不要另行复制源码目录；仓库的 `.gitignore` 已排除 `node_modules/`、`backend/target/`、`frontend/dist/`、本机密码文件、IDE 缓存和生成的 `release/`。
+
+## Windows 开发辅助脚本
 
 `Program file/scripts/` 提供后端、前端以及本地 MySQL 启停脚本。MySQL 辅助脚本依赖调用者预先设置 `MYSQL_EXE`、`MYSQL_DATA_DIR`、数据库账号和其他必要环境变量；`run-backend.ps1` 还会启用样例密码初始化，因此只应在隔离的本地开发数据库中使用。
 
@@ -274,8 +316,9 @@ npm run preview
 
 最近一次本地验证结果：
 
-- `mvnw clean test`：成功；发现 134 项测试，执行 26 项、跳过 108 项、失败 0。跳过项为未启用 `RUN_DB_TESTS` 的数据库集成测试。
-- `mvnw clean package`：成功，并生成 Spring Boot 可执行 JAR；测试执行口径与上项相同。
-- `npm run build`：成功；Vite 完成 1796 个模块转换。构建提示主资源块超过 500 kB，但不影响产物生成。
+- `npm ci` 和 `npm run build`：成功；Vite 完成 1819 个模块转换。构建提示主资源块超过 500 kB，但不影响产物生成。
+- `mvnw.cmd clean test`：成功；发现 166 项测试，执行 48 项、跳过 118 项、失败 0。跳过项为未启用 `RUN_DB_TESTS` 的数据库集成测试。
+- release profile 打包：成功；可执行 JAR 包含 `static/index.html`、104 个前端静态资源和 `BOOT-INF/lib`，并额外生成 56 个 runtime 第三方 JAR。
+- Release JAR 实际启动：成功；未启动 Vite 时，首页、`/user/orders`、`/user/orders/28`、`/user/tickets/25`、真实前端 asset、`/api/health` 和实际 `/uploads` 图片均验证通过。未知 API、缺失 asset 和缺失 upload 均未被 SPA fallback 转发。
 
-本次验证未连接独立 MySQL 测试库，因此不将被跳过的数据库集成测试记为已执行。
+本次运行态验证连接了现有本机 MySQL，但没有独立的可写集成测试库，因此不将被跳过的数据库集成测试记为已执行。现有账号的密码未知，常用演示密码被正确拒绝；为避免改动现有数据，未初始化演示密码，所以登录成功与登录后业务接口仍待使用者凭有效账号复核。

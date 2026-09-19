@@ -1,0 +1,11 @@
+@echo off
+rem Copy this file to config.bat and edit only your local values.
+rem config.bat is intentionally ignored by Git.
+
+set "SPRING_PROFILES_ACTIVE=dev"
+set "DB_URL=jdbc:mysql://localhost:3306/league_ticket?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
+set "DB_USERNAME=root"
+set "DB_PASSWORD=replace-with-your-local-password"
+set "JWT_SECRET=replace-with-at-least-32-random-bytes"
+set "JWT_EXPIRATION_MINUTES=120"
+set "APP_UPLOAD_DIR=%~dp0uploads"
