@@ -229,7 +229,7 @@ INSERT INTO season_info
     (season_name, start_date, end_date, registration_start_time, registration_deadline, ticket_sale_start_time, max_clubs, season_status, description)
 VALUES
     ('2026新版演示赛季', '2026-09-20', '2026-10-31', '2026-09-01 00:00:00', '2026-09-18 19:59:00', NULL, 4, 'ACTIVE', '用于购票、退票和赛程展示的新版演示赛季。'),
-    ('2026报名测试赛季', '2026-10-15', '2026-11-30', '2026-09-01 00:00:00', '2026-10-01 19:59:00', NULL, 4, 'DRAFT', '用于俱乐部赛季报名测试。');
+    ('2026报名测试赛季', '2026-11-15', '2026-12-31', '2026-11-01 00:00:00', '2026-11-10 19:59:00', NULL, 4, 'DRAFT', '用于俱乐部赛季报名测试。');
 
 SET @season_main_id := (SELECT season_id FROM season_info WHERE season_name = '2026新版演示赛季');
 SET @season_signup_id := (SELECT season_id FROM season_info WHERE season_name = '2026报名测试赛季');

@@ -2,7 +2,6 @@ import request from '../utils/request'
 export const getMatches=(params)=>request.get('/matches',{params})
 export const getMatch=(id)=>request.get(`/matches/${id}`)
 export const getStadiums=()=>request.get('/stadiums')
-export const createMatch=(data)=>request.post('/admin/matches',data)
 export const updateMatch=(id,data)=>request.put(`/admin/matches/${id}`,data)
 export const updateMatchStatus=(id,matchStatus)=>request.put(`/admin/matches/${id}/status`,{matchStatus})
 export const submitMatchResult=(id,data)=>request.post(`/admin/matches/${id}/result-submissions`,data)

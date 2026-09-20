@@ -22,7 +22,6 @@ public class AdminMatchController {
     @GetMapping public Result<PageResponse<MatchInfo>> list(@Valid MatchQueryRequest query){return Result.success(service.list(query));}
     @GetMapping("/result-reminders") public Result<PageResponse<MatchResultReminderResponse>> resultReminders(@Valid MatchResultReminderQueryRequest query){return Result.success(service.resultReminders(query));}
     @GetMapping("/{id}") public Result<MatchInfo> detail(@PathVariable Long id){return Result.success(service.getById(id));}
-    @PostMapping public Result<MatchInfo> create(@Valid @RequestBody MatchRequest request){return Result.success(service.create(request));}
     @PutMapping("/{id}") public Result<MatchInfo> update(@PathVariable Long id,@Valid @RequestBody MatchRequest request){return Result.success(service.update(id,request));}
     @PutMapping("/{id}/status") public Result<MatchInfo> status(@PathVariable Long id,@Valid @RequestBody MatchStatusRequest request){return Result.success(service.updateStatus(id,request.matchStatus()));}
     @PostMapping("/{id}/result-submissions") public Result<MatchResultWorkflowResponse> submitResult(@PathVariable Long id,@AuthenticationPrincipal AuthenticatedUser user,@Valid @RequestBody MatchScoreRequest request){return Result.success(resultService.submit(id,user.userId(),request));}

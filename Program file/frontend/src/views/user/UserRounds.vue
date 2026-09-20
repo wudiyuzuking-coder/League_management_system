@@ -18,7 +18,7 @@ onMounted(load)
 
 <template>
   <div class="season-detail">
-    <PageHeader :title="season.seasonName||'赛季详情'" subtitle="按轮次查看完整赛程、比赛状态与售票信息。" :breadcrumb="[{label:'联赛赛季',to:'/user/seasons'},{label:'完整赛程'}]">
+    <PageHeader class="schedule-page-header" :title="season.seasonName||'赛季详情'" subtitle="按轮次查看完整赛程、比赛状态与售票信息。" :breadcrumb="[{label:'联赛赛季',to:'/user/seasons'},{label:'完整赛程'}]">
       <template #status><StatusTag v-if="season.publicStatus" :value="season.publicStatus"/></template>
       <template #actions><RouterLink :to="`/user/seasons/${route.params.id}/standings`" class="el-button">查看积分榜</RouterLink></template>
     </PageHeader>
@@ -56,6 +56,9 @@ onMounted(load)
 
 <style scoped>
 .season-dates{margin:var(--space-3) 0 0;color:var(--color-text-muted);font-size:var(--font-size-sm)}
+.schedule-page-header :deep(.page-header__breadcrumb a){display:inline-flex;align-items:center;min-height:36px;margin:calc(var(--space-2) * -1);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);font-size:var(--font-size-md);font-weight:var(--font-weight-semibold)}
+.schedule-page-header :deep(.page-header__breadcrumb a:hover){background:var(--color-surface-subtle);color:var(--primary);text-decoration:underline;text-underline-offset:3px}
+.schedule-page-header :deep(.page-header__breadcrumb a:focus-visible){background:var(--color-surface-subtle);box-shadow:var(--focus-ring)}
 .round-section{margin-top:var(--space-xl)}.round-heading{display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:12px;margin-bottom:var(--space-md)}.round-heading>span{color:var(--color-text-muted);font-size:var(--font-size-sm)}.round-heading h2{margin:0;font-size:20px}.round-heading div{height:1px;background:var(--border-color)}
 .fixture-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-md)}.fixture-card :deep(.card-shell__body){padding:var(--space-5)}
 .fixture-card__teams{display:grid;grid-template-columns:1fr 90px 1fr;align-items:center;gap:12px}.team-link{display:flex;align-items:center;flex-direction:column;gap:7px;min-width:0;text-align:center}.team-link strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.team-link:hover strong{color:var(--primary)}.versus{display:flex;align-items:center;flex-direction:column;gap:10px}.versus>strong{font-size:23px}

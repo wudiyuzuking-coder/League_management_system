@@ -46,18 +46,12 @@ class MatchManagementIntegrationTest {
 
     @AfterEach void resetSystemTime(){jdbc.update("UPDATE sys_config SET config_value='0',config_status='ENABLED' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");}
 
-    @Test void createValidationFilteringAndPermissions() throws Exception {
+    @Test void manualCreationIsUnavailableAndFilteringStillWorks() throws Exception {
         long matchId=create(seasonId,roundId,clubA,clubB,stadiumA,"2036-02-01T19:30:00");
         mockMvc.perform(get("/api/matches?clubId="+clubA).header("Authorization",bearer(club))).andExpect(status().isOk()).andExpect(jsonPath("$.data.records[*].matchId",not(hasItem((int)matchId))));
         mockMvc.perform(get("/api/matches/{id}",matchId).header("Authorization",bearer(user))).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/admin/matches?seasonId="+seasonId+"&clubId="+clubA).header("Authorization",bearer(admin))).andExpect(status().isOk()).andExpect(jsonPath("$.data.records[*].matchId",hasItem((int)matchId)));
-        createRequest(seasonId,roundId,clubA,clubC,stadiumA,"2036-02-02T19:30:00",user).andExpect(status().isForbidden());
-        createRequest(seasonId,roundId,clubA,clubC,stadiumA,"2036-02-02T19:30:00",systemAdmin).andExpect(status().isForbidden());
-        createRequest(seasonId,roundId,clubA,clubA,stadiumA,"2036-02-02T19:30:00",admin).andExpect(status().isBadRequest());
-        createRequest(seasonId,otherRoundId,clubA,clubC,stadiumA,"2036-02-02T19:30:00",admin).andExpect(status().isBadRequest());
-        createRequest(seasonId,roundId,clubA,clubC,stadiumA,"2036-02-10T19:30:00",admin).andExpect(status().isBadRequest());
-        createRequest(seasonId,roundId,clubA,clubC,stadiumB,"2036-02-02T19:30:00",admin).andExpect(status().isBadRequest());
-        createRequest(seasonId,roundId,clubA,clubB,stadiumA,"2036-02-02T20:00:00",admin).andExpect(status().isConflict());
+        mockMvc.perform(post("/api/admin/matches").header("Authorization",bearer(admin)).contentType(MediaType.APPLICATION_JSON).content(json(match(seasonId,roundId,clubA,clubC,stadiumA,"2036-02-02T19:30:00")))).andExpect(status().isMethodNotAllowed());
     }
 
     @Test void editStatusPublishedTimeAndScoreRules() throws Exception {
@@ -95,8 +89,7 @@ class MatchManagementIntegrationTest {
 
     private void finish(long id,int home,int away)throws Exception{transition(id,"PUBLISHED").andExpect(status().isOk());transition(id,"IN_PROGRESS").andExpect(status().isOk());score(id,home,away,admin).andExpect(status().isOk());transition(id,"FINISHED").andExpect(status().isOk());}
     private void assertRecord(long clubId,int played,int wins,int draws,int losses,int gf,int ga,int points){Map<String,Object> r=jdbc.queryForMap("SELECT played,wins,draws,losses,goals_for,goals_against,points FROM club_season_record WHERE season_id=? AND club_id=?",seasonId,clubId);org.assertj.core.api.Assertions.assertThat(((Number)r.get("played")).intValue()).isEqualTo(played);org.assertj.core.api.Assertions.assertThat(((Number)r.get("wins")).intValue()).isEqualTo(wins);org.assertj.core.api.Assertions.assertThat(((Number)r.get("draws")).intValue()).isEqualTo(draws);org.assertj.core.api.Assertions.assertThat(((Number)r.get("losses")).intValue()).isEqualTo(losses);org.assertj.core.api.Assertions.assertThat(((Number)r.get("goals_for")).intValue()).isEqualTo(gf);org.assertj.core.api.Assertions.assertThat(((Number)r.get("goals_against")).intValue()).isEqualTo(ga);org.assertj.core.api.Assertions.assertThat(((Number)r.get("points")).intValue()).isEqualTo(points);}
-    private long create(long s,long r,long h,long a,long st,String time)throws Exception{String body=createRequest(s,r,h,a,st,time,admin).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();return objectMapper.readTree(body).path("data").path("matchId").asLong();}
-    private org.springframework.test.web.servlet.ResultActions createRequest(long s,long r,long h,long a,long st,String time,String token)throws Exception{return mockMvc.perform(post("/api/admin/matches").header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json(match(s,r,h,a,st,time))));}
+    private long create(long s,long r,long h,long a,long st,String time){jdbc.update("INSERT INTO match_info(season_id,round_id,home_club_id,away_club_id,stadium_id,match_time,match_status) VALUES(?,?,?,?,?,?, 'DRAFT')",s,r,h,a,st,time);return jdbc.queryForObject("SELECT match_id FROM match_info WHERE season_id=? AND round_id=? AND home_club_id=? AND away_club_id=? AND match_time=? ORDER BY match_id DESC LIMIT 1",Long.class,s,r,h,a,time);}
     private org.springframework.test.web.servlet.ResultActions update(long id,long s,long r,long h,long a,long st,String time,String token)throws Exception{return mockMvc.perform(put("/api/admin/matches/{id}",id).header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json(match(s,r,h,a,st,time))));}
     private org.springframework.test.web.servlet.ResultActions transition(long id,String value)throws Exception{return mockMvc.perform(put("/api/admin/matches/{id}/status",id).header("Authorization",bearer(admin)).contentType(MediaType.APPLICATION_JSON).content(json(Map.of("matchStatus",value))));}
     private org.springframework.test.web.servlet.ResultActions score(long id,Integer home,Integer away,String token)throws Exception{return mockMvc.perform(put("/api/admin/matches/{id}/score",id).header("Authorization",bearer(token)).contentType(MediaType.APPLICATION_JSON).content(json(Map.of("homeScore",home,"awayScore",away))));}
