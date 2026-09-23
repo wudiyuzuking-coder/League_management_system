@@ -120,7 +120,8 @@ try {
 
     $requiredFiles = @(
         'league-ticket.jar', 'start.bat', 'init-db.bat', 'config.bat.example',
-        'database\schema.sql', 'database\seed.sql', 'database\test-data.sql'
+        'database\schema.sql', 'database\seed.sql', 'database\test-data.sql',
+        'database\demo-data.sql'
     )
     foreach ($relativePath in $requiredFiles) {
         if (-not (Test-Path -LiteralPath (Join-Path $staging $relativePath) -PathType Leaf)) {

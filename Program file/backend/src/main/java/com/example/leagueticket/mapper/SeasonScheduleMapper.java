@@ -4,6 +4,7 @@ import com.example.leagueticket.dto.ScheduleQueryRequest;
 import com.example.leagueticket.entity.SeasonScheduleBatch;
 import com.example.leagueticket.vo.ClubScheduleResponse;
 import com.example.leagueticket.vo.ScheduleMatchResponse;
+import com.example.leagueticket.domain.SeasonStatus;
 import org.apache.ibatis.annotations.*;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,10 +23,12 @@ public interface SeasonScheduleMapper {
     int confirm(@Param("seasonId")Long seasonId,@Param("userId")Long userId,@Param("now")LocalDateTime now);
 
     @Select("SELECT COUNT(*) FROM match_info WHERE season_id=#{seasonId}") int countSeasonMatches(Long seasonId);
+    @Select("SELECT COUNT(*) FROM season_schedule_match sm JOIN season_schedule_batch b ON b.batch_id=sm.batch_id JOIN match_info m ON m.match_id=sm.match_id WHERE b.season_id=#{seasonId} AND m.match_status<>'PUBLISHED'")
+    int countUnpublishedScheduledMatches(Long seasonId);
     @Select("SELECT e.club_id,c.club_name,e.stadium_id,st.stadium_name FROM club_season_enrollment e JOIN club_info c ON c.club_id=e.club_id JOIN stadium_info st ON st.stadium_id=e.stadium_id WHERE e.season_id=#{seasonId} AND e.enrollment_status='SUBMITTED' ORDER BY e.club_id")
     List<EnrollmentTeam> findTeams(Long seasonId);
-    @Select("SELECT season_id FROM season_info s WHERE s.season_status='DRAFT' AND s.registration_deadline IS NOT NULL AND s.registration_deadline<=#{now} AND NOT EXISTS(SELECT 1 FROM season_schedule_batch b WHERE b.season_id=s.season_id) ORDER BY s.season_id")
-    List<Long> findDeadlineCandidates(LocalDateTime now);
+    @Select("SELECT season_id FROM season_info s WHERE s.season_status=#{seasonStatus} AND s.registration_deadline IS NOT NULL AND s.registration_deadline<=#{now} AND NOT EXISTS(SELECT 1 FROM season_schedule_batch b WHERE b.season_id=s.season_id) ORDER BY s.season_id")
+    List<Long> findDeadlineCandidates(@Param("now")LocalDateTime now,@Param("seasonStatus")SeasonStatus seasonStatus);
 
     @Select("SELECT m.match_id,r.round_no,m.match_time match_date_time,m.home_club_id,h.club_name home_club_name,m.away_club_id,a.club_name away_club_name,m.stadium_id,st.stadium_name,m.match_status FROM season_schedule_match sm JOIN match_info m ON m.match_id=sm.match_id JOIN round_info r ON r.round_id=m.round_id JOIN club_info h ON h.club_id=m.home_club_id JOIN club_info a ON a.club_id=m.away_club_id JOIN stadium_info st ON st.stadium_id=m.stadium_id WHERE sm.batch_id=#{batchId} ORDER BY r.round_no,m.match_id")
     List<ScheduleMatchResponse> findBatchMatches(Long batchId);

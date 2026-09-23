@@ -1,6 +1,7 @@
 package com.example.leagueticket.task;
 
 import com.example.leagueticket.mapper.SeasonScheduleMapper;
+import com.example.leagueticket.domain.SeasonStatus;
 import com.example.leagueticket.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,5 +21,5 @@ public class ScheduleGenerationTask {
     public void afterEnrollment(ScheduleEligibilityEvent event){try{service.generateIfEligible(event.seasonId(),"FULL");}catch(Exception e){log.info("报名完成后赛程暂未生成，seasonId={}, reason={}",event.seasonId(),e.getMessage());}}
 
     @Scheduled(cron="0 * * * * *")
-    public void deadlineScan(){for(Long seasonId:mapper.findDeadlineCandidates(timeService.now()))try{service.generateIfEligible(seasonId,"DEADLINE");}catch(Exception e){log.warn("截止扫描未能生成赛程，seasonId={}, reason={}",seasonId,e.getMessage());}}
+    public void deadlineScan(){for(Long seasonId:mapper.findDeadlineCandidates(timeService.now(),SeasonStatus.REGISTRATION))try{service.generateIfEligible(seasonId,"DEADLINE");}catch(Exception e){log.warn("截止扫描未能生成赛程，seasonId={}, reason={}",seasonId,e.getMessage());}}
 }

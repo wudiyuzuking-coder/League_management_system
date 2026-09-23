@@ -81,23 +81,35 @@ class ClubSeasonEnrollmentIntegrationTest {
     @Test void seasonApiRequiresAndValidatesRegistrationConfiguration() throws Exception {
         Map<String,Object> valid=new LinkedHashMap<>();valid.put("seasonName","IT16B接口赛季");valid.put("startDate","2038-03-01");valid.put("endDate","2038-12-01");valid.put("registrationStartTime","2038-01-01T00:00:00");valid.put("registrationDeadline","2038-02-22T00:00:00");valid.put("maxClubs",20);valid.put("description","test");
         mvc.perform(post("/api/admin/seasons").header("Authorization",bearer(eventToken)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(valid))).andExpect(status().isOk());
-        valid.put("seasonName","IT16B错误间隔");valid.put("registrationStartTime","2038-02-15T00:00:00");mvc.perform(post("/api/admin/seasons").header("Authorization",bearer(eventToken)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(valid))).andExpect(status().isBadRequest());
-        valid.put("seasonName","IT16B错误截止");valid.put("registrationStartTime","2038-01-01T00:00:00");valid.put("registrationDeadline","2038-02-23T00:00:00");mvc.perform(post("/api/admin/seasons").header("Authorization",bearer(eventToken)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(valid))).andExpect(status().isBadRequest());
+        valid.put("seasonName","IT16B错误间隔");valid.put("registrationStartTime","2038-02-22T00:00:00");mvc.perform(post("/api/admin/seasons").header("Authorization",bearer(eventToken)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(valid))).andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("报名开始时间必须早于报名截止时间"));
+        valid.put("seasonName","IT16B错误截止");valid.put("registrationStartTime","2038-01-01T00:00:00");valid.put("registrationDeadline","2038-03-01T00:00:00");mvc.perform(post("/api/admin/seasons").header("Authorization",bearer(eventToken)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(valid))).andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("报名截止时间必须早于赛季开始日期"));
     }
 
     @Test void concurrentDifferentClubsCannotExceedLastSlot() throws Exception {
-        long season=season("IT16B最后名额",time.now().toLocalDate().plusDays(60),time.now().toLocalDate().plusDays(100),1,-1,30);ExecutorService pool=Executors.newFixedThreadPool(2);CyclicBarrier gate=new CyclicBarrier(2);
+        long season=season("IT16B最后名额",time.now().toLocalDate().plusDays(60),time.now().toLocalDate().plusDays(100),2,-1,30);service.submit(clubC,request(clubC,season));ExecutorService pool=Executors.newFixedThreadPool(2);CyclicBarrier gate=new CyclicBarrier(2);
         try{Future<Boolean>a=pool.submit(()->submitAtGate(gate,clubA,season));Future<Boolean>b=pool.submit(()->submitAtGate(gate,clubB,season));assertThat(List.of(a.get(15,TimeUnit.SECONDS),b.get(15,TimeUnit.SECONDS))).containsExactlyInAnyOrder(true,false);}finally{pool.shutdownNow();}
-        assertThat(countEnrollments(season)).isEqualTo(1);
+        assertThat(countEnrollments(season)).isEqualTo(2);
         long loser=jdbc.queryForObject("SELECT club_id FROM club_info WHERE club_id IN (?,?) AND club_id NOT IN (SELECT club_id FROM club_season_enrollment WHERE season_id=?) LIMIT 1",Long.class,clubA,clubB,season);
         assertThat(service.availableSeasons(loser).stream().noneMatch(x->x.getSeasonId().equals(season))).isTrue();
-        try{service.submit(loser,request(loser,season));Assertions.fail("capacity should reject");}catch(Exception expected){assertThat(expected.getMessage()).isEqualTo("赛季报名名额已满");}
+        try{service.submit(loser,request(loser,season));Assertions.fail("generated schedule should reject enrollment");}catch(Exception expected){assertThat(expected.getMessage()).isEqualTo("赛程已生成，不能继续报名");}
     }
 
     @Test void concurrentDuplicateEnrollmentLeavesOneRecord() throws Exception {
         long season=season("IT16B并发重复",time.now().toLocalDate().plusDays(60),time.now().toLocalDate().plusDays(100),4,-1,30);ExecutorService pool=Executors.newFixedThreadPool(2);CyclicBarrier gate=new CyclicBarrier(2);
         try{Future<Boolean>a=pool.submit(()->submitAtGate(gate,clubA,season));Future<Boolean>b=pool.submit(()->submitAtGate(gate,clubA,season));assertThat(List.of(a.get(15,TimeUnit.SECONDS),b.get(15,TimeUnit.SECONDS))).containsExactlyInAnyOrder(true,false);}finally{pool.shutdownNow();}
         assertThat(countEnrollments(season)).isEqualTo(1);
+    }
+
+    @Test void enrollmentRequiresRegistrationLifecycleState() {
+        long draft=season("IT16B草稿不可报名",time.now().toLocalDate().plusDays(60),time.now().toLocalDate().plusDays(120),4,-1,30);
+        jdbc.update("UPDATE season_info SET season_status='DRAFT' WHERE season_id=?",draft);
+        assertThatThrownBy(()->service.submit(clubA,request(clubA,draft))).hasMessage("赛季当前不可报名");
+        jdbc.update("UPDATE season_info SET season_status='REGISTRATION' WHERE season_id=?",draft);
+        assertThat(service.submit(clubA,request(clubA,draft)).getSeasonId()).isEqualTo(draft);
+
+        long preparing=season("IT16B准备中不可报名",time.now().toLocalDate().plusDays(200),time.now().toLocalDate().plusDays(260),4,-1,30);
+        jdbc.update("UPDATE season_info SET season_status='PREPARING' WHERE season_id=?",preparing);
+        assertThatThrownBy(()->service.submit(clubB,request(clubB,preparing))).hasMessage("赛季当前不可报名");
     }
 
     @Test void earlyCloseBlocksFurtherEnrollmentAndSerializesWithSubmission() throws Exception {
@@ -119,7 +131,7 @@ class ClubSeasonEnrollmentIntegrationTest {
     private org.springframework.test.web.servlet.ResultActions available(long season)throws Exception{return mvc.perform(get("/api/club/enrollments/available-seasons").header("Authorization",bearer(clubToken))).andExpect(status().isOk());}
     private void setSystemTime(LocalDateTime value)throws Exception{mvc.perform(put("/api/system-time").header("Authorization",bearer(clubToken)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("targetTime",value)))).andExpect(status().isOk());}
     private long season(String name,LocalDate start,LocalDate end,int max,long regStartDays,long deadlineDays){LocalDateTime now=time.now();return seasonAt(name,start,end,max,now.plusDays(regStartDays),now.plusDays(deadlineDays));}
-    private long seasonAt(String name,LocalDate start,LocalDate end,int max,LocalDateTime registrationStart,LocalDateTime deadline){jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,registration_start_time,registration_deadline,max_clubs,season_status) VALUES(?,?,?,?,?,?,'DRAFT')",name,start,end,registrationStart,deadline,max);return jdbc.queryForObject("SELECT season_id FROM season_info WHERE season_name=?",Long.class,name);}
+    private long seasonAt(String name,LocalDate start,LocalDate end,int max,LocalDateTime registrationStart,LocalDateTime deadline){jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,registration_start_time,registration_deadline,max_clubs,season_status) VALUES(?,?,?,?,?,?,'REGISTRATION')",name,start,end,registrationStart,deadline,max);return jdbc.queryForObject("SELECT season_id FROM season_info WHERE season_name=?",Long.class,name);}
     private EnrollmentRequest request(long club,long season){return new EnrollmentRequest(season);}
     private String payload(long club,long season)throws Exception{return json.writeValueAsString(payloadMap(club,season));}
     private Map<String,Object> payloadMap(long club,long season){return new LinkedHashMap<>(Map.of("seasonId",season));}

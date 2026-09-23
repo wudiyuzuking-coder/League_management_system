@@ -42,10 +42,18 @@ class LeagueManagementIntegrationTest {
                 .content(json(season("IT5系统管理员越权","2035-01-01","2035-12-31")))).andExpect(status().isForbidden());
         mockMvc.perform(post("/api/admin/seasons").header("Authorization",bearer(userToken)).contentType(MediaType.APPLICATION_JSON)
                 .content(json(season("IT5用户越权","2035-01-01","2035-12-31")))).andExpect(status().isForbidden());
-        statusSeason(id,"ACTIVE").andExpect(status().isOk()).andExpect(jsonPath("$.data.seasonStatus").value("ACTIVE"));
+        mockMvc.perform(post("/api/admin/seasons/{id}/registration/open",id).header("Authorization",bearer(userToken))).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/admin/seasons/{id}/registration/open",id).header("Authorization",bearer(clubToken))).andExpect(status().isForbidden());
+        statusSeason(id,"REGISTERING").andExpect(status().isOk()).andExpect(jsonPath("$.data.seasonStatus").value("REGISTRATION"));
+        mockMvc.perform(put("/api/admin/seasons/{id}",id).header("Authorization",bearer(eventAdminToken)).contentType(MediaType.APPLICATION_JSON)
+                .content(json(season("IT5赛季状态","2035-01-01","2035-12-31"))))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("仅草稿阶段允许调整赛季"));
         statusSeason(id,"DRAFT").andExpect(status().isBadRequest());
-        statusSeason(id,"FINISHED").andExpect(status().isOk());
-        statusSeason(id,"ACTIVE").andExpect(status().isBadRequest());
+        statusSeason(id,"ACTIVE").andExpect(status().isConflict());
+        statusSeason(id,"FINISHED").andExpect(status().isConflict());
+        mockMvc.perform(post("/api/admin/seasons/{id}/registration/close",id).header("Authorization",bearer(eventAdminToken)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.seasonStatus").value("PREPARING"));
+        statusSeason(id,"IN_PROGRESS").andExpect(status().isConflict());
     }
 
     @Test void roundValidationAuthorizationAndStateMachine() throws Exception {
@@ -75,8 +83,7 @@ class LeagueManagementIntegrationTest {
         updateRecord(ids.get(1),2,0,0,4,0,eventAdminToken).andExpect(status().isOk());
         updateRecord(ids.get(2),2,0,0,6,2,eventAdminToken).andExpect(status().isOk());
         mockMvc.perform(get("/api/seasons/{id}/standings",seasonId).header("Authorization",bearer(userToken)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data[0].recordId").value(ids.get(2)))
-                .andExpect(jsonPath("$.data[1].recordId").value(ids.get(0))).andExpect(jsonPath("$.data[2].recordId").value(ids.get(1)));
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.message").value("public season not found"));
         mockMvc.perform(put("/api/admin/season-records/{id}",ids.get(0)).header("Authorization",bearer(eventAdminToken)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"wins\":-1,\"draws\":0,\"losses\":0,\"goalsFor\":0,\"goalsAgainst\":0}")).andExpect(status().isBadRequest());
         updateRecord(ids.get(0),0,0,0,0,0,clubToken).andExpect(status().isForbidden());

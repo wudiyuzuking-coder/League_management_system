@@ -3,6 +3,7 @@ package com.example.leagueticket.mapper;
 import com.example.leagueticket.dto.EnrollmentQueryRequest;
 import com.example.leagueticket.entity.*;
 import com.example.leagueticket.vo.AvailableSeasonResponse;
+import com.example.leagueticket.domain.SeasonStatus;
 import org.apache.ibatis.annotations.*;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,7 +34,7 @@ public interface ClubSeasonEnrollmentMapper {
             WHERE own.club_id=#{clubId} AND own.enrollment_status='SUBMITTED'
               AND s.start_date<=os.end_date AND s.end_date>=os.start_date) time_conflict
         FROM season_info s
-        WHERE s.season_status='DRAFT' AND s.registration_start_time IS NOT NULL
+        WHERE s.season_status=#{seasonStatus} AND s.registration_start_time IS NOT NULL
           AND s.registration_deadline IS NOT NULL AND s.max_clubs IS NOT NULL
           AND s.registration_start_time<=#{now} AND #{now}<s.registration_deadline
           AND NOT EXISTS (SELECT 1 FROM season_schedule_batch b WHERE b.season_id=s.season_id)
@@ -41,7 +42,8 @@ public interface ClubSeasonEnrollmentMapper {
           AND NOT EXISTS (SELECT 1 FROM club_season_enrollment own WHERE own.season_id=s.season_id AND own.club_id=#{clubId})
         ORDER BY s.start_date,s.season_id
         """)
-    List<AvailableSeasonResponse> findAvailable(@Param("clubId")Long clubId,@Param("now")LocalDateTime now);
+    List<AvailableSeasonResponse> findAvailable(@Param("clubId")Long clubId,@Param("now")LocalDateTime now,
+        @Param("seasonStatus")SeasonStatus seasonStatus);
 
     @Select("SELECT COUNT(*) FROM club_season_enrollment WHERE season_id=#{seasonId} AND enrollment_status='SUBMITTED'")
     int countSubmitted(Long seasonId);

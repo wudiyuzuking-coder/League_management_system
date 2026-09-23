@@ -54,6 +54,7 @@ if errorlevel 1 (
 
 echo.
 echo Database initialization completed successfully.
-echo database\test-data.sql was NOT imported; it is optional local demo data and is destructive to existing demo records.
+echo database\demo-data.sql was NOT imported; it is optional demo data and is destructive to existing business records.
+echo Run database\test-data.sql manually for read-only seed verification.
 pause
 exit /b 0

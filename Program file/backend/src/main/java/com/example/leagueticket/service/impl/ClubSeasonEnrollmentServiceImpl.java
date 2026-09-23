@@ -1,6 +1,7 @@
 package com.example.leagueticket.service.impl;
 
 import com.example.leagueticket.dto.*;
+import com.example.leagueticket.domain.SeasonStatus;
 import com.example.leagueticket.entity.*;
 import com.example.leagueticket.exception.BusinessException;
 import com.example.leagueticket.mapper.*;
@@ -35,7 +36,7 @@ public class ClubSeasonEnrollmentServiceImpl implements ClubSeasonEnrollmentServ
     private final ClubHomeStadiumService homeStadiumService;
     private final com.example.leagueticket.service.ClubPersonnelService personnelService;
 
-    @Override public List<AvailableSeasonResponse> availableSeasons(Long clubId){return mapper.findAvailable(clubId,timeService.now());}
+    @Override public List<AvailableSeasonResponse> availableSeasons(Long clubId){return mapper.findAvailable(clubId,timeService.now(),SeasonStatus.REGISTRATION);}
 
     @Override @Transactional
     public EnrollmentResponse submit(Long clubId,EnrollmentRequest request){
@@ -80,7 +81,7 @@ public class ClubSeasonEnrollmentServiceImpl implements ClubSeasonEnrollmentServ
     @Override public EnrollmentResponse detailAdmin(Long enrollmentId){return detail(required(enrollmentId,timeService.now()));}
 
     private void validateWindow(SeasonInfo s,LocalDateTime now){
-        if(!"DRAFT".equals(s.getSeasonStatus()))throw new BusinessException(HttpStatus.CONFLICT,"赛季当前不可报名");
+        if(!SeasonStatus.REGISTRATION.matches(s.getSeasonStatus()))throw new BusinessException(HttpStatus.CONFLICT,"赛季当前不可报名");
         if(s.getRegistrationStartTime()==null||s.getRegistrationDeadline()==null||s.getMaxClubs()==null)
             throw new BusinessException(HttpStatus.CONFLICT,"赛季报名配置不完整");
         if(now.isBefore(s.getRegistrationStartTime()))throw new BusinessException(HttpStatus.CONFLICT,"赛季报名尚未开始");

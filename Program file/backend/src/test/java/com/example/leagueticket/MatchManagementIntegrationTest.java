@@ -35,8 +35,8 @@ class MatchManagementIntegrationTest {
         jdbc.update("DELETE FROM match_info WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT6%')");
         jdbc.update("DELETE FROM round_info WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT6%')");
         jdbc.update("DELETE FROM season_info WHERE season_name LIKE 'IT6%'");
-        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,season_status) VALUES('IT6主赛季','2036-01-01','2036-12-31','ACTIVE')");seasonId=id("SELECT season_id FROM season_info WHERE season_name='IT6主赛季'");
-        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,season_status) VALUES('IT6其他赛季','2037-01-01','2037-12-31','ACTIVE')");otherSeasonId=id("SELECT season_id FROM season_info WHERE season_name='IT6其他赛季'");
+        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,season_status) VALUES('IT6主赛季','2036-01-01','2036-12-31','IN_PROGRESS')");seasonId=id("SELECT season_id FROM season_info WHERE season_name='IT6主赛季'");
+        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,season_status) VALUES('IT6其他赛季','2037-01-01','2037-12-31','IN_PROGRESS')");otherSeasonId=id("SELECT season_id FROM season_info WHERE season_name='IT6其他赛季'");
         jdbc.update("INSERT INTO round_info(season_id,round_no,round_name,start_date,end_date,round_status) VALUES(?,1,'IT6第1轮','2036-02-01','2036-02-03','PUBLISHED')",seasonId);roundId=id("SELECT round_id FROM round_info WHERE season_id="+seasonId+" AND round_no=1");
         jdbc.update("INSERT INTO round_info(season_id,round_no,round_name,start_date,end_date,round_status) VALUES(?,1,'IT6其他轮','2037-02-01','2037-02-03','PUBLISHED')",otherSeasonId);otherRoundId=id("SELECT round_id FROM round_info WHERE season_id="+otherSeasonId+" AND round_no=1");
         var clubs=jdbc.queryForList("SELECT club_id,home_stadium_id FROM club_info WHERE home_stadium_id IS NOT NULL ORDER BY club_id LIMIT 3");

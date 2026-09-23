@@ -45,7 +45,7 @@ class StatisticsIntegrationTest {
         clubB = id("SELECT club_id FROM club_info WHERE club_id<>" + clubA + " ORDER BY club_id LIMIT 1");
         long stadiumId = id("SELECT stadium_id FROM stadium_info ORDER BY stadium_id LIMIT 1");
 
-        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,season_status) VALUES('IT14统计赛季','2026-01-01','2026-12-31','ACTIVE')");
+        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,season_status) VALUES('IT14统计赛季','2026-01-01','2026-12-31','IN_PROGRESS')");
         seasonId = id("SELECT season_id FROM season_info WHERE season_name='IT14统计赛季'");
         jdbc.update("INSERT INTO round_info(season_id,round_no,round_name,start_date,end_date,round_status) VALUES(?,99,'IT14统计轮次','2026-09-01','2026-09-30','PUBLISHED')", seasonId);
         long roundId = id("SELECT round_id FROM round_info WHERE season_id=" + seasonId);

@@ -43,21 +43,21 @@ onBeforeUnmount(() => clearInterval(timer))
           <h2>{{ order.homeClubName }} <em>VS</em> {{ order.awayClubName }}</h2>
           <p>{{ $formatDateTime(order.matchTime) }} · {{ order.stadiumName }}</p>
         </div>
-        <div class="order-summary__amount"><span>订单总额</span><strong
-            class="tabular-nums">{{ $formatMoney(order.totalAmount) }}</strong><small>{{ order.ticketCount }} 张门票</small>
+        <div class="order-summary__amount"><span>订单总额</span><strong class="tabular-nums">{{
+          $formatMoney(order.totalAmount)
+            }}</strong><small>{{ order.ticketCount }} 张门票</small>
         </div>
       </section>
       <section class="order-content">
         <div class="order-content__main">
           <TableWrapper title="座位与购票人" description="身份证号已脱敏；座位以订单创建时的分配结果为准。" label="订单座位明细"><el-table
               :data="data.items"><el-table-column prop="passengerName" label="购票人" /><el-table-column label="身份证号"
-                min-width="190"><template
-                  #default="{ row }">{{ maskIdCard(row.passengerIdCard) }}</template></el-table-column><el-table-column
-                label="座位" min-width="130"><template #default="{ row }">{{ row.rowLabel }}
+                min-width="190"><template #default="{ row }">{{ maskIdCard(row.passengerIdCard)
+                  }}</template></el-table-column><el-table-column label="座位" min-width="130"><template
+                  #default="{ row }">{{ row.rowLabel }}
                   {{ row.seatLabel }}</template></el-table-column><el-table-column label="单价" align="right"><template
-                  #default="{ row }"><span
-                    class="tabular-nums">{{ $formatMoney(row.unitPrice) }}</span></template></el-table-column><el-table-column
-                label="状态"><template #default="{ row }">
+                  #default="{ row }"><span class="tabular-nums">{{ $formatMoney(row.unitPrice)
+                    }}</span></template></el-table-column><el-table-column label="状态"><template #default="{ row }">
                   <StatusTag :value="row.itemStatus" />
                 </template></el-table-column></el-table>
           </TableWrapper>
@@ -87,9 +87,9 @@ onBeforeUnmount(() => clearInterval(timer))
           </dl>
           <div v-if="order.orderStatus === 'PENDING_PAYMENT'" class="demo-payment"><span>演示支付</span>
             <p>仅用于系统答辩演示，不代表真实支付渠道。</p><el-button type="primary" :loading="paying" :disabled="!remaining || cancelling"
-              @click="pay('SUCCESS')">模拟支付成功</el-button><el-button :loading="paying" :disabled="!remaining || cancelling"
-              @click="pay('FAILED')">模拟支付失败</el-button><el-button type="danger" plain :loading="cancelling"
-              :disabled="paying" @click="cancel">取消订单</el-button>
+              @click="pay('SUCCESS')">模拟支付成功</el-button><el-button :loading="paying"
+              :disabled="!remaining || cancelling" @click="pay('FAILED')">模拟支付失败</el-button><el-button type="danger"
+              plain :loading="cancelling" :disabled="paying" @click="cancel">取消订单</el-button>
           </div>
           <el-button v-if="order.orderStatus === 'PAID'" class="refund-action" text type="danger" :loading="refunding"
             @click="refund">申请整单退票</el-button>

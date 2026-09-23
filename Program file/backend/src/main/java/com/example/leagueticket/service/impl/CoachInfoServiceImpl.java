@@ -8,6 +8,7 @@ import com.example.leagueticket.mapper.CoachInfoMapper;
 import com.example.leagueticket.service.ClubDataScopeService;
 import com.example.leagueticket.service.ClubInfoService;
 import com.example.leagueticket.service.CoachInfoService;
+import com.example.leagueticket.service.PersonnelAgeValidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,7 @@ public class CoachInfoServiceImpl implements CoachInfoService {
     private final CoachInfoMapper coachMapper;
     private final ClubInfoService clubService;
     private final ClubDataScopeService scopeService;
+    private final PersonnelAgeValidationService ageValidationService;
 
     @Override
     public CoachInfo getById(Long coachId) {
@@ -44,6 +46,7 @@ public class CoachInfoServiceImpl implements CoachInfoService {
     @Transactional
     public CoachInfo create(Long clubId, CoachRequest request) {
         clubService.getById(clubId);
+        ageValidationService.validateCoachAge(request.birthYear());
         validateTitle(request.title());assertCapacity(clubId,request.title(),null);
         CoachInfo coach = fromRequest(new CoachInfo(), request);
         coach.setClubId(clubId);
@@ -57,13 +60,15 @@ public class CoachInfoServiceImpl implements CoachInfoService {
     public CoachInfo update(Long clubId, Long coachId, CoachRequest request) {
         CoachInfo coach = getById(coachId);
         scopeService.requireSameClub(clubId, coach.getClubId());
+        ageValidationService.validateCoachAge(request.birthYear());
+        validateTitle(request.title());assertCapacity(clubId,request.title(),coachId);
         coachMapper.update(fromRequest(coach, request));
         return getById(coachId);
     }
 
     @Override @Transactional
     public CoachInfo adjust(Long clubId,Long coachId,CoachAdjustRequest request){CoachInfo coach=getById(coachId);scopeService.requireSameClub(clubId,coach.getClubId());
-        if(!"ACTIVE".equals(coach.getCoachStatus()))throw new BusinessException("离队教练请先归队");validateTitle(request.title());assertCapacity(clubId,request.title(),coachId);
+        if(!"ACTIVE".equals(coach.getCoachStatus()))throw new BusinessException("离队教练请先归队");ageValidationService.validateCoachAge(coach.getBirthYear());validateTitle(request.title());assertCapacity(clubId,request.title(),coachId);
         coach.setTitle(request.title());coachMapper.adjust(coach);return getById(coachId);}
 
     @Override
@@ -72,7 +77,7 @@ public class CoachInfoServiceImpl implements CoachInfoService {
         CoachInfo coach = getById(coachId);
         scopeService.requireSameClub(clubId, coach.getClubId());
         if (!STATUSES.contains(status)) throw new BusinessException("invalid coach status");
-        if("ACTIVE".equals(status)){validateTitle(coach.getTitle());assertCapacity(clubId,coach.getTitle(),coachId);}
+        if("ACTIVE".equals(status)){ageValidationService.validateCoachAge(coach.getBirthYear());validateTitle(coach.getTitle());assertCapacity(clubId,coach.getTitle(),coachId);}
         coachMapper.updateStatus(coachId, status);
     }
 

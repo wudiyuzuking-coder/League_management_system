@@ -1,9 +1,6 @@
 -- 足球联赛购票系统：MySQL 8 正式数据库结构
 -- 阶段2设计基线：静态场馆座位与单场比赛座位库存严格分离。
-
-CREATE DATABASE IF NOT EXISTS league_ticket
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_0900_ai_ci;
+CREATE DATABASE IF NOT EXISTS league_ticket CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 USE league_ticket;
 
@@ -18,7 +15,7 @@ CREATE TABLE sys_role (
     PRIMARY KEY (role_id),
     CONSTRAINT uq_sys_role_code UNIQUE (role_code),
     CONSTRAINT ck_sys_role_status CHECK (role_status IN ('ENABLED', 'DISABLED'))
-) ENGINE=InnoDB COMMENT='系统角色';
+) ENGINE = InnoDB COMMENT = '系统角色';
 
 CREATE TABLE sys_permission (
     permission_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '权限主键',
@@ -31,7 +28,7 @@ CREATE TABLE sys_permission (
     PRIMARY KEY (permission_id),
     CONSTRAINT uq_sys_permission_code UNIQUE (permission_code),
     CONSTRAINT ck_sys_permission_status CHECK (permission_status IN ('ENABLED', 'DISABLED'))
-) ENGINE=InnoDB COMMENT='系统权限';
+) ENGINE = InnoDB COMMENT = '系统权限';
 
 CREATE TABLE sys_role_permission (
     role_id BIGINT UNSIGNED NOT NULL COMMENT '角色主键',
@@ -40,7 +37,7 @@ CREATE TABLE sys_role_permission (
     PRIMARY KEY (role_id, permission_id),
     CONSTRAINT fk_role_permission_role FOREIGN KEY (role_id) REFERENCES sys_role (role_id) ON DELETE CASCADE,
     CONSTRAINT fk_role_permission_permission FOREIGN KEY (permission_id) REFERENCES sys_permission (permission_id) ON DELETE CASCADE
-) ENGINE=InnoDB COMMENT='角色权限关联';
+) ENGINE = InnoDB COMMENT = '角色权限关联';
 
 CREATE TABLE sys_config (
     config_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '配置主键',
@@ -53,9 +50,11 @@ CREATE TABLE sys_config (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (config_id),
     CONSTRAINT uq_sys_config_key UNIQUE (config_key),
-    CONSTRAINT ck_sys_config_type CHECK (value_type IN ('STRING', 'INTEGER', 'DECIMAL', 'BOOLEAN')),
+    CONSTRAINT ck_sys_config_type CHECK (
+        value_type IN ('STRING', 'INTEGER', 'DECIMAL', 'BOOLEAN')
+    ),
     CONSTRAINT ck_sys_config_status CHECK (config_status IN ('ENABLED', 'DISABLED'))
-) ENGINE=InnoDB COMMENT='系统配置';
+) ENGINE = InnoDB COMMENT = '系统配置';
 
 CREATE TABLE season_info (
     season_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '赛季主键',
@@ -73,10 +72,26 @@ CREATE TABLE season_info (
     PRIMARY KEY (season_id),
     CONSTRAINT uq_season_name UNIQUE (season_name),
     CONSTRAINT ck_season_dates CHECK (end_date >= start_date),
-    CONSTRAINT ck_season_registration_dates CHECK (registration_deadline IS NULL OR registration_start_time IS NULL OR registration_deadline >= registration_start_time),
-    CONSTRAINT ck_season_max_clubs CHECK (max_clubs IS NULL OR max_clubs BETWEEN 2 AND 20),
-    CONSTRAINT ck_season_status CHECK (season_status IN ('DRAFT', 'ACTIVE', 'FINISHED'))
-) ENGINE=InnoDB COMMENT='联赛赛季';
+    CONSTRAINT ck_season_registration_dates CHECK (
+        registration_deadline IS NULL
+        OR registration_start_time IS NULL
+        OR registration_deadline >= registration_start_time
+    ),
+    CONSTRAINT ck_season_max_clubs CHECK (
+        max_clubs IS NULL
+        OR max_clubs BETWEEN 2
+        AND 20
+    ),
+    CONSTRAINT ck_season_status CHECK (
+        season_status IN (
+            'DRAFT',
+            'REGISTRATION',
+            'PREPARING',
+            'IN_PROGRESS',
+            'FINISHED'
+        )
+    )
+) ENGINE = InnoDB COMMENT = '联赛赛季';
 
 CREATE TABLE round_info (
     round_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '轮次主键',
@@ -93,9 +108,15 @@ CREATE TABLE round_info (
     CONSTRAINT uq_round_id_season UNIQUE (round_id, season_id),
     CONSTRAINT fk_round_season FOREIGN KEY (season_id) REFERENCES season_info (season_id),
     CONSTRAINT ck_round_no CHECK (round_no > 0),
-    CONSTRAINT ck_round_dates CHECK (end_date IS NULL OR start_date IS NULL OR end_date >= start_date),
-    CONSTRAINT ck_round_status CHECK (round_status IN ('DRAFT', 'PUBLISHED', 'FINISHED'))
-) ENGINE=InnoDB COMMENT='联赛轮次';
+    CONSTRAINT ck_round_dates CHECK (
+        end_date IS NULL
+        OR start_date IS NULL
+        OR end_date >= start_date
+    ),
+    CONSTRAINT ck_round_status CHECK (
+        round_status IN ('DRAFT', 'PUBLISHED', 'FINISHED')
+    )
+) ENGINE = InnoDB COMMENT = '联赛轮次';
 
 CREATE TABLE stadium_info (
     stadium_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '场馆主键',
@@ -113,7 +134,7 @@ CREATE TABLE stadium_info (
     CONSTRAINT ck_stadium_capacity CHECK (capacity >= 0),
     CONSTRAINT ck_stadium_venue_model CHECK (venue_model IN ('LEGACY', 'STANDARD_8')),
     CONSTRAINT ck_stadium_status CHECK (stadium_status IN ('ACTIVE', 'DISABLED'))
-) ENGINE=InnoDB COMMENT='场馆信息';
+) ENGINE = InnoDB COMMENT = '场馆信息';
 
 CREATE TABLE stadium_zone (
     stadium_zone_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '场馆静态票区主键',
@@ -134,12 +155,17 @@ CREATE TABLE stadium_zone (
     CONSTRAINT uq_stadium_zone_id_stadium UNIQUE (stadium_zone_id, stadium_id),
     CONSTRAINT fk_stadium_zone_stadium FOREIGN KEY (stadium_id) REFERENCES stadium_info (stadium_id),
     CONSTRAINT ck_stadium_zone_classification CHECK (
-        (zone_direction IS NULL AND ticket_type IS NULL)
-        OR
-        (zone_direction IN ('EAST', 'WEST', 'SOUTH', 'NORTH') AND ticket_type IN ('VIP', 'NORMAL'))
+        (
+            zone_direction IS NULL
+            AND ticket_type IS NULL
+        )
+        OR (
+            zone_direction IN ('EAST', 'WEST', 'SOUTH', 'NORTH')
+            AND ticket_type IN ('VIP', 'NORMAL')
+        )
     ),
     KEY idx_stadium_zone_status (stadium_id, zone_status, sort_order)
-) ENGINE=InnoDB COMMENT='场馆静态票区';
+) ENGINE = InnoDB COMMENT = '场馆静态票区';
 
 CREATE TABLE stadium_seat (
     stadium_seat_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '物理座位主键',
@@ -149,7 +175,7 @@ CREATE TABLE stadium_seat (
     row_seq INT UNSIGNED NOT NULL COMMENT '排排序值，越小越靠前',
     seat_no VARCHAR(20) NOT NULL COMMENT '显示座号',
     seat_seq INT UNSIGNED NOT NULL COMMENT '同排座位排序值',
-    center_distance DECIMAL(8,2) UNSIGNED NOT NULL DEFAULT 0.00 COMMENT '距看台中线距离，越小越居中',
+    center_distance DECIMAL(8, 2) UNSIGNED NOT NULL DEFAULT 0.00 COMMENT '距看台中线距离，越小越居中',
     seat_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '物理座位状态，仅ACTIVE或DISABLED',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -158,10 +184,19 @@ CREATE TABLE stadium_seat (
     CONSTRAINT uq_stadium_seat_sequence UNIQUE (stadium_zone_id, row_seq, seat_seq),
     CONSTRAINT fk_stadium_seat_stadium FOREIGN KEY (stadium_id) REFERENCES stadium_info (stadium_id),
     CONSTRAINT fk_stadium_seat_zone FOREIGN KEY (stadium_zone_id, stadium_id) REFERENCES stadium_zone (stadium_zone_id, stadium_id),
-    CONSTRAINT ck_stadium_seat_sequence CHECK (row_seq > 0 AND seat_seq > 0),
+    CONSTRAINT ck_stadium_seat_sequence CHECK (
+        row_seq > 0
+        AND seat_seq > 0
+    ),
     CONSTRAINT ck_stadium_seat_status CHECK (seat_status IN ('ACTIVE', 'DISABLED')),
-    KEY idx_stadium_seat_allocation (stadium_zone_id, seat_status, row_seq, seat_seq, center_distance)
-) ENGINE=InnoDB COMMENT='场馆物理座位';
+    KEY idx_stadium_seat_allocation (
+        stadium_zone_id,
+        seat_status,
+        row_seq,
+        seat_seq,
+        center_distance
+    )
+) ENGINE = InnoDB COMMENT = '场馆物理座位';
 
 CREATE TABLE club_info (
     club_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '俱乐部主键',
@@ -177,10 +212,12 @@ CREATE TABLE club_info (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (club_id),
     CONSTRAINT uq_club_name UNIQUE (club_name),
-    CONSTRAINT fk_club_home_stadium FOREIGN KEY (home_stadium_id) REFERENCES stadium_info (stadium_id) ON DELETE SET NULL,
-    CONSTRAINT ck_club_status CHECK (club_status IN ('ACTIVE', 'DISABLED')),
-    KEY idx_club_home_stadium (home_stadium_id)
-) ENGINE=InnoDB COMMENT='俱乐部信息';
+    CONSTRAINT fk_club_home_stadium FOREIGN KEY (home_stadium_id) REFERENCES stadium_info (stadium_id) ON DELETE
+    SET
+        NULL,
+        CONSTRAINT ck_club_status CHECK (club_status IN ('ACTIVE', 'DISABLED')),
+        KEY idx_club_home_stadium (home_stadium_id)
+) ENGINE = InnoDB COMMENT = '俱乐部信息';
 
 CREATE TABLE club_home_stadium_config (
     club_id BIGINT UNSIGNED NOT NULL COMMENT '俱乐部，每个俱乐部最多一个当前标准私有主场',
@@ -188,8 +225,8 @@ CREATE TABLE club_home_stadium_config (
     rows_per_zone INT UNSIGNED NOT NULL COMMENT '每个VIP/NORMAL票区的排数',
     long_side_seats_per_row INT UNSIGNED NOT NULL COMMENT '东西长边每排座位数',
     short_side_seats_per_row INT UNSIGNED NOT NULL COMMENT '南北宽边每排座位数',
-    vip_price DECIMAL(10,2) UNSIGNED NOT NULL COMMENT 'VIP默认票价',
-    normal_price DECIMAL(10,2) UNSIGNED NOT NULL COMMENT '普通默认票价',
+    vip_price DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT 'VIP默认票价',
+    normal_price DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '普通默认票价',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (club_id),
@@ -201,7 +238,7 @@ CREATE TABLE club_home_stadium_config (
     CONSTRAINT ck_home_stadium_short_side CHECK (short_side_seats_per_row > 0),
     CONSTRAINT ck_home_stadium_vip_price CHECK (vip_price >= 0),
     CONSTRAINT ck_home_stadium_normal_price CHECK (normal_price >= 0)
-) ENGINE=InnoDB COMMENT='俱乐部当前标准私有主场配置';
+) ENGINE = InnoDB COMMENT = '俱乐部当前标准私有主场配置';
 
 CREATE TABLE player_info (
     player_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '球员主键',
@@ -219,13 +256,33 @@ CREATE TABLE player_info (
     PRIMARY KEY (player_id),
     CONSTRAINT uq_player_club_shirt UNIQUE (club_id, shirt_no),
     CONSTRAINT fk_player_club FOREIGN KEY (club_id) REFERENCES club_info (club_id),
-    CONSTRAINT ck_player_shirt_no CHECK (shirt_no IS NULL OR shirt_no BETWEEN 1 AND 99),
-    CONSTRAINT ck_player_position CHECK (position IN ('GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'FORWARD')),
-    CONSTRAINT ck_player_status CHECK (player_status IN ('ACTIVE', 'INACTIVE', 'TRANSFERRED')),
-    CONSTRAINT ck_player_birth_year CHECK (birth_year IS NULL OR birth_year BETWEEN 1900 AND 2100),
-    CONSTRAINT ck_player_lineup_role CHECK (lineup_role IS NULL OR lineup_role IN ('STARTER', 'SUBSTITUTE')),
+    CONSTRAINT ck_player_shirt_no CHECK (
+        shirt_no IS NULL
+        OR shirt_no BETWEEN 1
+        AND 99
+    ),
+    CONSTRAINT ck_player_position CHECK (
+        position IN (
+            'GOALKEEPER',
+            'DEFENDER',
+            'MIDFIELDER',
+            'FORWARD'
+        )
+    ),
+    CONSTRAINT ck_player_status CHECK (
+        player_status IN ('ACTIVE', 'INACTIVE', 'TRANSFERRED')
+    ),
+    CONSTRAINT ck_player_birth_year CHECK (
+        birth_year IS NULL
+        OR birth_year BETWEEN 1900
+        AND 2100
+    ),
+    CONSTRAINT ck_player_lineup_role CHECK (
+        lineup_role IS NULL
+        OR lineup_role IN ('STARTER', 'SUBSTITUTE')
+    ),
     KEY idx_player_club_status (club_id, player_status)
-) ENGINE=InnoDB COMMENT='球员信息';
+) ENGINE = InnoDB COMMENT = '球员信息';
 
 CREATE TABLE player_season_stat (
     stat_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '球员赛季统计主键',
@@ -246,7 +303,7 @@ CREATE TABLE player_season_stat (
     CONSTRAINT fk_player_stat_club FOREIGN KEY (club_id) REFERENCES club_info (club_id),
     CONSTRAINT ck_player_stat_starts CHECK (starts <= appearances),
     KEY idx_player_stat_ranking (season_id, goals, assists)
-) ENGINE=InnoDB COMMENT='球员赛季统计';
+) ENGINE = InnoDB COMMENT = '球员赛季统计';
 
 CREATE TABLE coach_info (
     coach_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '教练主键',
@@ -262,9 +319,13 @@ CREATE TABLE coach_info (
     PRIMARY KEY (coach_id),
     CONSTRAINT fk_coach_club FOREIGN KEY (club_id) REFERENCES club_info (club_id),
     CONSTRAINT ck_coach_status CHECK (coach_status IN ('ACTIVE', 'INACTIVE')),
-    CONSTRAINT ck_coach_birth_year CHECK (birth_year IS NULL OR birth_year BETWEEN 1900 AND 2100),
+    CONSTRAINT ck_coach_birth_year CHECK (
+        birth_year IS NULL
+        OR birth_year BETWEEN 1900
+        AND 2100
+    ),
     KEY idx_coach_club_status (club_id, coach_status)
-) ENGINE=InnoDB COMMENT='教练信息';
+) ENGINE = InnoDB COMMENT = '教练信息';
 
 CREATE TABLE club_season_record (
     record_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '俱乐部赛季战绩主键',
@@ -284,9 +345,12 @@ CREATE TABLE club_season_record (
     CONSTRAINT fk_club_record_season FOREIGN KEY (season_id) REFERENCES season_info (season_id),
     CONSTRAINT fk_club_record_club FOREIGN KEY (club_id) REFERENCES club_info (club_id),
     CONSTRAINT ck_club_record_played CHECK (played = wins + draws + losses),
-    CONSTRAINT ck_club_record_ranking CHECK (ranking IS NULL OR ranking > 0),
+    CONSTRAINT ck_club_record_ranking CHECK (
+        ranking IS NULL
+        OR ranking > 0
+    ),
     KEY idx_club_record_ranking (season_id, points, ranking)
-) ENGINE=InnoDB COMMENT='俱乐部赛季战绩';
+) ENGINE = InnoDB COMMENT = '俱乐部赛季战绩';
 
 CREATE TABLE club_season_enrollment (
     enrollment_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '赛季报名主键',
@@ -303,8 +367,13 @@ CREATE TABLE club_season_enrollment (
     CONSTRAINT fk_enrollment_club FOREIGN KEY (club_id) REFERENCES club_info (club_id),
     CONSTRAINT fk_enrollment_stadium FOREIGN KEY (stadium_id) REFERENCES stadium_info (stadium_id),
     CONSTRAINT ck_enrollment_status CHECK (enrollment_status IN ('SUBMITTED')),
-    KEY idx_enrollment_admin_filter (season_id, club_id, enrollment_status, submitted_at)
-) ENGINE=InnoDB COMMENT='俱乐部赛季报名';
+    KEY idx_enrollment_admin_filter (
+        season_id,
+        club_id,
+        enrollment_status,
+        submitted_at
+    )
+) ENGINE = InnoDB COMMENT = '俱乐部赛季报名';
 
 CREATE TABLE club_season_enrollment_player (
     enrollment_player_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '报名球员关系主键',
@@ -324,8 +393,15 @@ CREATE TABLE club_season_enrollment_player (
     CONSTRAINT fk_enrollment_player_enrollment FOREIGN KEY (enrollment_id) REFERENCES club_season_enrollment (enrollment_id) ON DELETE CASCADE,
     CONSTRAINT fk_enrollment_player_player FOREIGN KEY (player_id) REFERENCES player_info (player_id),
     CONSTRAINT ck_enrollment_lineup_role CHECK (lineup_role IN ('STARTER', 'SUBSTITUTE')),
-    CONSTRAINT ck_enrollment_player_position CHECK (position_snapshot IN ('GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'FORWARD'))
-) ENGINE=InnoDB COMMENT='赛季报名球员阵容及快照';
+    CONSTRAINT ck_enrollment_player_position CHECK (
+        position_snapshot IN (
+            'GOALKEEPER',
+            'DEFENDER',
+            'MIDFIELDER',
+            'FORWARD'
+        )
+    )
+) ENGINE = InnoDB COMMENT = '赛季报名球员阵容及快照';
 
 CREATE TABLE club_season_enrollment_coach (
     enrollment_coach_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '报名教练关系主键',
@@ -340,7 +416,7 @@ CREATE TABLE club_season_enrollment_coach (
     CONSTRAINT uq_enrollment_coach UNIQUE (enrollment_id, coach_id),
     CONSTRAINT fk_enrollment_coach_enrollment FOREIGN KEY (enrollment_id) REFERENCES club_season_enrollment (enrollment_id) ON DELETE CASCADE,
     CONSTRAINT fk_enrollment_coach_coach FOREIGN KEY (coach_id) REFERENCES coach_info (coach_id)
-) ENGINE=InnoDB COMMENT='赛季报名教练及快照';
+) ENGINE = InnoDB COMMENT = '赛季报名教练及快照';
 
 CREATE TABLE sys_user (
     user_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户主键',
@@ -362,12 +438,23 @@ CREATE TABLE sys_user (
     CONSTRAINT uq_sys_user_employee_no UNIQUE (employee_no),
     CONSTRAINT uq_sys_user_club UNIQUE (club_id),
     CONSTRAINT fk_sys_user_role FOREIGN KEY (role_id) REFERENCES sys_role (role_id),
-    CONSTRAINT fk_sys_user_club FOREIGN KEY (club_id) REFERENCES club_info (club_id) ON DELETE SET NULL,
-    CONSTRAINT ck_sys_user_status CHECK (user_status IN ('PENDING_ACTIVATION', 'PENDING_CLUB_APPROVAL', 'ENABLED', 'DISABLED', 'LOCKED', 'CANCELLED')),
-    KEY idx_sys_user_username (username),
-    KEY idx_sys_user_role_status (role_id, user_status),
-    KEY idx_sys_user_club (club_id)
-) ENGINE=InnoDB COMMENT='系统用户与后台账号';
+    CONSTRAINT fk_sys_user_club FOREIGN KEY (club_id) REFERENCES club_info (club_id) ON DELETE
+    SET
+        NULL,
+        CONSTRAINT ck_sys_user_status CHECK (
+            user_status IN (
+                'PENDING_ACTIVATION',
+                'PENDING_CLUB_APPROVAL',
+                'ENABLED',
+                'DISABLED',
+                'LOCKED',
+                'CANCELLED'
+            )
+        ),
+        KEY idx_sys_user_username (username),
+        KEY idx_sys_user_role_status (role_id, user_status),
+        KEY idx_sys_user_club (club_id)
+) ENGINE = InnoDB COMMENT = '系统用户与后台账号';
 
 CREATE TABLE operation_log (
     log_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '操作日志主键',
@@ -382,11 +469,13 @@ CREATE TABLE operation_log (
     error_message VARCHAR(1000) NULL COMMENT '失败信息',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
     PRIMARY KEY (log_id),
-    CONSTRAINT fk_operation_log_user FOREIGN KEY (operator_id) REFERENCES sys_user (user_id) ON DELETE SET NULL,
-    CONSTRAINT ck_operation_log_result CHECK (result_status IN ('SUCCESS', 'FAILURE')),
-    KEY idx_operation_log_operator_time (operator_id, created_at),
-    KEY idx_operation_log_module_time (module_name, created_at)
-) ENGINE=InnoDB COMMENT='后台操作日志';
+    CONSTRAINT fk_operation_log_user FOREIGN KEY (operator_id) REFERENCES sys_user (user_id) ON DELETE
+    SET
+        NULL,
+        CONSTRAINT ck_operation_log_result CHECK (result_status IN ('SUCCESS', 'FAILURE')),
+        KEY idx_operation_log_operator_time (operator_id, created_at),
+        KEY idx_operation_log_module_time (module_name, created_at)
+) ENGINE = InnoDB COMMENT = '后台操作日志';
 
 CREATE TABLE ticket_passenger_identity (
     passenger_identity_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '购票人稳定身份主键',
@@ -395,7 +484,7 @@ CREATE TABLE ticket_passenger_identity (
     PRIMARY KEY (passenger_identity_id),
     CONSTRAINT uq_ticket_passenger_identity_card UNIQUE (id_card_no),
     CONSTRAINT ck_ticket_passenger_identity_card CHECK (CHAR_LENGTH(TRIM(id_card_no)) > 0)
-) ENGINE=InnoDB COMMENT='预填购票人全局身份；全局占用数由用户关联数决定';
+) ENGINE = InnoDB COMMENT = '预填购票人全局身份；全局占用数由用户关联数决定';
 
 CREATE TABLE user_prefilled_passenger (
     prefilled_passenger_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户预填购票人主键',
@@ -410,7 +499,7 @@ CREATE TABLE user_prefilled_passenger (
     CONSTRAINT fk_prefilled_passenger_identity FOREIGN KEY (passenger_identity_id) REFERENCES ticket_passenger_identity (passenger_identity_id),
     CONSTRAINT ck_prefilled_passenger_name CHECK (CHAR_LENGTH(TRIM(passenger_name)) > 0),
     KEY idx_prefilled_passenger_identity (passenger_identity_id)
-) ENGINE=InnoDB COMMENT='普通用户预填购票人；每用户及每身份证号的4人限制由事务服务校验';
+) ENGINE = InnoDB COMMENT = '普通用户预填购票人；每用户及每身份证号的4人限制由事务服务校验';
 
 CREATE TABLE season_schedule_batch (
     batch_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自动排赛批次主键',
@@ -428,12 +517,18 @@ CREATE TABLE season_schedule_batch (
     PRIMARY KEY (batch_id),
     CONSTRAINT uq_schedule_batch_season UNIQUE (season_id),
     CONSTRAINT fk_schedule_batch_season FOREIGN KEY (season_id) REFERENCES season_info (season_id),
-    CONSTRAINT fk_schedule_batch_confirmer FOREIGN KEY (confirmed_by) REFERENCES sys_user (user_id) ON DELETE SET NULL,
-    CONSTRAINT ck_schedule_batch_status CHECK (batch_status IN ('GENERATED', 'CONFIRMED')),
-    CONSTRAINT ck_schedule_trigger_type CHECK (trigger_type IN ('FULL', 'DEADLINE', 'MANUAL')),
-    CONSTRAINT ck_schedule_counts CHECK (club_count >= 2 AND round_count > 0 AND match_count > 0),
-    KEY idx_schedule_batch_status_time (batch_status, generated_at)
-) ENGINE=InnoDB COMMENT='赛季自动排赛批次及确认状态';
+    CONSTRAINT fk_schedule_batch_confirmer FOREIGN KEY (confirmed_by) REFERENCES sys_user (user_id) ON DELETE
+    SET
+        NULL,
+        CONSTRAINT ck_schedule_batch_status CHECK (batch_status IN ('GENERATED', 'CONFIRMED')),
+        CONSTRAINT ck_schedule_trigger_type CHECK (trigger_type IN ('FULL', 'DEADLINE', 'MANUAL')),
+        CONSTRAINT ck_schedule_counts CHECK (
+            club_count >= 2
+            AND round_count > 0
+            AND match_count > 0
+        ),
+        KEY idx_schedule_batch_status_time (batch_status, generated_at)
+) ENGINE = InnoDB COMMENT = '赛季自动排赛批次及确认状态';
 
 CREATE TABLE match_info (
     match_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '比赛主键',
@@ -458,14 +553,35 @@ CREATE TABLE match_info (
     CONSTRAINT fk_match_away_club FOREIGN KEY (away_club_id) REFERENCES club_info (club_id),
     CONSTRAINT fk_match_stadium FOREIGN KEY (stadium_id) REFERENCES stadium_info (stadium_id),
     CONSTRAINT ck_match_clubs CHECK (home_club_id <> away_club_id),
-    CONSTRAINT ck_match_sale_time CHECK (sale_end_time IS NULL OR sale_start_time IS NULL OR sale_end_time >= sale_start_time),
-    CONSTRAINT ck_match_score_pair CHECK ((home_score IS NULL AND away_score IS NULL) OR (home_score IS NOT NULL AND away_score IS NOT NULL)),
-    CONSTRAINT ck_match_status CHECK (match_status IN ('DRAFT', 'PUBLISHED', 'IN_PROGRESS', 'FINISHED', 'CANCELLED')),
+    CONSTRAINT ck_match_sale_time CHECK (
+        sale_end_time IS NULL
+        OR sale_start_time IS NULL
+        OR sale_end_time >= sale_start_time
+    ),
+    CONSTRAINT ck_match_score_pair CHECK (
+        (
+            home_score IS NULL
+            AND away_score IS NULL
+        )
+        OR (
+            home_score IS NOT NULL
+            AND away_score IS NOT NULL
+        )
+    ),
+    CONSTRAINT ck_match_status CHECK (
+        match_status IN (
+            'DRAFT',
+            'PUBLISHED',
+            'IN_PROGRESS',
+            'FINISHED',
+            'CANCELLED'
+        )
+    ),
     KEY idx_match_season_round (season_id, round_id),
     KEY idx_match_status_time (match_status, match_time),
     KEY idx_match_home_time (home_club_id, match_time),
     KEY idx_match_away_time (away_club_id, match_time)
-) ENGINE=InnoDB COMMENT='比赛信息；不对赛季主客队组合设置唯一约束';
+) ENGINE = InnoDB COMMENT = '比赛信息；不对赛季主客队组合设置唯一约束';
 
 CREATE TABLE match_result_submission (
     submission_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -479,7 +595,7 @@ CREATE TABLE match_result_submission (
     CONSTRAINT fk_result_submission_match FOREIGN KEY (match_id) REFERENCES match_info (match_id),
     CONSTRAINT fk_result_submission_event_admin FOREIGN KEY (event_admin_id) REFERENCES sys_user (user_id),
     KEY idx_result_submission_match_score (match_id, home_score, away_score)
-) ENGINE=InnoDB COMMENT='EVENT_ADMIN独立赛果提交，不相互覆盖';
+) ENGINE = InnoDB COMMENT = 'EVENT_ADMIN独立赛果提交，不相互覆盖';
 
 CREATE TABLE match_result_review (
     match_id BIGINT UNSIGNED NOT NULL,
@@ -494,12 +610,47 @@ CREATE TABLE match_result_review (
     PRIMARY KEY (match_id),
     CONSTRAINT fk_result_review_match FOREIGN KEY (match_id) REFERENCES match_info (match_id),
     CONSTRAINT fk_result_review_admin FOREIGN KEY (confirmed_by) REFERENCES sys_user (user_id),
-    CONSTRAINT ck_result_review_status CHECK (review_status IN ('PENDING_ADMIN_REVIEW', 'AUTO_PUBLISHED', 'ADMIN_CONFIRMED')),
-    CONSTRAINT ck_result_review_reason CHECK (review_reason IN ('SINGLE_SUBMISSION', 'CONFLICT', 'CONSENSUS', 'ADMIN_DECISION')),
-    CONSTRAINT ck_result_review_final_score CHECK ((review_status = 'PENDING_ADMIN_REVIEW' AND final_home_score IS NULL AND final_away_score IS NULL AND confirmed_at IS NULL) OR (review_status IN ('AUTO_PUBLISHED', 'ADMIN_CONFIRMED') AND final_home_score IS NOT NULL AND final_away_score IS NOT NULL AND confirmed_at IS NOT NULL)),
-    CONSTRAINT ck_result_review_confirmer CHECK ((review_status = 'ADMIN_CONFIRMED' AND confirmed_by IS NOT NULL) OR (review_status <> 'ADMIN_CONFIRMED' AND confirmed_by IS NULL)),
+    CONSTRAINT ck_result_review_status CHECK (
+        review_status IN (
+            'PENDING_ADMIN_REVIEW',
+            'AUTO_PUBLISHED',
+            'ADMIN_CONFIRMED'
+        )
+    ),
+    CONSTRAINT ck_result_review_reason CHECK (
+        review_reason IN (
+            'SINGLE_SUBMISSION',
+            'CONFLICT',
+            'CONSENSUS',
+            'ADMIN_DECISION'
+        )
+    ),
+    CONSTRAINT ck_result_review_final_score CHECK (
+        (
+            review_status = 'PENDING_ADMIN_REVIEW'
+            AND final_home_score IS NULL
+            AND final_away_score IS NULL
+            AND confirmed_at IS NULL
+        )
+        OR (
+            review_status IN ('AUTO_PUBLISHED', 'ADMIN_CONFIRMED')
+            AND final_home_score IS NOT NULL
+            AND final_away_score IS NOT NULL
+            AND confirmed_at IS NOT NULL
+        )
+    ),
+    CONSTRAINT ck_result_review_confirmer CHECK (
+        (
+            review_status = 'ADMIN_CONFIRMED'
+            AND confirmed_by IS NOT NULL
+        )
+        OR (
+            review_status <> 'ADMIN_CONFIRMED'
+            AND confirmed_by IS NULL
+        )
+    ),
     KEY idx_result_review_pending (review_status, updated_at)
-) ENGINE=InnoDB COMMENT='赛果共识与ADMIN最终确认';
+) ENGINE = InnoDB COMMENT = '赛果共识与ADMIN最终确认';
 
 CREATE TABLE season_schedule_match (
     batch_id BIGINT UNSIGNED NOT NULL COMMENT '自动排赛批次',
@@ -509,7 +660,7 @@ CREATE TABLE season_schedule_match (
     CONSTRAINT uq_schedule_match UNIQUE (match_id),
     CONSTRAINT fk_schedule_match_batch FOREIGN KEY (batch_id) REFERENCES season_schedule_batch (batch_id) ON DELETE CASCADE,
     CONSTRAINT fk_schedule_match_match FOREIGN KEY (match_id) REFERENCES match_info (match_id) ON DELETE CASCADE
-) ENGINE=InnoDB COMMENT='自动排赛批次与比赛关系';
+) ENGINE = InnoDB COMMENT = '自动排赛批次与比赛关系';
 
 CREATE TABLE match_ticket_zone (
     match_zone_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '单场比赛票区主键',
@@ -517,7 +668,7 @@ CREATE TABLE match_ticket_zone (
     stadium_zone_id BIGINT UNSIGNED NOT NULL COMMENT '对应场馆静态票区',
     created_by BIGINT UNSIGNED NOT NULL COMMENT '创建管理员',
     zone_name_snapshot VARCHAR(80) NOT NULL COMMENT '售票时票区名称快照',
-    ticket_price DECIMAL(10,2) UNSIGNED NOT NULL COMMENT '单价',
+    ticket_price DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '单价',
     zone_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '比赛票区状态',
     sale_start_time DATETIME NULL COMMENT '根据比赛时间自动派生并持久化的开售时间',
     sale_end_time DATETIME NULL COMMENT '票区售票停止时间',
@@ -531,10 +682,16 @@ CREATE TABLE match_ticket_zone (
     CONSTRAINT fk_match_zone_stadium_zone FOREIGN KEY (stadium_zone_id) REFERENCES stadium_zone (stadium_zone_id),
     CONSTRAINT fk_match_zone_created_by FOREIGN KEY (created_by) REFERENCES sys_user (user_id),
     CONSTRAINT ck_match_zone_price CHECK (ticket_price >= 0),
-    CONSTRAINT ck_match_zone_sale_time CHECK (sale_end_time IS NULL OR sale_start_time IS NULL OR sale_end_time >= sale_start_time),
-    CONSTRAINT ck_match_zone_status CHECK (zone_status IN ('DRAFT', 'ON_SALE', 'PAUSED', 'CLOSED')),
+    CONSTRAINT ck_match_zone_sale_time CHECK (
+        sale_end_time IS NULL
+        OR sale_start_time IS NULL
+        OR sale_end_time >= sale_start_time
+    ),
+    CONSTRAINT ck_match_zone_status CHECK (
+        zone_status IN ('DRAFT', 'ON_SALE', 'PAUSED', 'CLOSED')
+    ),
     KEY idx_match_zone_query (match_id, zone_status)
-) ENGINE=InnoDB COMMENT='单场比赛票区配置';
+) ENGINE = InnoDB COMMENT = '单场比赛票区配置';
 
 CREATE TABLE match_seat_inventory (
     inventory_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '单场比赛座位库存主键',
@@ -553,16 +710,28 @@ CREATE TABLE match_seat_inventory (
     CONSTRAINT fk_inventory_match FOREIGN KEY (match_id) REFERENCES match_info (match_id),
     CONSTRAINT fk_inventory_match_zone FOREIGN KEY (match_zone_id, match_id) REFERENCES match_ticket_zone (match_zone_id, match_id),
     CONSTRAINT fk_inventory_stadium_seat FOREIGN KEY (stadium_seat_id) REFERENCES stadium_seat (stadium_seat_id),
-    CONSTRAINT ck_inventory_status CHECK (inventory_status IN ('AVAILABLE', 'LOCKED', 'SOLD', 'DISABLED')),
+    CONSTRAINT ck_inventory_status CHECK (
+        inventory_status IN ('AVAILABLE', 'LOCKED', 'SOLD', 'DISABLED')
+    ),
     CONSTRAINT ck_inventory_lock_fields CHECK (
-        (inventory_status = 'LOCKED' AND lock_order_id IS NOT NULL AND locked_at IS NOT NULL AND lock_expire_time IS NOT NULL AND lock_expire_time > locked_at)
-        OR
-        (inventory_status <> 'LOCKED' AND lock_order_id IS NULL AND locked_at IS NULL AND lock_expire_time IS NULL)
+        (
+            inventory_status = 'LOCKED'
+            AND lock_order_id IS NOT NULL
+            AND locked_at IS NOT NULL
+            AND lock_expire_time IS NOT NULL
+            AND lock_expire_time > locked_at
+        )
+        OR (
+            inventory_status <> 'LOCKED'
+            AND lock_order_id IS NULL
+            AND locked_at IS NULL
+            AND lock_expire_time IS NULL
+        )
     ),
     KEY idx_inventory_available (match_zone_id, inventory_status, stadium_seat_id),
     KEY idx_inventory_lock_expire (inventory_status, lock_expire_time),
     KEY idx_inventory_lock_order (lock_order_id)
-) ENGINE=InnoDB COMMENT='单场比赛座位库存';
+) ENGINE = InnoDB COMMENT = '单场比赛座位库存';
 
 CREATE TABLE ticket_order (
     order_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '订单主键',
@@ -571,7 +740,7 @@ CREATE TABLE ticket_order (
     match_id BIGINT UNSIGNED NOT NULL COMMENT '比赛',
     match_zone_id BIGINT UNSIGNED NOT NULL COMMENT '比赛票区，一单仅限一个票区',
     ticket_count INT UNSIGNED NOT NULL COMMENT '购票张数，最多4张',
-    total_amount DECIMAL(10,2) UNSIGNED NOT NULL COMMENT '订单总金额',
+    total_amount DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '订单总金额',
     order_status VARCHAR(24) NOT NULL DEFAULT 'PENDING_PAYMENT' COMMENT '订单状态',
     expire_time DATETIME NOT NULL COMMENT '待支付到期时间',
     paid_at DATETIME NULL COMMENT '支付成功时间',
@@ -586,22 +755,35 @@ CREATE TABLE ticket_order (
     CONSTRAINT fk_order_user FOREIGN KEY (user_id) REFERENCES sys_user (user_id),
     CONSTRAINT fk_order_match FOREIGN KEY (match_id) REFERENCES match_info (match_id),
     CONSTRAINT fk_order_match_zone FOREIGN KEY (match_zone_id, match_id) REFERENCES match_ticket_zone (match_zone_id, match_id),
-    CONSTRAINT ck_order_ticket_count CHECK (ticket_count BETWEEN 1 AND 4),
+    CONSTRAINT ck_order_ticket_count CHECK (
+        ticket_count BETWEEN 1
+        AND 4
+    ),
     CONSTRAINT ck_order_total_amount CHECK (total_amount >= 0),
-    CONSTRAINT ck_order_status CHECK (order_status IN ('PENDING_PAYMENT', 'PAID', 'CANCELLED', 'REFUND_PENDING', 'REFUNDED')),
+    CONSTRAINT ck_order_status CHECK (
+        order_status IN (
+            'PENDING_PAYMENT',
+            'PAID',
+            'CANCELLED',
+            'REFUND_PENDING',
+            'REFUNDED'
+        )
+    ),
     KEY idx_order_user_time (user_id, created_at),
     KEY idx_order_match_status (match_id, order_status),
     KEY idx_order_payment_expire (order_status, expire_time)
-) ENGINE=InnoDB COMMENT='票务订单；一单只对应一场比赛和一个比赛票区';
+) ENGINE = InnoDB COMMENT = '票务订单；一单只对应一场比赛和一个比赛票区';
 
-ALTER TABLE match_seat_inventory
-    ADD CONSTRAINT fk_inventory_lock_order FOREIGN KEY (lock_order_id) REFERENCES ticket_order (order_id);
+ALTER TABLE
+    match_seat_inventory
+ADD
+    CONSTRAINT fk_inventory_lock_order FOREIGN KEY (lock_order_id) REFERENCES ticket_order (order_id);
 
 CREATE TABLE order_item (
     item_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '订单明细主键',
     order_id BIGINT UNSIGNED NOT NULL COMMENT '订单',
     inventory_id BIGINT UNSIGNED NOT NULL COMMENT '所绑定的单场比赛座位库存',
-    ticket_price DECIMAL(10,2) UNSIGNED NOT NULL COMMENT '成交单价快照',
+    ticket_price DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '成交单价快照',
     zone_name_snapshot VARCHAR(80) NOT NULL COMMENT '票区名称快照',
     row_no_snapshot VARCHAR(20) NOT NULL COMMENT '排号快照',
     seat_no_snapshot VARCHAR(20) NOT NULL COMMENT '座号快照',
@@ -615,15 +797,17 @@ CREATE TABLE order_item (
     CONSTRAINT fk_order_item_order FOREIGN KEY (order_id) REFERENCES ticket_order (order_id),
     CONSTRAINT fk_order_item_inventory FOREIGN KEY (inventory_id) REFERENCES match_seat_inventory (inventory_id),
     CONSTRAINT ck_order_item_price CHECK (ticket_price >= 0),
-    CONSTRAINT ck_order_item_status CHECK (item_status IN ('LOCKED', 'PAID', 'CANCELLED', 'REFUNDED')),
+    CONSTRAINT ck_order_item_status CHECK (
+        item_status IN ('LOCKED', 'PAID', 'CANCELLED', 'REFUNDED')
+    ),
     KEY idx_order_item_inventory (inventory_id)
-) ENGINE=InnoDB COMMENT='订单座位明细；每条明细绑定一个比赛座位库存';
+) ENGINE = InnoDB COMMENT = '订单座位明细；每条明细绑定一个比赛座位库存';
 
 CREATE TABLE payment_record (
     payment_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '支付记录主键',
     payment_no VARCHAR(32) NOT NULL COMMENT '支付流水号',
     order_id BIGINT UNSIGNED NOT NULL COMMENT '订单',
-    pay_amount DECIMAL(10,2) UNSIGNED NOT NULL COMMENT '支付金额',
+    pay_amount DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '支付金额',
     pay_method VARCHAR(20) NOT NULL DEFAULT 'SIMULATED' COMMENT '支付方式',
     pay_status VARCHAR(16) NOT NULL DEFAULT 'CREATED' COMMENT '支付状态',
     third_party_trade_no VARCHAR(64) NULL COMMENT '模拟或第三方交易号',
@@ -636,10 +820,12 @@ CREATE TABLE payment_record (
     CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES ticket_order (order_id),
     CONSTRAINT ck_payment_amount CHECK (pay_amount >= 0),
     CONSTRAINT ck_payment_method CHECK (pay_method IN ('SIMULATED')),
-    CONSTRAINT ck_payment_status CHECK (pay_status IN ('CREATED', 'SUCCESS', 'FAILED', 'CLOSED')),
+    CONSTRAINT ck_payment_status CHECK (
+        pay_status IN ('CREATED', 'SUCCESS', 'FAILED', 'CLOSED')
+    ),
     KEY idx_payment_order_status (order_id, pay_status),
     KEY idx_payment_status_time (pay_status, created_at)
-) ENGINE=InnoDB COMMENT='模拟支付记录';
+) ENGINE = InnoDB COMMENT = '模拟支付记录';
 
 CREATE TABLE e_ticket (
     ticket_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '电子票主键',
@@ -655,10 +841,21 @@ CREATE TABLE e_ticket (
     CONSTRAINT uq_e_ticket_item UNIQUE (item_id),
     CONSTRAINT fk_e_ticket_order FOREIGN KEY (order_id) REFERENCES ticket_order (order_id),
     CONSTRAINT fk_e_ticket_item FOREIGN KEY (item_id, order_id) REFERENCES order_item (item_id, order_id),
-    CONSTRAINT ck_e_ticket_status CHECK (ticket_status IN ('UNUSED', 'USED', 'REFUNDED', 'VOID')),
-    CONSTRAINT ck_e_ticket_used_time CHECK ((ticket_status = 'USED' AND used_at IS NOT NULL) OR (ticket_status <> 'USED' AND used_at IS NULL)),
+    CONSTRAINT ck_e_ticket_status CHECK (
+        ticket_status IN ('UNUSED', 'USED', 'REFUNDED', 'VOID')
+    ),
+    CONSTRAINT ck_e_ticket_used_time CHECK (
+        (
+            ticket_status = 'USED'
+            AND used_at IS NOT NULL
+        )
+        OR (
+            ticket_status <> 'USED'
+            AND used_at IS NULL
+        )
+    ),
     KEY idx_e_ticket_order_status (order_id, ticket_status)
-) ENGINE=InnoDB COMMENT='电子票；座位通过订单明细关联至比赛库存';
+) ENGINE = InnoDB COMMENT = '电子票；座位通过订单明细关联至比赛库存';
 
 CREATE TABLE refund_apply (
     refund_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '退票申请主键',
@@ -666,9 +863,9 @@ CREATE TABLE refund_apply (
     order_id BIGINT UNSIGNED NOT NULL COMMENT '整单退票的订单',
     applicant_id BIGINT UNSIGNED NOT NULL COMMENT '申请用户',
     reason VARCHAR(500) NOT NULL COMMENT '退票原因',
-    refund_amount DECIMAL(10,2) UNSIGNED NOT NULL COMMENT '实际退款金额',
-    refund_rate DECIMAL(5,2) NULL COMMENT '自动退款比例，历史人工记录可为空',
-    fee_amount DECIMAL(10,2) UNSIGNED NOT NULL DEFAULT 0 COMMENT '未退手续费',
+    refund_amount DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '实际退款金额',
+    refund_rate DECIMAL(5, 2) NULL COMMENT '自动退款比例，历史人工记录可为空',
+    fee_amount DECIMAL(10, 2) UNSIGNED NOT NULL DEFAULT 0 COMMENT '未退手续费',
     refund_status VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '退款状态',
     processing_mode VARCHAR(16) NOT NULL DEFAULT 'MANUAL' COMMENT 'MANUAL历史兼容；新流程统一AUTO',
     auditor_id BIGINT UNSIGNED NULL COMMENT '审核管理员',
@@ -683,17 +880,36 @@ CREATE TABLE refund_apply (
     CONSTRAINT fk_refund_applicant FOREIGN KEY (applicant_id) REFERENCES sys_user (user_id),
     CONSTRAINT fk_refund_auditor FOREIGN KEY (auditor_id) REFERENCES sys_user (user_id),
     CONSTRAINT ck_refund_amount CHECK (refund_amount >= 0),
-    CONSTRAINT ck_refund_rate CHECK (refund_rate IS NULL OR refund_rate IN (0.50, 1.00)),
+    CONSTRAINT ck_refund_rate CHECK (
+        refund_rate IS NULL
+        OR refund_rate IN (0.50, 1.00)
+    ),
     CONSTRAINT ck_refund_processing_mode CHECK (processing_mode IN ('MANUAL', 'AUTO')),
-    CONSTRAINT ck_refund_status CHECK (refund_status IN ('PENDING', 'APPROVED', 'REJECTED')),
+    CONSTRAINT ck_refund_status CHECK (
+        refund_status IN ('PENDING', 'APPROVED', 'REJECTED')
+    ),
     CONSTRAINT ck_refund_audit_fields CHECK (
-        (refund_status = 'PENDING' AND auditor_id IS NULL AND audit_time IS NULL)
-        OR (refund_status IN ('APPROVED', 'REJECTED') AND processing_mode = 'MANUAL' AND auditor_id IS NOT NULL AND audit_time IS NOT NULL)
-        OR (refund_status = 'APPROVED' AND processing_mode = 'AUTO' AND auditor_id IS NULL AND audit_time IS NOT NULL)
+        (
+            refund_status = 'PENDING'
+            AND auditor_id IS NULL
+            AND audit_time IS NULL
+        )
+        OR (
+            refund_status IN ('APPROVED', 'REJECTED')
+            AND processing_mode = 'MANUAL'
+            AND auditor_id IS NOT NULL
+            AND audit_time IS NOT NULL
+        )
+        OR (
+            refund_status = 'APPROVED'
+            AND processing_mode = 'AUTO'
+            AND auditor_id IS NULL
+            AND audit_time IS NOT NULL
+        )
     ),
     KEY idx_refund_status_time (refund_status, created_at),
     KEY idx_refund_applicant_time (applicant_id, created_at)
-) ENGINE=InnoDB COMMENT='整单退票申请';
+) ENGINE = InnoDB COMMENT = '整单退票申请';
 
 CREATE TABLE checkin_record (
     checkin_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '检票记录主键',
@@ -708,9 +924,19 @@ CREATE TABLE checkin_record (
     CONSTRAINT fk_checkin_match FOREIGN KEY (match_id) REFERENCES match_info (match_id),
     CONSTRAINT fk_checkin_ticket FOREIGN KEY (ticket_id) REFERENCES e_ticket (ticket_id),
     CONSTRAINT fk_checkin_checker FOREIGN KEY (checker_id) REFERENCES sys_user (user_id),
-    CONSTRAINT ck_checkin_result CHECK (check_result IN ('SUCCESS', 'CODE_NOT_FOUND', 'WRONG_MATCH', 'ORDER_INVALID', 'TICKET_USED', 'TICKET_REFUNDED', 'TICKET_VOID')),
+    CONSTRAINT ck_checkin_result CHECK (
+        check_result IN (
+            'SUCCESS',
+            'CODE_NOT_FOUND',
+            'WRONG_MATCH',
+            'ORDER_INVALID',
+            'TICKET_USED',
+            'TICKET_REFUNDED',
+            'TICKET_VOID'
+        )
+    ),
     KEY idx_checkin_ticket_time (ticket_id, check_time),
     KEY idx_checkin_match_time (match_id, check_time),
     KEY idx_checkin_checker_time (checker_id, check_time),
     KEY idx_checkin_scanned_code (scanned_ticket_code)
-) ENGINE=InnoDB COMMENT='电子票检票尝试记录';
+) ENGINE = InnoDB COMMENT = '电子票检票尝试记录';

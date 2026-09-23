@@ -27,15 +27,16 @@ Release 运行不需要 Node.js、npm、Maven，也不需要单独运行 Vite。
 数据库脚本说明
 --------------
 - schema.sql：为全新环境创建当前数据库结构，不执行 DROP；已有环境重复执行可能因表已存在而停止。
-- seed.sql：可重复执行的角色、权限和系统基础数据。
-- test-data.sql：可选的本地演示数据，会清理并重建业务演示记录，绝不会由 init-db.bat 自动导入。
+- seed.sql：角色、权限、系统配置、根管理员，以及四支球队的CLUB账号、完整阵容和STANDARD_8主场。
+- test-data.sql：正式初始化结果的只读验收查询。
+- demo-data.sql：可选答辩演示数据，会清理并重建业务演示记录，绝不会由 init-db.bat 自动导入。
 - migrations\：历史数据库增量脚本；全新数据库不要重复执行。
 
 目录说明
 --------
 - league-ticket.jar：包含 Vue 页面和全部运行依赖的 Spring Boot 可执行 JAR。
 - third-party-jars\：供课程检查的运行时第三方依赖副本；正常启动无需手工设置 classpath。
-- database\：数据库设计、基础数据、可选演示数据和迁移脚本。
+- database\：数据库设计、正式初始化数据、验收查询、可选演示数据和迁移脚本。
 - uploads\：头像和队徽等运行时上传目录。
 
 常见错误

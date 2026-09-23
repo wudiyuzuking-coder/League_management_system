@@ -61,7 +61,7 @@ class Phase23ClubRosterIntegrationTest {
         assertThat(returned.getShirtNo()).isEqualTo(98);
 
         LocalDateTime now=timeService.now();String seasonName="IT23快照-"+System.nanoTime();
-        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,registration_start_time,registration_deadline,max_clubs,season_status) VALUES(?,?,?,?,?,4,'DRAFT')",seasonName,now.toLocalDate().plusDays(30),now.toLocalDate().plusDays(90),now.minusDays(1),now.plusDays(10));
+        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,registration_start_time,registration_deadline,max_clubs,season_status) VALUES(?,?,?,?,?,4,'REGISTRATION')",seasonName,now.toLocalDate().plusDays(30),now.toLocalDate().plusDays(90),now.minusDays(1),now.plusDays(10));
         long seasonId=jdbc.queryForObject("SELECT season_id FROM season_info WHERE season_name=?",Long.class,seasonName);
         EnrollmentResponse enrollment=enrollmentService.submit(clubId,new EnrollmentRequest(seasonId));
         assertThat(enrollment.getPlayerCount()).isEqualTo(12);

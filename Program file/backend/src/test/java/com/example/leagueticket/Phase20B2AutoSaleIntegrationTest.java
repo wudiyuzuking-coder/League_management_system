@@ -45,7 +45,7 @@ class Phase20B2AutoSaleIntegrationTest {
         Map<String,Object> home=jdbc.queryForMap("SELECT club_id,home_stadium_id FROM club_info WHERE home_stadium_id IS NOT NULL ORDER BY club_id LIMIT 1");
         homeClubId=((Number)home.get("club_id")).longValue();stadiumId=((Number)home.get("home_stadium_id")).longValue();
         awayClubId=jdbc.queryForObject("SELECT club_id FROM club_info WHERE club_id<>? ORDER BY club_id LIMIT 1",Long.class,homeClubId);
-        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,season_status) VALUES(?, '2027-06-01','2027-06-30','ACTIVE')",SEASON);
+        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,season_status) VALUES(?, '2027-06-01','2027-06-30','IN_PROGRESS')",SEASON);
         seasonId=id("SELECT season_id FROM season_info WHERE season_name='"+SEASON+"'");
         jdbc.update("INSERT INTO round_info(season_id,round_no,round_name,start_date,end_date,round_status) VALUES(?,1,'IT20B2轮次','2027-06-01','2027-06-30','PUBLISHED')",seasonId);
         roundId=id("SELECT round_id FROM round_info WHERE season_id="+seasonId);

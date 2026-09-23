@@ -48,7 +48,9 @@ class AccountCancellationIntegrationTest {
         String token=login("13928000002","CLUB",null);
         mvc.perform(post("/api/account/cancel").header("Authorization",bearer(token)))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("当前账号仍为俱乐部负责人，无法直接注销，请联系系统管理员处理俱乐部负责人关系"));
-        assertThat(jdbc.queryForMap("SELECT user_status,club_id FROM sys_user WHERE user_id=?",id)).containsEntry("user_status","ENABLED").containsEntry("club_id",clubId);
+        Map<String,Object> state=jdbc.queryForMap("SELECT user_status,club_id FROM sys_user WHERE user_id=?",id);
+        assertThat(state).containsEntry("user_status","ENABLED");
+        assertThat(((Number)state.get("club_id")).longValue()).isEqualTo(clubId);
     }
 
     @Test void eventAdminCancellationPreservesResultSubmission() throws Exception {

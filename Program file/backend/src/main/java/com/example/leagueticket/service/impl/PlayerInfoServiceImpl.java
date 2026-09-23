@@ -8,6 +8,7 @@ import com.example.leagueticket.exception.BusinessException;
 import com.example.leagueticket.mapper.PlayerInfoMapper;
 import com.example.leagueticket.service.ClubDataScopeService;
 import com.example.leagueticket.service.ClubInfoService;
+import com.example.leagueticket.service.PersonnelAgeValidationService;
 import com.example.leagueticket.service.PlayerInfoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -28,6 +29,7 @@ public class PlayerInfoServiceImpl implements PlayerInfoService {
     private final PlayerInfoMapper playerMapper;
     private final ClubInfoService clubService;
     private final ClubDataScopeService scopeService;
+    private final PersonnelAgeValidationService ageValidationService;
 
     @Override
     public PlayerInfo getById(Long playerId) {
@@ -46,6 +48,7 @@ public class PlayerInfoServiceImpl implements PlayerInfoService {
     @Transactional
     public PlayerInfo create(Long clubId, PlayerRequest request) {
         clubService.getById(clubId);
+        ageValidationService.validatePlayerAge(request.birthDate(), request.birthYear());
         validatePosition(request.position());
         validateLineup(request.lineupRole());
         assertShirtAvailable(clubId, request.shirtNo(), null);
@@ -62,8 +65,11 @@ public class PlayerInfoServiceImpl implements PlayerInfoService {
     public PlayerInfo update(Long clubId, Long playerId, PlayerRequest request) {
         PlayerInfo player = getById(playerId);
         scopeService.requireSameClub(clubId, player.getClubId());
+        ageValidationService.validatePlayerAge(request.birthDate(), request.birthYear());
         validatePosition(request.position());
+        validateLineup(request.lineupRole());
         assertShirtAvailable(clubId, request.shirtNo(), playerId);
+        assertRosterCapacity(clubId, request.lineupRole(), request.position(), playerId);
         playerMapper.update(fromRequest(player, request));
         return getById(playerId);
     }
@@ -74,6 +80,7 @@ public class PlayerInfoServiceImpl implements PlayerInfoService {
         PlayerInfo player=getById(playerId);
         scopeService.requireSameClub(clubId,player.getClubId());
         if(!"ACTIVE".equals(player.getPlayerStatus()))throw new BusinessException("离队球员请先归队");
+        ageValidationService.validatePlayerAge(player.getBirthDate(),player.getBirthYear());
         validatePosition(request.position());validateLineup(request.lineupRole());
         assertShirtAvailable(clubId,request.shirtNo(),playerId);
         assertRosterCapacity(clubId,request.lineupRole(),request.position(),playerId);
@@ -86,6 +93,7 @@ public class PlayerInfoServiceImpl implements PlayerInfoService {
     public PlayerInfo returnToTeam(Long clubId,Long playerId,PlayerReturnRequest request){
         PlayerInfo player=getById(playerId);scopeService.requireSameClub(clubId,player.getClubId());
         if(!"TRANSFERRED".equals(player.getPlayerStatus()))throw new BusinessException("只有离队球员可以归队");
+        ageValidationService.validatePlayerAge(player.getBirthDate(),player.getBirthYear());
         validatePosition(request.position());validateLineup(request.lineupRole());assertShirtAvailable(clubId,request.shirtNo(),playerId);
         assertRosterCapacity(clubId,request.lineupRole(),request.position(),playerId);
         player.setShirtNo(request.shirtNo());player.setPosition(request.position());player.setLineupRole(request.lineupRole());
@@ -121,9 +129,12 @@ public class PlayerInfoServiceImpl implements PlayerInfoService {
 
     private void validateLineup(String role){if(!LINEUP_ROLES.contains(role))throw new BusinessException("请选择首发或替补");}
     private void assertRosterCapacity(Long clubId,String role,String position,Long excludeId){
-        if("STARTER".equals(role)&&playerMapper.countActiveRole(clubId,"STARTER",excludeId)>=11)throw new BusinessException("首发球员最多11名");
+        int starters="STARTER".equals(role)?playerMapper.countActiveRole(clubId,"STARTER",excludeId):0;
+        if("STARTER".equals(role)&&starters>=11)throw new BusinessException("首发球员最多11名");
         if("SUBSTITUTE".equals(role)&&playerMapper.countActiveRole(clubId,"SUBSTITUTE",excludeId)>=7)throw new BusinessException("替补球员最多7名");
-        if("STARTER".equals(role)&&"GOALKEEPER".equals(position)&&playerMapper.countStartingGoalkeepers(clubId,excludeId)>=1)throw new BusinessException("首发门将只能有1名");
+        int startingGoalkeepers="STARTER".equals(role)?playerMapper.countStartingGoalkeepers(clubId,excludeId):0;
+        if("STARTER".equals(role)&&starters==10&&startingGoalkeepers==0&&!"GOALKEEPER".equals(position))throw new BusinessException("最后一个首发名额必须设置为门将");
+        if("STARTER".equals(role)&&"GOALKEEPER".equals(position)&&startingGoalkeepers>=1)throw new BusinessException("首发门将只能有1名");
     }
 
     private void validatePosition(String position) {

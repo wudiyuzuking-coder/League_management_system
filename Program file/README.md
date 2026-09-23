@@ -51,8 +51,9 @@
 ## 数据库脚本
 
 - `database/schema.sql`：全新环境的当前完整结构快照。
-- `database/seed.sql`：角色、权限和系统基础配置。
-- `database/test-data.sql`：仅供隔离开发环境使用的可选样例数据。
+- `database/seed.sql`：角色、权限、系统配置、根管理员，以及四支球队的CLUB账号、完整阵容和STANDARD_8主场。
+- `database/test-data.sql`：正式初始化结果的只读验收查询。
+- `database/demo-data.sql`：仅供隔离开发环境使用的可选答辩演示数据。
 - `database/migrations/`：已有历史数据库的增量升级记录。
 
 全新环境只执行当前 `schema.sql`，随后执行 `seed.sql`。不要在当前完整 schema 上再次执行历史增量 migration。
@@ -97,7 +98,7 @@ powershell -ExecutionPolicy Bypass -File ".\Program file\scripts\build-release.p
 
 输出目录为 `release/LeagueTicket/`。第一次换电脑时，先启动 MySQL，双击 `init-db.bat`，复制 `config.bat.example` 为 `config.bat` 并填写本机配置，最后双击 `start.bat`。以后只需确保 MySQL 已启动并双击 `start.bat`。
 
-Release 只要求 Java 17+ 和 MySQL 8。Spring Boot 在 `:8080` 同时提供 Vue 页面、`/api/**` 和 `/uploads/**`；Vue history 路由刷新由后端对已知页面路由转发至 `index.html`，不会捕获 API、上传文件或静态 assets。`test-data.sql` 仍是可选且具有数据清理行为的本地演示数据，初始化脚本不会自动导入。
+Release 只要求 Java 17+ 和 MySQL 8。Spring Boot 在 `:8080` 同时提供 Vue 页面、`/api/**` 和 `/uploads/**`；Vue history 路由刷新由后端对已知页面路由转发至 `index.html`，不会捕获 API、上传文件或静态 assets。`demo-data.sql` 是可选且具有数据清理行为的答辩演示数据，初始化脚本不会自动导入。
 
 课程提交应包含完整仓库源码和生成的 `release/LeagueTicket/`，无需把 `node_modules/`、`backend/target/` 或 `frontend/dist/` 放入源码备份。
 
@@ -122,4 +123,4 @@ npm run build
 - `.env`、数据库 dump、MySQL 登录文件、构建日志、运行时 uploads、IDE 配置和本地测试输出不得提交。
 - `application-dev.yml` 中只保留环境变量引用或非敏感本地默认值。
 - 示例密码初始化器默认关闭，只能用于可丢弃的隔离样例数据库。
-- `database/test-data.sql` 不得导入包含真实数据的数据库。
+- `database/demo-data.sql` 不得导入包含真实数据的数据库。

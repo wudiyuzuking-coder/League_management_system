@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface SeasonScheduleService {
     ScheduleDetailResponse generateIfEligible(Long seasonId,String triggerType);
+    ScheduleDetailResponse generateForPreparing(Long seasonId,String triggerType);
     ScheduleDetailResponse closeRegistrationAndGenerate(Long seasonId);
     ScheduleDetailResponse get(Long seasonId);
     UserSeasonScheduleResponse getPublicConfirmed(Long seasonId);

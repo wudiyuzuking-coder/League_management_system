@@ -45,7 +45,7 @@ class MatchResultReminderIntegrationTest {
     @BeforeEach void setup() throws Exception {
         jdbc.update("INSERT INTO sys_config(config_key,config_value,value_type,description,config_status) VALUES('SYSTEM_TIME_OFFSET_SECONDS','0','INTEGER','test','ENABLED') ON DUPLICATE KEY UPDATE config_value='0',config_status='ENABLED'");
         cleanupData();
-        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,season_status) VALUES('IT16D赛季','2046-01-01','2046-12-31','ACTIVE')");
+        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,season_status) VALUES('IT16D赛季','2046-01-01','2046-12-31','IN_PROGRESS')");
         seasonId=id("SELECT season_id FROM season_info WHERE season_name='IT16D赛季'");
         jdbc.update("INSERT INTO round_info(season_id,round_no,round_name,start_date,end_date,round_status) VALUES(?,1,'IT16D第1轮','2046-06-01','2046-06-30','PUBLISHED')",seasonId);
         roundId=id("SELECT round_id FROM round_info WHERE season_id="+seasonId);

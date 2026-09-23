@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest @AutoConfigureMockMvc @ActiveProfiles("dev")
 @EnabledIfEnvironmentVariable(named="RUN_DB_TESTS",matches="true")
 class SeasonScheduleIntegrationTest {
-    @Autowired JdbcTemplate jdbc; @Autowired SeasonScheduleService schedules; @Autowired SeasonInfoService seasons;
+    @Autowired JdbcTemplate jdbc; @Autowired SeasonScheduleService schedules; @Autowired SeasonInfoService seasons; @Autowired SeasonLifecycleService lifecycle;
     @Autowired MatchInfoService matches;
     @Autowired ClubSeasonEnrollmentService enrollments; @Autowired SystemTimeService time; @Autowired MockMvc mvc;
     @Autowired ObjectMapper json; @Autowired PasswordEncoder encoder;
@@ -44,6 +44,7 @@ class SeasonScheduleIntegrationTest {
         long season=season("IT16C四队",4,LocalDate.of(2040,3,1),LocalDate.of(2040,5,1),LocalDateTime.now().minusDays(1));
         List<Team> teams=teams(season,4);ScheduleDetailResponse generated=schedules.generateIfEligible(season,"MANUAL");
         assertThat(generated.getBatchStatus()).isEqualTo("GENERATED");assertThat(generated.getRoundCount()).isEqualTo(6);assertThat(generated.getMatchCount()).isEqualTo(12);
+        assertThat(jdbc.queryForObject("SELECT season_status FROM season_info WHERE season_id=?",String.class,season)).isEqualTo("PREPARING");
         assertThat(schedules.list(new ScheduleQueryRequest(season,"GENERATED",1,20)).total()).isEqualTo(1);
         MatchQueryRequest publicQuery=new MatchQueryRequest();publicQuery.setSeasonId(season);assertThat(matches.listPublic(publicQuery).total()).isZero();
         long draftMatch=jdbc.queryForObject("SELECT match_id FROM match_info WHERE season_id=? ORDER BY match_id LIMIT 1",Long.class,season);assertThatThrownBy(()->matches.getPublicById(draftMatch)).hasMessage("match not found");
@@ -55,7 +56,23 @@ class SeasonScheduleIntegrationTest {
         assertThat(publicSchedule.rounds().stream().flatMap(round->round.matches().stream()).toList()).hasSize(12).allSatisfy(match->assertThat(match.getMatchStatus()).isEqualTo("PUBLISHED"));
         assertThat(matches.listPublic(publicQuery).total()).isEqualTo(12);
         assertThat(schedules.clubSchedules(teams.get(0).clubId())).hasSize(6);assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM club_season_record WHERE season_id=?",Integer.class,season)).isEqualTo(4);
-        schedules.confirm(season,eventAdminId());assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM club_season_record WHERE season_id=?",Integer.class,season)).isEqualTo(4);
+        assertThatThrownBy(()->schedules.confirm(season,eventAdminId())).hasMessage("仅准备中的赛季可以确认赛程");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM club_season_record WHERE season_id=?",Integer.class,season)).isEqualTo(4);
+    }
+
+    @Test void completeSeasonLifecycleRequiresConfirmedScheduleAndFinishedMatches(){
+        long season=season("IT16C完整生命周期",2,LocalDate.of(2039,3,1),LocalDate.of(2039,5,1),time.now().plusDays(10));
+        jdbc.update("UPDATE season_info SET season_status='DRAFT' WHERE season_id=?",season);
+        assertThat(lifecycle.openRegistration(season).getSeasonStatus()).isEqualTo("REGISTRATION");
+        teams(season,2);
+        assertThat(lifecycle.closeRegistration(season).getSeasonStatus()).isEqualTo("PREPARING");
+        assertThatThrownBy(()->lifecycle.startInProgress(season)).hasMessage("赛程尚未确认，不能进入进行中");
+        schedules.generateForPreparing(season,"MANUAL");
+        schedules.confirm(season,eventAdminId());
+        assertThat(seasons.getById(season).getSeasonStatus()).isEqualTo("IN_PROGRESS");
+        assertThatThrownBy(()->lifecycle.finish(season)).hasMessage("所有比赛完成后才能结束赛季");
+        jdbc.update("UPDATE match_info SET match_status='FINISHED',home_score=1,away_score=0 WHERE season_id=?",season);
+        assertThat(lifecycle.finish(season).getSeasonStatus()).isEqualTo("FINISHED");
     }
 
     @Test void publicSeasonListHidesUnconfirmedDraftAndReturnsConfirmedCounts(){
@@ -172,7 +189,7 @@ class SeasonScheduleIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM (SELECT LEAST(home_club_id,away_club_id) a,GREATEST(home_club_id,away_club_id) b,COUNT(*) c,COUNT(DISTINCT home_club_id) h FROM match_info WHERE season_id=? GROUP BY a,b HAVING c<>2 OR h<>2) x",Integer.class,season)).isZero();
     }
     private void assertVenuesUseEnrollmentSnapshot(long season){assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM match_info m JOIN club_season_enrollment e ON e.season_id=m.season_id AND e.club_id=m.home_club_id WHERE m.season_id=? AND m.stadium_id<>e.stadium_id",Integer.class,season)).isZero();}
-    private long season(String name,int max,LocalDate start,LocalDate end,LocalDateTime deadline){jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,registration_start_time,registration_deadline,max_clubs,season_status) VALUES(?,?,?,?,?,?,'DRAFT')",name,start,end,deadline.minusMonths(2),deadline,max);return jdbc.queryForObject("SELECT season_id FROM season_info WHERE season_name=?",Long.class,name);}
+    private long season(String name,int max,LocalDate start,LocalDate end,LocalDateTime deadline){jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,registration_start_time,registration_deadline,max_clubs,season_status) VALUES(?,?,?,?,?,?,'REGISTRATION')",name,start,end,deadline.minusMonths(2),deadline,max);return jdbc.queryForObject("SELECT season_id FROM season_info WHERE season_name=?",Long.class,name);}
     private List<Team> teams(long season,int n){List<Team> out=new ArrayList<>();for(int i=1;i<=n;i++){String suffix=season+"-"+i;jdbc.update("INSERT INTO stadium_info(stadium_name,city,address,capacity,stadium_status) VALUES(?,?,?,1000,'ACTIVE')","IT16C场馆"+suffix,"测试城","测试路"+i);long stadium=jdbc.queryForObject("SELECT stadium_id FROM stadium_info WHERE stadium_name=?",Long.class,"IT16C场馆"+suffix);jdbc.update("INSERT INTO club_info(club_name,home_city,home_stadium_id,club_status) VALUES(?,?,?,'ACTIVE')","IT16C俱乐部"+suffix,"测试城",stadium);long club=jdbc.queryForObject("SELECT club_id FROM club_info WHERE club_name=?",Long.class,"IT16C俱乐部"+suffix);jdbc.update("INSERT INTO club_season_enrollment(season_id,club_id,stadium_id,enrollment_status,submitted_at) VALUES(?,?,?,'SUBMITTED',?)",season,club,stadium,time.now());out.add(new Team(club,stadium));}return out;}
     private long eventAdminId(){return jdbc.queryForObject("SELECT u.user_id FROM sys_user u JOIN sys_role r ON r.role_id=u.role_id WHERE r.role_code='EVENT_ADMIN' ORDER BY u.user_id LIMIT 1",Long.class);}
     private String loginByPhone(String phone)throws Exception{String body=mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(TestLoginPayload.forPhone(phone,"123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();return json.readTree(body).path("data").path("token").asText();}

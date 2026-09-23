@@ -12,5 +12,4 @@ public interface SeasonInfoService {
     SeasonInfo getById(Long id);
     SeasonInfo create(SeasonRequest request);
     SeasonInfo update(Long id, SeasonRequest request);
-    SeasonInfo updateStatus(Long id, String status);
 }

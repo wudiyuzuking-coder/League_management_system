@@ -10,5 +10,6 @@ import java.util.List;
  @Select("SELECT * FROM match_result_review WHERE match_id=#{matchId} FOR UPDATE") MatchResultReview findReviewForUpdate(Long matchId);
  @Insert("INSERT INTO match_result_review(match_id,review_status,review_reason,final_home_score,final_away_score,confirmed_by,confirmed_at) VALUES(#{matchId},#{reviewStatus},#{reviewReason},#{finalHomeScore},#{finalAwayScore},#{confirmedBy},#{confirmedAt}) ON DUPLICATE KEY UPDATE review_status=VALUES(review_status),review_reason=VALUES(review_reason),final_home_score=VALUES(final_home_score),final_away_score=VALUES(final_away_score),confirmed_by=VALUES(confirmed_by),confirmed_at=VALUES(confirmed_at)") int saveReview(MatchResultReview value);
  @Select("SELECT * FROM match_result_review WHERE review_status='PENDING_ADMIN_REVIEW' ORDER BY updated_at,match_id") List<MatchResultReview> findPending();
+ @Select("SELECT COUNT(*) FROM match_result_review r JOIN match_info m ON m.match_id=r.match_id WHERE m.season_id=#{seasonId} AND r.review_status='PENDING_ADMIN_REVIEW'") int countPendingBySeason(Long seasonId);
  @Update("UPDATE match_info SET home_score=#{homeScore},away_score=#{awayScore},match_status='FINISHED' WHERE match_id=#{matchId} AND match_status IN ('PUBLISHED','IN_PROGRESS')") int publish(@Param("matchId")Long matchId,@Param("homeScore")Integer homeScore,@Param("awayScore")Integer awayScore);
 }

@@ -44,14 +44,22 @@ test('USER season cards expose confirmed counts and protect the schedule entry',
   assert.match(detail, /getSeasonSchedule\(route\.params\.id\)/)
 })
 
-test('EVENT_ADMIN season actions distinguish lifecycle start from registration closing', async () => {
+test('EVENT_ADMIN season actions use the five-stage lifecycle endpoints', async () => {
   const page = await source('../src/views/admin/AdminSeasons.vue')
   const api = await source('../src/api/league.js')
-  assert.match(page, /开始赛季/)
-  assert.match(page, /状态调整为 ACTIVE/)
-  assert.match(page, /提前截止报名并生成赛程/)
+  assert.match(page, /开启报名/)
+  assert.match(page, /结束报名/)
+  assert.match(page, /生成赛程/)
+  assert.match(page, /confirmScheduleAction/)
+  assert.match(page, /confirmSchedule\(row\.seasonId\)/)
+  assert.match(page, /row\.seasonStatus === 'PREPARING'/)
+  assert.match(page, /row\.seasonStatus === 'IN_PROGRESS'/)
   assert.doesNotMatch(page, /启用赛季|确认启用/)
+  assert.match(api, /openSeasonRegistration=.*\/registration\/open/)
+  assert.match(api, /closeSeasonRegistrationOnly=.*\/registration\/close/)
   assert.match(api, /closeSeasonRegistration=.*\/admin\/seasons\/\$\{seasonId\}\/close-registration/)
+  assert.match(api, /confirmSchedule=.*\/admin\/seasons\/\$\{seasonId\}\/schedule\/confirm/)
+  assert.match(api, /finishSeason=.*\/admin\/seasons\/\$\{id\}\/finish/)
 })
 
 test('management season pages use admin endpoints instead of the public list', async () => {

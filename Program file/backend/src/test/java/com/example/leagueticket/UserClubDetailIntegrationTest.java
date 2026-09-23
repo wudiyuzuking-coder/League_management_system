@@ -85,7 +85,7 @@ class UserClubDetailIntegrationTest {
                         "(?, '公开主教练', '主教练', '中国', 'ACTIVE'),(?, '停用教练', '助理教练', '中国', 'INACTIVE')",
                 clubId, clubId);
 
-        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,season_status,description) VALUES(?,?,?,'ACTIVE','IT18A')",
+        jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,season_status,description) VALUES(?,?,?,'IN_PROGRESS','IT18A')",
                 SEASON_NAME, baseTime.toLocalDate().minusDays(30), baseTime.toLocalDate().plusDays(60));
         long seasonId = id("SELECT season_id FROM season_info WHERE season_name='" + SEASON_NAME + "'");
         jdbc.update("INSERT INTO round_info(season_id,round_no,round_name,start_date,end_date,round_status) VALUES(?,1,'IT18A轮次',?,?,'PUBLISHED')",
