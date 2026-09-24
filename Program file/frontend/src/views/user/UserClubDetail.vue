@@ -15,7 +15,7 @@ onMounted(load)
 
 <template>
   <div>
-    <PageHeader :title="club.clubName||'俱乐部详情'" subtitle="球队资料、当前阵容与近期比赛。" :breadcrumb="[{label:'联赛赛季',to:'/user/seasons'},{label:'俱乐部详情'}]" />
+    <PageHeader back back-fallback="/user/seasons" :title="club.clubName||'俱乐部详情'" subtitle="球队资料、当前阵容与近期比赛。" :breadcrumb="[{label:'联赛赛季',to:'/user/seasons'},{label:'俱乐部详情'}]" />
     <DataState :loading="loading" :error="error" :empty="!data" empty-title="俱乐部不存在或暂不可查看" @retry="load">
       <CardShell variant="fixture" class="club-hero">
         <div class="club-identity"><el-avatar :size="92" :src="club.logoUrl" :alt="`${club.clubName}队徽`">{{club.clubName?.[0]}}</el-avatar><div><h2>{{club.clubName}}</h2><p>{{club.description||'暂无俱乐部简介。'}}</p></div></div>

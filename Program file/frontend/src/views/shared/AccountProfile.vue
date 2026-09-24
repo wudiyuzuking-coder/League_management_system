@@ -28,6 +28,7 @@ const rules = {
 }
 const roleLabels = { USER: '普通用户', CLUB: '俱乐部负责人', EVENT_ADMIN: '赛事管理员', ADMIN: '系统管理员' }
 const roleLabel = computed(() => roleLabels[authStore.user?.roleCode] || authStore.user?.roleCode || '—')
+const profileFallback = computed(() => ({ USER: '/user/seasons', CLUB: '/club/personnel', EVENT_ADMIN: '/admin/matches', ADMIN: '/admin/users' }[authStore.user?.roleCode] || '/'))
 watch(() => authStore.user, (user) => {
   if (!user) return
   Object.assign(form, { username: user.username || '', phone: user.phone || '', realName: user.realName || '' })
@@ -85,7 +86,7 @@ const clearAvatar = async () => {
 
 <template>
   <div v-if="authStore.user?.roleCode==='USER'" class="user-profile">
-    <PageHeader title="用户资料" subtitle="维护赛事账户头像和显示名称。" />
+    <PageHeader back :back-fallback="profileFallback" title="用户资料" subtitle="维护赛事账户头像和显示名称。" />
     <CardShell title="个人资料" subtitle="手机号是唯一登录凭证且不可修改。" variant="action">
       <section class="avatar-section">
         <el-avatar :size="96" :src="authStore.user?.avatarUrl || undefined" :icon="UserFilled" />
@@ -95,7 +96,7 @@ const clearAvatar = async () => {
     </CardShell>
   </div>
   <div v-else class="management-profile">
-    <PageHeader :breadcrumb="[{label:'账号设置'},{label:'账号资料'}]" title="账号资料" :subtitle="`维护${roleLabel}的身份与联系方式。`"><template #status><StatusTag v-if="authStore.user?.userStatus" :value="authStore.user.userStatus" /></template></PageHeader>
+    <PageHeader back :back-fallback="profileFallback" :breadcrumb="[{label:'账号设置'},{label:'账号资料'}]" title="账号资料" :subtitle="`维护${roleLabel}的身份与联系方式。`"><template #status><StatusTag v-if="authStore.user?.userStatus" :value="authStore.user.userStatus" /></template></PageHeader>
     <CardShell title="基本资料" subtitle="头像、用户名、手机号和真实姓名用于账号识别。">
       <section class="avatar-section">
         <el-avatar :size="96" :src="authStore.user?.avatarUrl || undefined" :icon="UserFilled" :alt="`${form.username||roleLabel}头像`" />

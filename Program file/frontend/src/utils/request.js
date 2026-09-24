@@ -21,6 +21,7 @@ request.interceptors.response.use(
   (error) => {
     const status = error.response?.status
     const payload = error.response?.data ?? error
+    if (payload && typeof payload === 'object') payload.__httpStatus = status
     const skipErrorNotification = error.config?.skipErrorNotification === true
     let notified = false
     if (status === 401 && error.config?.preserveAuthOnUnauthorized !== true) {

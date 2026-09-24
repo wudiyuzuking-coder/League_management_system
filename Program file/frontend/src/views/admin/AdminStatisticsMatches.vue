@@ -15,7 +15,7 @@ onMounted(load)
 
 <template>
   <div class="operations-page">
-    <PageHeader :breadcrumb="[{label:'运营统计',to:'/admin/statistics'},{label:'比赛统计'}]" title="比赛销售统计" subtitle="按比赛查看售票、入场、退款和检票异常。" />
+    <PageHeader back back-fallback="/admin/statistics" :breadcrumb="[{label:'运营统计',to:'/admin/statistics'},{label:'比赛统计'}]" title="比赛销售统计" subtitle="按比赛查看售票、入场、退款和检票异常。" />
     <FilterBar label="比赛统计筛选">
       <el-form-item label="俱乐部编号"><el-input v-model="clubId" name="statistics-club-id" inputmode="numeric" autocomplete="off" placeholder="例如：4…" /></el-form-item>
       <el-form-item label="比赛状态"><el-select v-model="status" clearable placeholder="全部状态…"><el-option v-for="item in matchStatuses" :key="item" :label="statusLabel(item)" :value="item" /></el-select></el-form-item>

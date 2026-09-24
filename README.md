@@ -243,12 +243,12 @@ npm run dev
 
 ```text
 DRAFT（草稿）
-  ↓ 开启赛季
-REGISTERING（报名中）
-  ↓ 结束报名并生成赛程
+  ↓ 人工提前开启，或报名开始时间自动开启
+REGISTRATION（报名中）
+  ↓ 满额、截止或人工结束报名后，系统自动生成并发布赛程
 PREPARING（准备中）
-  ↓ 确认赛程
-ACTIVE（进行中）
+  ↓ 赛季开始日 00:00 自动推进
+IN_PROGRESS（进行中）
   ↓ 结束赛季
 FINISHED（已结束）
 ```

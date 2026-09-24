@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import ManagementLayout from '../layouts/ManagementLayout.vue'
 import pinia from '../stores'
 import { useAuthStore } from '../stores/auth'
+import { rememberNavigationSource } from '../utils/safeBack'
 
 const pages = import.meta.glob('../views/**/*.vue')
 const view = path => pages[`../views/${path}.vue`]
@@ -61,7 +62,6 @@ const routes = [
       { path: 'matches', name: 'admin-matches', component: view('admin/AdminMatches'), meta: { roles: ['EVENT_ADMIN'] } },
       { path: 'matches/result-reminders', name: 'admin-match-result-reminders', component: view('admin/AdminMatchResultReminders'), meta: { roles: ['EVENT_ADMIN'] } },
       { path: 'matches/:id', name: 'admin-match-detail', component: view('admin/AdminMatchDetail'), meta: { roles: ['EVENT_ADMIN'] } },
-      { path: 'matches/:id/tickets', name: 'admin-match-tickets', component: view('admin/AdminMatchTickets'), meta: { roles: ['EVENT_ADMIN'] } },
       { path: 'checkins', name: 'admin-checkins', component: view('admin/AdminCheckins'), meta: { roles: ['ADMIN'] } },
       { path: 'statistics', name: 'admin-statistics', component: view('admin/AdminStatistics'), meta: { roles: ['EVENT_ADMIN'] } },
       { path: 'season-revenue', name: 'admin-season-revenue', component: view('admin/AdminSeasonRevenue'), meta: { roles: ['EVENT_ADMIN'] } },
@@ -94,5 +94,7 @@ router.beforeEach(async (to) => {
   if (to.meta.roles?.length && !to.meta.roles.includes(authStore.user?.roleCode)) return { name: 'forbidden' }
   return true
 })
+
+router.afterEach((to, from) => rememberNavigationSource(to, from, useAuthStore(pinia).user?.roleCode))
 
 export default router

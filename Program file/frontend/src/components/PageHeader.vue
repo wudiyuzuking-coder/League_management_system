@@ -1,15 +1,20 @@
 <script setup>
+import BackButton from './BackButton.vue'
+
 defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
   breadcrumb: { type: Array, default: () => [] },
   compact: { type: Boolean, default: false },
+  back: { type: Boolean, default: false },
+  backFallback: { type: [String, Object], default: '' },
 })
 </script>
 
 <template>
   <header class="page-header" :class="{ 'page-header--compact': compact }">
     <div class="page-header__content">
+      <BackButton v-if="back && backFallback" :fallback="backFallback" />
       <nav v-if="breadcrumb.length" class="page-header__breadcrumb" aria-label="面包屑导航">
         <template v-for="(item, index) in breadcrumb" :key="`${item.label}-${index}`">
           <RouterLink v-if="item.to" :to="item.to">{{ item.label }}</RouterLink>

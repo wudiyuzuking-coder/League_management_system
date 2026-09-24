@@ -35,7 +35,8 @@ class LeagueManagementIntegrationTest {
     @Test void seasonValidationAuthorizationAndStateMachine() throws Exception {
         long id=createSeason("IT5赛季状态");
         mockMvc.perform(post("/api/admin/seasons").header("Authorization",bearer(eventAdminToken)).contentType(MediaType.APPLICATION_JSON)
-                .content(json(season("IT5赛季状态","2035-01-01","2035-12-31")))).andExpect(status().isConflict());
+                .content(json(season("  IT5赛季状态  ","2035-01-01","2035-12-31")))).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("赛季名称已存在，请添加编号后重试"));
         mockMvc.perform(post("/api/admin/seasons").header("Authorization",bearer(eventAdminToken)).contentType(MediaType.APPLICATION_JSON)
                 .content(json(season("IT5错误日期","2035-12-31","2035-01-01")))).andExpect(status().isBadRequest());
         mockMvc.perform(post("/api/admin/seasons").header("Authorization",bearer(systemAdminToken)).contentType(MediaType.APPLICATION_JSON)
@@ -52,7 +53,7 @@ class LeagueManagementIntegrationTest {
         statusSeason(id,"ACTIVE").andExpect(status().isConflict());
         statusSeason(id,"FINISHED").andExpect(status().isConflict());
         mockMvc.perform(post("/api/admin/seasons/{id}/registration/close",id).header("Authorization",bearer(eventAdminToken)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.seasonStatus").value("PREPARING"));
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("当前报名球队不足，无法生成赛程"));
         statusSeason(id,"IN_PROGRESS").andExpect(status().isConflict());
     }
 

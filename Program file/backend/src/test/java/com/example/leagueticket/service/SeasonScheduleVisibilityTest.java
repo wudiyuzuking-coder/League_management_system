@@ -24,7 +24,7 @@ class SeasonScheduleVisibilityTest {
         LocalDateTime now=LocalDateTime.of(2026,11,5,20,1);
         TicketSalePolicy policy=new TicketSalePolicy(time);
         PublicSeasonVisibilityService visibility=mock(PublicSeasonVisibilityService.class);
-        SeasonScheduleServiceImpl service=new SeasonScheduleServiceImpl(seasons,schedules,mock(RoundInfoMapper.class),mock(MatchInfoMapper.class),mock(ClubSeasonRecordMapper.class),time,mock(DoubleRoundRobinSchedulePlanner.class),policy,visibility,mock(SeasonLifecycleService.class));
+        SeasonScheduleServiceImpl service=new SeasonScheduleServiceImpl(seasons,schedules,mock(RoundInfoMapper.class),mock(MatchInfoMapper.class),mock(ClubSeasonRecordMapper.class),time,mock(DoubleRoundRobinSchedulePlanner.class),policy,visibility,mock(SeasonLifecycleService.class),mock(MatchTicketZoneService.class));
 
         SeasonInfo season=new SeasonInfo();season.setSeasonId(1L);season.setSeasonName("已确认赛季");season.setStartDate(LocalDate.of(2026,11,1));season.setEndDate(LocalDate.of(2026,12,31));
         SeasonScheduleBatch batch=new SeasonScheduleBatch();batch.setSeasonId(1L);batch.setBatchStatus("CONFIRMED");batch.setClubCount(4);
@@ -48,7 +48,7 @@ class SeasonScheduleVisibilityTest {
         when(seasons.findById(2L)).thenReturn(season);when(schedules.findBySeason(2L)).thenReturn(batch);
         PublicSeasonVisibilityService visibility=mock(PublicSeasonVisibilityService.class);
         doThrow(new BusinessException(org.springframework.http.HttpStatus.NOT_FOUND,"public season not found")).when(visibility).requirePublicVisibleSeason(2L);
-        SeasonScheduleServiceImpl service=new SeasonScheduleServiceImpl(seasons,schedules,mock(RoundInfoMapper.class),mock(MatchInfoMapper.class),mock(ClubSeasonRecordMapper.class),time,mock(DoubleRoundRobinSchedulePlanner.class),new TicketSalePolicy(time),visibility,mock(SeasonLifecycleService.class));
+        SeasonScheduleServiceImpl service=new SeasonScheduleServiceImpl(seasons,schedules,mock(RoundInfoMapper.class),mock(MatchInfoMapper.class),mock(ClubSeasonRecordMapper.class),time,mock(DoubleRoundRobinSchedulePlanner.class),new TicketSalePolicy(time),visibility,mock(SeasonLifecycleService.class),mock(MatchTicketZoneService.class));
         assertThatThrownBy(()->service.getPublicConfirmed(2L)).isInstanceOf(BusinessException.class).hasMessage("public season not found");
         verify(schedules,never()).findConfirmedPublicMatches(2L);
     }

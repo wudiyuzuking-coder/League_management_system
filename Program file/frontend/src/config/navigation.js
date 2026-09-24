@@ -15,7 +15,7 @@ export const ROLE_MENUS = {
   CLUB: [
     ['/club/personnel', '人员管理'],
     ['/club/enrollments', '赛季报名'],
-    ['/club/schedules', '已确认赛程'],
+    ['/club/schedules', '已发布赛程'],
     ['/club/statistics', '俱乐部数据'],
     ['/club/profile', '俱乐部资料'],
   ],

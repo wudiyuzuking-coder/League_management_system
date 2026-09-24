@@ -52,7 +52,6 @@ public class SecurityConfig {
                                 "/api/admin/matches",
                                 "/api/admin/matches/**",
                                 "/api/admin/match-ticket-zones/**",
-                                "/api/admin/match-seat-inventory/**",
                                 "/api/admin/enrollments",
                                 "/api/admin/enrollments/**",
                                 "/api/admin/schedules",

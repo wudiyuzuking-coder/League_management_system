@@ -13,6 +13,7 @@ public interface MatchTicketZoneService {
     UserMatchTicketZoneResponse detailPublic(Long id);
     MatchTicketZone create(Long matchId,Long creatorId,MatchTicketZoneRequest request);
     List<MatchTicketZoneResponse> initializeStandard(Long matchId,Long creatorId);
+    List<MatchTicketZoneResponse> initializeStandardAutomatically(Long matchId);
     MatchTicketZone update(Long id,MatchTicketZoneRequest request);
     MatchTicketZone updateStatus(Long id,String status);
     MatchTicketZone getEntity(Long id);

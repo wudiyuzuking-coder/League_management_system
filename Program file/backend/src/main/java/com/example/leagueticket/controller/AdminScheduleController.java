@@ -17,9 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('EVENT_ADMIN')")
 public class AdminScheduleController {
     private final SeasonScheduleService service;
-    @PostMapping("/seasons/{seasonId}/close-registration") public Result<ScheduleDetailResponse> closeRegistration(@PathVariable Long seasonId){return Result.success(service.closeRegistrationAndGenerate(seasonId));}
-    @PostMapping("/seasons/{seasonId}/schedule/generate") public Result<ScheduleDetailResponse> generate(@PathVariable Long seasonId){return Result.success(service.generateForPreparing(seasonId,"MANUAL"));}
+    @PostMapping("/seasons/{seasonId}/close-registration") public Result<ScheduleDetailResponse> closeRegistration(@PathVariable Long seasonId,@AuthenticationPrincipal AuthenticatedUser user){return Result.success(service.closeRegistrationAndPublishSchedule(seasonId,user.userId()));}
     @GetMapping("/seasons/{seasonId}/schedule") public Result<ScheduleDetailResponse> detail(@PathVariable Long seasonId){return Result.success(service.get(seasonId));}
     @GetMapping("/schedules") public Result<PageResponse<SeasonScheduleBatch>> list(@Valid ScheduleQueryRequest query){return Result.success(service.list(query));}
-    @PostMapping("/seasons/{seasonId}/schedule/confirm") public Result<ScheduleDetailResponse> confirm(@PathVariable Long seasonId,@AuthenticationPrincipal AuthenticatedUser user){return Result.success(service.confirm(seasonId,user.userId()));}
 }

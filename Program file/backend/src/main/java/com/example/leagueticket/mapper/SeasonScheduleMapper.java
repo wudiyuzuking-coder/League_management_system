@@ -23,8 +23,10 @@ public interface SeasonScheduleMapper {
     int confirm(@Param("seasonId")Long seasonId,@Param("userId")Long userId,@Param("now")LocalDateTime now);
 
     @Select("SELECT COUNT(*) FROM match_info WHERE season_id=#{seasonId}") int countSeasonMatches(Long seasonId);
-    @Select("SELECT COUNT(*) FROM season_schedule_match sm JOIN season_schedule_batch b ON b.batch_id=sm.batch_id JOIN match_info m ON m.match_id=sm.match_id WHERE b.season_id=#{seasonId} AND m.match_status<>'PUBLISHED'")
+    @Select("SELECT COUNT(*) FROM season_schedule_match sm JOIN season_schedule_batch b ON b.batch_id=sm.batch_id JOIN match_info m ON m.match_id=sm.match_id WHERE b.season_id=#{seasonId} AND m.match_status NOT IN ('PUBLISHED','IN_PROGRESS','FINISHED')")
     int countUnpublishedScheduledMatches(Long seasonId);
+    @Select("SELECT COUNT(DISTINCT r.round_id) FROM round_info r JOIN match_info m ON m.round_id=r.round_id JOIN season_schedule_match sm ON sm.match_id=m.match_id JOIN season_schedule_batch b ON b.batch_id=sm.batch_id WHERE b.season_id=#{seasonId} AND r.round_status<>'PUBLISHED'")
+    int countUnpublishedScheduledRounds(Long seasonId);
     @Select("SELECT e.club_id,c.club_name,e.stadium_id,st.stadium_name FROM club_season_enrollment e JOIN club_info c ON c.club_id=e.club_id JOIN stadium_info st ON st.stadium_id=e.stadium_id WHERE e.season_id=#{seasonId} AND e.enrollment_status='SUBMITTED' ORDER BY e.club_id")
     List<EnrollmentTeam> findTeams(Long seasonId);
     @Select("SELECT season_id FROM season_info s WHERE s.season_status=#{seasonStatus} AND s.registration_deadline IS NOT NULL AND s.registration_deadline<=#{now} AND NOT EXISTS(SELECT 1 FROM season_schedule_batch b WHERE b.season_id=s.season_id) ORDER BY s.season_id")
@@ -64,7 +66,7 @@ public interface SeasonScheduleMapper {
         JOIN season_schedule_match sm ON sm.match_id=m.match_id
         JOIN season_schedule_batch b ON b.batch_id=sm.batch_id
         SET m.match_status='PUBLISHED',m.published_at=COALESCE(m.published_at,#{now})
-        WHERE b.season_id=#{seasonId} AND b.batch_status='CONFIRMED' AND m.match_status='DRAFT'
+        WHERE b.season_id=#{seasonId} AND b.batch_status IN ('GENERATED','CONFIRMED') AND m.match_status='DRAFT'
         """)
     int publishConfirmedMatches(@Param("seasonId")Long seasonId,@Param("now")LocalDateTime now);
 
@@ -74,7 +76,7 @@ public interface SeasonScheduleMapper {
         JOIN season_schedule_match sm ON sm.match_id=m.match_id
         JOIN season_schedule_batch b ON b.batch_id=sm.batch_id
         SET r.round_status='PUBLISHED'
-        WHERE b.season_id=#{seasonId} AND b.batch_status='CONFIRMED' AND r.round_status='DRAFT'
+        WHERE b.season_id=#{seasonId} AND b.batch_status IN ('GENERATED','CONFIRMED') AND r.round_status='DRAFT'
         """)
     int publishConfirmedRounds(Long seasonId);
 

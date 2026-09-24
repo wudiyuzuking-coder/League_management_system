@@ -14,7 +14,7 @@ onMounted(load)
 
 <template>
   <div class="match-page">
-    <PageHeader title="比赛详情" subtitle="查看对阵、比赛信息与当前可售票种。" :breadcrumb="[{label:'联赛赛季',to:'/user/seasons'},{label:match.seasonName||'赛季',to:match.seasonId?`/user/seasons/${match.seasonId}/rounds`:undefined},{label:match.roundName||'比赛'}]" />
+    <PageHeader back back-fallback="/user/seasons" title="比赛详情" subtitle="查看对阵、比赛信息与当前可售票种。" :breadcrumb="[{label:'联赛赛季',to:'/user/seasons'},{label:match.seasonName||'赛季',to:match.seasonId?`/user/seasons/${match.seasonId}/rounds`:undefined},{label:match.roundName||'比赛'}]" />
     <DataState :loading="loading" :error="error" :empty="!match.matchId" empty-title="比赛不存在或暂不可查看" @retry="load">
       <section class="match-hero">
         <div class="match-hero__meta"><span>{{match.seasonName}}</span><span>{{match.roundName}}</span><StatusTag :value="match.matchStatus"/></div>

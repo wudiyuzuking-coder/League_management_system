@@ -10,6 +10,7 @@ import com.example.leagueticket.mapper.MatchResultMapper;
 import com.example.leagueticket.mapper.SeasonInfoMapper;
 import com.example.leagueticket.mapper.SeasonScheduleMapper;
 import com.example.leagueticket.service.SeasonLifecycleService;
+import com.example.leagueticket.service.SystemTimeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -25,17 +26,26 @@ public class SeasonLifecycleServiceImpl implements SeasonLifecycleService {
     private final ClubSeasonEnrollmentMapper enrollmentMapper;
     private final MatchInfoMapper matchMapper;
     private final MatchResultMapper resultMapper;
+    private final SystemTimeService timeService;
 
     @Override
     @Transactional
     public SeasonInfo openRegistration(Long seasonId) {
         SeasonInfo season = locked(seasonId);
         requireStatus(season, SeasonStatus.DRAFT);
-        requireComplete(season);
-        if (scheduleMapper.findBySeasonForUpdate(seasonId) != null) {
-            throw conflict("已有排赛批次，不能开启报名");
-        }
+        requireRegistrationReady(season);
         return update(seasonId, SeasonStatus.REGISTRATION);
+    }
+
+    @Override
+    @Transactional
+    public boolean openRegistrationIfDue(Long seasonId) {
+        SeasonInfo season = locked(seasonId);
+        if (SeasonStatus.fromStored(season.getSeasonStatus()) != SeasonStatus.DRAFT) return false;
+        requireRegistrationReady(season);
+        if (timeService.now().isBefore(season.getRegistrationStartTime())) return false;
+        update(seasonId, SeasonStatus.REGISTRATION);
+        return true;
     }
 
     @Override
@@ -52,14 +62,32 @@ public class SeasonLifecycleServiceImpl implements SeasonLifecycleService {
     public SeasonInfo startInProgress(Long seasonId) {
         SeasonInfo season = locked(seasonId);
         requireStatus(season, SeasonStatus.PREPARING);
+        requireSeasonStartReached(season);
+        requirePublishedSchedule(seasonId);
+        return update(seasonId, SeasonStatus.IN_PROGRESS);
+    }
+
+    @Override
+    @Transactional
+    public boolean startInProgressIfDue(Long seasonId) {
+        SeasonInfo season = locked(seasonId);
+        if (SeasonStatus.fromStored(season.getSeasonStatus()) != SeasonStatus.PREPARING) return false;
+        if (timeService.now().isBefore(season.getStartDate().atStartOfDay())) return false;
+        requirePublishedSchedule(seasonId);
+        update(seasonId, SeasonStatus.IN_PROGRESS);
+        return true;
+    }
+
+    private void requirePublishedSchedule(Long seasonId) {
         SeasonScheduleBatch batch = scheduleMapper.findBySeasonForUpdate(seasonId);
         if (batch == null || !"CONFIRMED".equals(batch.getBatchStatus())) {
             throw conflict("赛程尚未确认，不能进入进行中");
         }
-        if (scheduleMapper.countUnpublishedScheduledMatches(seasonId) > 0) {
+        if (scheduleMapper.countSeasonMatches(seasonId) == 0
+                || scheduleMapper.countUnpublishedScheduledRounds(seasonId) > 0
+                || scheduleMapper.countUnpublishedScheduledMatches(seasonId) > 0) {
             throw conflict("赛程中的比赛尚未全部发布");
         }
-        return update(seasonId, SeasonStatus.IN_PROGRESS);
     }
 
     @Override
@@ -81,8 +109,8 @@ public class SeasonLifecycleServiceImpl implements SeasonLifecycleService {
     public SeasonInfo transitionCompatible(Long seasonId, String requestedStatus) {
         return switch (SeasonStatus.fromStored(requestedStatus)) {
             case REGISTRATION -> openRegistration(seasonId);
-            case PREPARING -> closeRegistration(seasonId);
-            case IN_PROGRESS -> startInProgress(seasonId);
+            case PREPARING -> throw conflict("请使用关闭报名接口完成自动排赛与发布");
+            case IN_PROGRESS -> throw conflict("赛季将在开始日由系统自动进入进行中");
             case FINISHED -> finish(seasonId);
             case DRAFT -> throw new BusinessException("赛季状态不允许回退为草稿");
         };
@@ -107,6 +135,19 @@ public class SeasonLifecycleServiceImpl implements SeasonLifecycleService {
                 || season.getRegistrationStartTime() == null || season.getRegistrationDeadline() == null
                 || season.getMaxClubs() == null) {
             throw conflict("赛季资料不完整，不能开启报名");
+        }
+    }
+
+    private void requireRegistrationReady(SeasonInfo season) {
+        requireComplete(season);
+        if (scheduleMapper.findBySeasonForUpdate(season.getSeasonId()) != null) {
+            throw conflict("已有排赛批次，不能开启报名");
+        }
+    }
+
+    private void requireSeasonStartReached(SeasonInfo season) {
+        if (timeService.now().isBefore(season.getStartDate().atStartOfDay())) {
+            throw conflict("赛季开始日尚未到达，不能进入进行中");
         }
     }
 

@@ -1,7 +1,7 @@
 export const STATUS_LABELS = {
   PENDING_ACTIVATION: '待激活', PENDING_CLUB_APPROVAL: '待俱乐部审核', ENABLED: '正常', DISABLED: '已停用', LOCKED: '已锁定', ACTIVE: '进行中', INACTIVE: '已停用',
   DRAFT: '草稿', REGISTRATION: '报名中', PREPARING: '准备中', IN_PROGRESS: '进行中', FINISHED: '已结束', PUBLISHED: '已发布', SCHEDULE_PUBLISHED: '赛程已公布', CANCELLED: '已取消',
-  GENERATED: '待确认', CONFIRMED: '已确认', PENDING_ADMIN_REVIEW: '待管理员确认',
+  GENERATED: '生成中', CONFIRMED: '已发布', PENDING_ADMIN_REVIEW: '待管理员确认',
   NOT_STARTED: '未开售', ON_SALE: '售票中', ENDED: '已停售', SOLD_OUT: '已售罄', NOT_ENABLED: '票务未启用', MATCH_UNAVAILABLE: '不可售', PAUSED: '已暂停', CLOSED: '已关闭',
   AVAILABLE: '可售', SOLD: '已售',
   PENDING_PAYMENT: '待支付', PAID: '已支付', REFUND_PENDING: '退票审核中', REFUNDED: '已退票',

@@ -10,7 +10,7 @@ onMounted(load)
 
 <template>
   <div>
-    <PageHeader title="比赛票务" subtitle="查看本俱乐部参与比赛的票务信息；页面不提供售票配置能力。" />
+    <PageHeader back back-fallback="/club/schedules" title="比赛票务" subtitle="查看本俱乐部参与比赛的票务信息；页面不提供售票配置能力。" />
     <DataState :loading="loading" :error="error" :empty="!rows.length" empty-title="暂无比赛票务" empty-description="已发布的俱乐部比赛会显示在这里。" @retry="load">
       <TableWrapper title="本俱乐部比赛" description="主场与客场比赛均只展示当前俱乐部有权查看的信息。" label="俱乐部比赛票务">
         <el-table :data="rows" row-key="matchId">

@@ -33,7 +33,7 @@ public class MatchSeatInventoryServiceImpl implements MatchSeatInventoryService 
         if(!staticZone.getStadiumId().equals(match.getStadiumId()))throw new BusinessException("stadium zone does not belong to the match stadium");
         if(!"ACTIVE".equals(staticZone.getZoneStatus()))throw new BusinessException("disabled stadium zone cannot generate inventory");
         int created=inventoryMapper.generate(match.getMatchId(),matchZoneId,zone.getStadiumZoneId());
-        if(created<=0)throw new BusinessException("no ACTIVE physical seat is available for inventory generation");
+        if(created<=0)throw new BusinessException(HttpStatus.CONFLICT,"主场票区没有可用物理座位，无法发布赛程");
         return created;
     }
 

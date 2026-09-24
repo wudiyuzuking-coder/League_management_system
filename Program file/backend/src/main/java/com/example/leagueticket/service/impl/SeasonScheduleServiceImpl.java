@@ -35,6 +35,7 @@ import com.example.leagueticket.service.SeasonLifecycleService;
 import com.example.leagueticket.service.SeasonScheduleService;
 import com.example.leagueticket.service.SystemTimeService;
 import com.example.leagueticket.service.TicketSalePolicy;
+import com.example.leagueticket.service.MatchTicketZoneService;
 import com.example.leagueticket.vo.ClubScheduleResponse;
 import com.example.leagueticket.vo.PageResponse;
 import com.example.leagueticket.vo.ScheduleDetailResponse;
@@ -59,6 +60,7 @@ public class SeasonScheduleServiceImpl implements SeasonScheduleService {
     private final TicketSalePolicy ticketSalePolicy;
     private final PublicSeasonVisibilityService publicVisibility;
     private final SeasonLifecycleService lifecycleService;
+    private final MatchTicketZoneService ticketZoneService;
 
     @Override
     @Transactional
@@ -67,8 +69,7 @@ public class SeasonScheduleServiceImpl implements SeasonScheduleService {
         if (season == null)
             throw new BusinessException(HttpStatus.NOT_FOUND, "season not found");
         SeasonScheduleBatch existing = scheduleMapper.findBySeason(seasonId);
-        if (existing != null)
-            return detail(existing);
+        if (existing != null) return completeExistingOrReturn(season,existing,null);
         if (!SeasonStatus.REGISTRATION.matches(season.getSeasonStatus()))
             throw conflict("仅报名中的赛季可以自动排赛");
         if (season.getRegistrationDeadline() == null || season.getMaxClubs() == null)
@@ -81,40 +82,33 @@ public class SeasonScheduleServiceImpl implements SeasonScheduleService {
             throw conflict("赛季未满额且报名尚未截止，暂不能生成赛程");
         if (teams.size() < 2)
             throw conflict("参赛俱乐部不足，至少需要2支球队");
-        return generateLocked(season, teams, triggerType, now);
+        return closeGenerateAndPublishLocked(season,teams,triggerType,null,now);
     }
 
     @Override
     @Transactional
-    public ScheduleDetailResponse generateForPreparing(Long seasonId, String triggerType) {
-        SeasonInfo season = seasonMapper.findByIdForUpdate(seasonId);
-        if (season == null) throw new BusinessException(HttpStatus.NOT_FOUND, "season not found");
-        if (!SeasonStatus.PREPARING.matches(season.getSeasonStatus()))
-            throw conflict("仅准备中的赛季可以生成赛程");
-        SeasonScheduleBatch existing = scheduleMapper.findBySeason(seasonId);
-        if (existing != null) return detail(existing);
-        List<SeasonScheduleMapper.EnrollmentTeam> teams = scheduleMapper.findTeams(seasonId);
-        if (teams.size() < 2) throw conflict("参赛俱乐部不足，至少需要2支球队");
-        return generateLocked(season, teams, triggerType, timeService.now());
-    }
-
-    @Override
-    @Transactional
-    public ScheduleDetailResponse closeRegistrationAndGenerate(Long seasonId) {
+    public ScheduleDetailResponse closeRegistrationAndPublishSchedule(Long seasonId,Long confirmedBy) {
         SeasonInfo season = seasonMapper.findByIdForUpdate(seasonId);
         if (season == null)
             throw new BusinessException(HttpStatus.NOT_FOUND, "season not found");
+        SeasonScheduleBatch existing=scheduleMapper.findBySeason(seasonId);
+        if(existing!=null)return completeExistingOrReturn(season,existing,confirmedBy);
         if (!SeasonStatus.REGISTRATION.matches(season.getSeasonStatus()))
             throw conflict("仅报名中的赛季可以提前截止报名");
-        if (scheduleMapper.findBySeason(seasonId) != null)
-            throw conflict("报名已关闭或赛程已生成");
         List<SeasonScheduleMapper.EnrollmentTeam> teams = scheduleMapper.findTeams(seasonId);
         if (teams.size() < 2)
             throw conflict("当前报名球队不足，无法生成赛程");
-        return generateLocked(season, teams, "MANUAL", timeService.now());
+        return closeGenerateAndPublishLocked(season,teams,"MANUAL",confirmedBy,timeService.now());
     }
 
-    private ScheduleDetailResponse generateLocked(SeasonInfo season, List<SeasonScheduleMapper.EnrollmentTeam> teams,
+    private ScheduleDetailResponse closeGenerateAndPublishLocked(SeasonInfo season,List<SeasonScheduleMapper.EnrollmentTeam> teams,
+            String triggerType,Long confirmedBy,LocalDateTime now){
+        lifecycleService.closeRegistration(season.getSeasonId());
+        SeasonScheduleBatch batch=generateLocked(season,teams,triggerType,now);
+        return publishAndConfirmLocked(season.getSeasonId(),batch,teams,confirmedBy,now);
+    }
+
+    private SeasonScheduleBatch generateLocked(SeasonInfo season, List<SeasonScheduleMapper.EnrollmentTeam> teams,
             String triggerType, LocalDateTime now) {
         Long seasonId = season.getSeasonId();
         if (scheduleMapper.countSeasonMatches(seasonId) > 0)
@@ -168,12 +162,28 @@ public class SeasonScheduleServiceImpl implements SeasonScheduleService {
                 scheduleMapper.insertMatchLink(batch.getBatchId(), match.getMatchId());
             }
         }
-        SeasonInfo current = seasonMapper.findByIdForUpdate(seasonId);
-        if (SeasonStatus.REGISTRATION.matches(current.getSeasonStatus())) {
-            lifecycleService.closeRegistration(seasonId);
-        } else if (!SeasonStatus.PREPARING.matches(current.getSeasonStatus())) {
-            throw conflict("生成赛程后无法进入准备中状态");
-        }
+        return scheduleMapper.findBySeason(seasonId);
+    }
+
+    private ScheduleDetailResponse completeExistingOrReturn(SeasonInfo season,SeasonScheduleBatch batch,Long confirmedBy){
+        if("CONFIRMED".equals(batch.getBatchStatus()))return detail(batch);
+        if(!SeasonStatus.PREPARING.matches(season.getSeasonStatus()))throw conflict("报名已关闭或赛程已生成");
+        List<SeasonScheduleMapper.EnrollmentTeam> teams=scheduleMapper.findTeams(season.getSeasonId());
+        if(teams.size()<2)throw conflict("参赛俱乐部不足，至少需要2支球队");
+        return publishAndConfirmLocked(season.getSeasonId(),batch,teams,confirmedBy,timeService.now());
+    }
+
+    private ScheduleDetailResponse publishAndConfirmLocked(Long seasonId,SeasonScheduleBatch batch,
+            List<SeasonScheduleMapper.EnrollmentTeam> teams,Long confirmedBy,LocalDateTime now){
+        scheduleMapper.publishConfirmedRounds(seasonId);
+        scheduleMapper.publishConfirmedMatches(seasonId,now);
+        if(scheduleMapper.countUnpublishedScheduledMatches(seasonId)>0)
+            throw conflict("赛程中的比赛未能全部发布");
+        for(SeasonScheduleMapper.EnrollmentTeam team:teams)recordMapper.ensureRecord(seasonId,team.getClubId());
+        for(ScheduleMatchResponse match:scheduleMapper.findBatchMatches(batch.getBatchId()))
+            ticketZoneService.initializeStandardAutomatically(match.getMatchId());
+        if(scheduleMapper.confirm(seasonId,confirmedBy,now)!=1)
+            throw conflict("赛程确认状态已变化，请刷新后重试");
         return detail(scheduleMapper.findBySeason(seasonId));
     }
 
@@ -220,30 +230,6 @@ public class SeasonScheduleServiceImpl implements SeasonScheduleService {
         int page = q.safePage(), size = q.safeSize();
         long total = scheduleMapper.countPage(q);
         return new PageResponse<>(scheduleMapper.findPage(q, (long) (page - 1) * size, size), total, page, size);
-    }
-
-    @Override
-    @Transactional
-    public ScheduleDetailResponse confirm(Long seasonId, Long userId) {
-        SeasonInfo season = seasonMapper.findByIdForUpdate(seasonId);
-        if (season == null)
-            throw new BusinessException(HttpStatus.NOT_FOUND, "season not found");
-        if (!SeasonStatus.PREPARING.matches(season.getSeasonStatus()))
-            throw conflict("仅准备中的赛季可以确认赛程");
-        SeasonScheduleBatch batch = scheduleMapper.findBySeasonForUpdate(seasonId);
-        if (batch == null)
-            throw new BusinessException(HttpStatus.NOT_FOUND, "schedule not found");
-        if (!"GENERATED".equals(batch.getBatchStatus()))
-            throw conflict("仅待确认的赛程可以确认");
-        LocalDateTime now = timeService.now();
-        if (scheduleMapper.confirm(seasonId, userId, now) != 1)
-            throw conflict("赛程确认状态已变化，请刷新后重试");
-        scheduleMapper.publishConfirmedRounds(seasonId);
-        scheduleMapper.publishConfirmedMatches(seasonId, now);
-        for (SeasonScheduleMapper.EnrollmentTeam team : scheduleMapper.findTeams(seasonId))
-            recordMapper.ensureRecord(seasonId, team.getClubId());
-        lifecycleService.startInProgress(seasonId);
-        return detail(scheduleMapper.findBySeason(seasonId));
     }
 
     @Override

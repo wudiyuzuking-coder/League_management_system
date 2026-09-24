@@ -60,6 +60,8 @@ public interface MatchInfoMapper {
     @Update("UPDATE match_info SET match_time=#{matchTime},sale_start_time=#{saleStartTime},sale_end_time=#{saleEndTime} WHERE match_id=#{matchId}") int updateTimeAndSale(MatchInfo match);
     @Update("UPDATE match_info SET match_status='PUBLISHED',published_at=COALESCE(published_at,#{now}) WHERE match_id=#{id}") int publish(@Param("id")Long id,@Param("now")LocalDateTime now);
     @Update("UPDATE match_info SET match_status=#{status} WHERE match_id=#{id}") int updateStatus(@Param("id") Long id,@Param("status") String status);
+    @Update("UPDATE match_info SET match_status='IN_PROGRESS' WHERE match_status='PUBLISHED' AND match_time<=#{now}")
+    int startPublishedMatchesDue(LocalDateTime now);
     @Select("SELECT match_id,season_id,home_club_id,away_club_id,home_score,away_score FROM match_info WHERE season_id=#{seasonId} AND match_status='FINISHED' AND home_score IS NOT NULL AND away_score IS NOT NULL ORDER BY match_id") List<MatchInfo> findFinishedBySeason(Long seasonId);
     @Select("SELECT COUNT(*) FROM match_info WHERE season_id=#{seasonId}") int countBySeason(Long seasonId);
     @Select("SELECT COUNT(*) FROM match_info WHERE season_id=#{seasonId} AND match_status<>'FINISHED'") int countNotFinishedBySeason(Long seasonId);

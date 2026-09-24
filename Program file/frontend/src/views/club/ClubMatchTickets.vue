@@ -13,7 +13,7 @@ onMounted(load)
 
 <template>
   <div>
-    <PageHeader title="比赛票务" subtitle="查看比赛与票区信息，不提供售票配置能力。" :breadcrumb="[{label:'比赛票务',to:'/club/matches'},{label:'票务详情'}]">
+    <PageHeader back back-fallback="/club/schedules" title="比赛票务" subtitle="查看比赛与票区信息，不提供售票配置能力。" :breadcrumb="[{label:'比赛票务',to:'/club/matches'},{label:'票务详情'}]">
       <template #status><StatusTag :value="match.matchStatus"/></template>
     </PageHeader>
     <DataState :loading="loading" :error="error" :empty="!match.matchId" empty-title="比赛不存在" empty-description="该比赛可能已被移除或当前账号无权查看。" @retry="load">

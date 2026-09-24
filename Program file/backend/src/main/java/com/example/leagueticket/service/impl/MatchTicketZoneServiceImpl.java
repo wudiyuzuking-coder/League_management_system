@@ -52,26 +52,54 @@ public class MatchTicketZoneServiceImpl implements MatchTicketZoneService {
     public MatchTicketZone create(Long matchId,Long creatorId,MatchTicketZoneRequest request){
         MatchInfo match=matchService.getById(matchId);validateMatchConfigurable(match);StadiumZone staticZone=validateRequest(match,request,null);
         MatchTicketZone zone=new MatchTicketZone();zone.setMatchId(matchId);zone.setStadiumZoneId(request.stadiumZoneId());zone.setCreatedBy(creatorId);
+        zone.setZoneStatus("DRAFT");
         copy(zone,request,staticZone);mapper.insert(zone);return getEntity(zone.getMatchZoneId());
     }
 
     @Override @Transactional
     public List<MatchTicketZoneResponse> initializeStandard(Long matchId,Long creatorId){
+        return initializeStandard(matchId,creatorId,false);
+    }
+
+    @Override @Transactional
+    public List<MatchTicketZoneResponse> initializeStandardAutomatically(Long matchId){
+        return initializeStandard(matchId,null,true);
+    }
+
+    private List<MatchTicketZoneResponse> initializeStandard(Long matchId,Long creatorId,boolean automatic){
         MatchInfo match=matchService.getById(matchId);validateMatchConfigurable(match);
         StadiumInfo stadium=stadiumInfoMapper.findById(match.getStadiumId());
-        if(stadium==null||!"STANDARD_8".equals(stadium.getVenueModel()))throw new BusinessException("only STANDARD_8 stadiums support standard initialization");
+        if(stadium==null||!"STANDARD_8".equals(stadium.getVenueModel()))throw new BusinessException(HttpStatus.CONFLICT,"主场不是STANDARD_8，无法发布赛程");
         ClubHomeStadiumConfig config=homeConfigMapper.findByStadiumId(stadium.getStadiumId());
-        if(config==null)throw new BusinessException(HttpStatus.CONFLICT,"标准主场配置不完整");
-        if(!mapper.findByMatchForUpdate(matchId).isEmpty())throw new BusinessException(HttpStatus.CONFLICT,"match ticket zones already exist");
+        if(config==null)throw new BusinessException(HttpStatus.CONFLICT,"主场票价配置不完整，无法发布赛程");
+        List<MatchTicketZone> existing=mapper.findByMatchForUpdate(matchId);
+        if(!existing.isEmpty()){
+            if(automatic&&isCompleteAutomaticTicketing(existing))return list(matchId);
+            throw new BusinessException(HttpStatus.CONFLICT,"比赛已存在票区，无法重复初始化");
+        }
         ticketSalePolicy.validateSaleWindow(match);
         List<StadiumZone> staticZones=stadiumZoneMapper.findByStadium(stadium.getStadiumId());
-        if(staticZones.size()!=8||staticZones.stream().anyMatch(z->z.getZoneDirection()==null||z.getTicketType()==null||!"ACTIVE".equals(z.getZoneStatus())))throw new BusinessException(HttpStatus.CONFLICT,"标准主场票区不完整");
+        if(staticZones.size()!=8||staticZones.stream().anyMatch(z->z.getZoneDirection()==null||z.getTicketType()==null||!"ACTIVE".equals(z.getZoneStatus())))throw new BusinessException(HttpStatus.CONFLICT,"主场票区配置不完整，无法发布赛程");
         for(StadiumZone staticZone:staticZones){
             MatchTicketZone zone=new MatchTicketZone();zone.setMatchId(matchId);zone.setStadiumZoneId(staticZone.getStadiumZoneId());zone.setCreatedBy(creatorId);zone.setZoneNameSnapshot(staticZone.getZoneName());
+            zone.setZoneStatus("DRAFT");
             zone.setTicketPrice("VIP".equals(staticZone.getTicketType())?config.getVipPrice():config.getNormalPrice());zone.setSaleStartTime(match.getSaleStartTime());zone.setSaleEndTime(match.getSaleEndTime());mapper.insert(zone);
             inventoryService.generate(zone.getMatchZoneId());
+            if(automatic)mapper.updateStatus(zone.getMatchZoneId(),"ON_SALE");
         }
         return list(matchId);
+    }
+
+    private boolean isCompleteAutomaticTicketing(List<MatchTicketZone> zones){
+        if(zones.size()!=8)return false;
+        Set<String> classifications=new HashSet<>();
+        for(MatchTicketZone zone:zones){
+            if(!Set.of("DRAFT","ON_SALE").contains(zone.getZoneStatus())||inventoryMapper.countTotal(zone.getMatchZoneId())<=0)return false;
+            classifications.add(zone.getZoneDirection()+"_"+zone.getTicketType());
+        }
+        if(classifications.size()!=8)return false;
+        zones.stream().filter(zone->"DRAFT".equals(zone.getZoneStatus())).forEach(zone->mapper.updateStatus(zone.getMatchZoneId(),"ON_SALE"));
+        return true;
     }
 
     @Transactional

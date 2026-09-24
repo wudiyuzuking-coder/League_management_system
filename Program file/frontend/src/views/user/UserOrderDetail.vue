@@ -24,7 +24,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
 <template>
   <div class="order-page">
-    <PageHeader title="订单详情" subtitle="核对比赛、座位、购票人与支付状态。"
+    <PageHeader back back-fallback="/user/orders" title="订单详情" subtitle="核对比赛、座位、购票人与支付状态。"
       :breadcrumb="[{ label: '我的订单', to: '/user/orders' }, { label: order.orderNo || '订单详情' }]">
       <template #status>
         <StatusTag v-if="order.orderStatus" :value="order.orderStatus" />

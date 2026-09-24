@@ -30,7 +30,7 @@ onMounted(()=>{load();if(!systemTime.synced)systemTime.sync().catch(()=>{})})
 
 <template>
   <div>
-    <PageHeader title="教练管理" subtitle="维护教练组角色和在队状态。">
+    <PageHeader back back-fallback="/club/personnel" title="教练管理" subtitle="维护教练组角色和在队状态。">
       <template #actions><el-button @click="organized=!organized">{{organized?'恢复添加顺序':'按角色整理'}}</el-button><el-button type="primary" @click="open()">新增教练</el-button></template>
     </PageHeader>
     <DataState :loading="loading" :error="error" :empty="!rows.length" empty-title="暂无教练" empty-description="新增教练后即可组建教练团队。" @retry="load">

@@ -18,7 +18,7 @@ onMounted(load)
 
 <template>
   <div class="season-detail">
-    <PageHeader class="schedule-page-header" :title="season.seasonName||'赛季详情'" subtitle="按轮次查看完整赛程、比赛状态与售票信息。" :breadcrumb="[{label:'联赛赛季',to:'/user/seasons'},{label:'完整赛程'}]">
+    <PageHeader back back-fallback="/user/seasons" class="schedule-page-header" :title="season.seasonName||'赛季详情'" subtitle="按轮次查看完整赛程、比赛状态与售票信息。" :breadcrumb="[{label:'联赛赛季',to:'/user/seasons'},{label:'完整赛程'}]">
       <template #status><StatusTag v-if="season.publicStatus" :value="season.publicStatus"/></template>
       <template #actions><RouterLink :to="`/user/seasons/${route.params.id}/standings`" class="el-button">查看积分榜</RouterLink></template>
     </PageHeader>

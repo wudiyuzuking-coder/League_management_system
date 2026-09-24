@@ -16,7 +16,7 @@ onMounted(load)
 
 <template>
   <div class="governance-page">
-    <PageHeader :breadcrumb="[{label:'俱乐部管理',to:'/admin/clubs'},{label:club.clubName||'俱乐部详情'}]" :title="club.clubName||'俱乐部详情'" subtitle="查看俱乐部基本资料、负责人和主场登记信息。"><template #status><StatusTag v-if="club.clubStatus" :value="club.clubStatus==='ACTIVE'?'ENABLED':club.clubStatus" /></template></PageHeader>
+    <PageHeader back back-fallback="/admin/clubs" :breadcrumb="[{label:'俱乐部管理',to:'/admin/clubs'},{label:club.clubName||'俱乐部详情'}]" :title="club.clubName||'俱乐部详情'" subtitle="查看俱乐部基本资料、负责人和主场登记信息。"><template #status><StatusTag v-if="club.clubStatus" :value="club.clubStatus==='ACTIVE'?'ENABLED':club.clubStatus" /></template></PageHeader>
     <DataState :loading="loading" :error="error" :empty="!club.clubId" empty-title="未找到俱乐部" empty-description="该俱乐部可能已不存在或暂时无法访问。" @retry="load">
       <MetricStrip :items="metrics" label="俱乐部治理摘要" />
       <div class="detail-grid">

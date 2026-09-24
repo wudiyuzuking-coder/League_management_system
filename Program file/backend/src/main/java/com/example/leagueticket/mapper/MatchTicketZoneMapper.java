@@ -17,7 +17,7 @@ public interface MatchTicketZoneMapper {
     MatchTicketZone findByIdForUpdate(Long id);
     @Select("SELECT COUNT(*) FROM match_ticket_zone WHERE match_id=#{matchId} AND stadium_zone_id=#{stadiumZoneId} AND (#{excludeId} IS NULL OR match_zone_id!=#{excludeId})")
     int countDuplicate(@Param("matchId") Long matchId,@Param("stadiumZoneId") Long stadiumZoneId,@Param("excludeId") Long excludeId);
-    @Insert("INSERT INTO match_ticket_zone(match_id,stadium_zone_id,created_by,zone_name_snapshot,ticket_price,zone_status,sale_start_time,sale_end_time) VALUES(#{matchId},#{stadiumZoneId},#{createdBy},#{zoneNameSnapshot},#{ticketPrice},'DRAFT',#{saleStartTime},#{saleEndTime})")
+    @Insert("INSERT INTO match_ticket_zone(match_id,stadium_zone_id,created_by,zone_name_snapshot,ticket_price,zone_status,sale_start_time,sale_end_time) VALUES(#{matchId},#{stadiumZoneId},#{createdBy},#{zoneNameSnapshot},#{ticketPrice},#{zoneStatus},#{saleStartTime},#{saleEndTime})")
     @Options(useGeneratedKeys=true,keyProperty="matchZoneId") int insert(MatchTicketZone zone);
     @Update("UPDATE match_ticket_zone SET stadium_zone_id=#{stadiumZoneId},zone_name_snapshot=#{zoneNameSnapshot},ticket_price=#{ticketPrice},sale_start_time=#{saleStartTime},sale_end_time=#{saleEndTime},version=version+1 WHERE match_zone_id=#{matchZoneId}")
     int update(MatchTicketZone zone);

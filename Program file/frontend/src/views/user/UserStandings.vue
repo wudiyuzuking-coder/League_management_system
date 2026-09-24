@@ -11,7 +11,7 @@ onMounted(load)
 
 <template>
   <div>
-    <PageHeader :title="`${season.seasonName||'联赛'}积分榜`" subtitle="排名按现有联赛积分与净胜球规则计算。" :breadcrumb="[{label:'联赛赛季',to:'/user/seasons'},{label:'积分榜'}]">
+    <PageHeader back back-fallback="/user/seasons" :title="`${season.seasonName||'联赛'}积分榜`" subtitle="排名按现有联赛积分与净胜球规则计算。" :breadcrumb="[{label:'联赛赛季',to:'/user/seasons'},{label:'积分榜'}]">
       <template #actions><RouterLink :to="`/user/seasons/${route.params.id}/rounds`" class="el-button el-button--primary">查看赛程</RouterLink></template>
     </PageHeader>
     <DataState :loading="loading" :error="error" :empty="!rows.length" empty-title="暂无积分数据" empty-description="比赛产生赛果后，积分榜会显示在这里。" @retry="load">

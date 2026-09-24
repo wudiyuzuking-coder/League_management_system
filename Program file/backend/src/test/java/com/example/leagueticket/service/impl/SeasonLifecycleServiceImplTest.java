@@ -9,6 +9,7 @@ import com.example.leagueticket.mapper.MatchInfoMapper;
 import com.example.leagueticket.mapper.MatchResultMapper;
 import com.example.leagueticket.mapper.SeasonInfoMapper;
 import com.example.leagueticket.mapper.SeasonScheduleMapper;
+import com.example.leagueticket.service.SystemTimeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +26,7 @@ class SeasonLifecycleServiceImplTest {
     private ClubSeasonEnrollmentMapper enrollments;
     private MatchInfoMapper matches;
     private MatchResultMapper results;
+    private SystemTimeService time;
     private SeasonLifecycleServiceImpl service;
 
     @BeforeEach
@@ -34,7 +36,9 @@ class SeasonLifecycleServiceImplTest {
         enrollments = mock(ClubSeasonEnrollmentMapper.class);
         matches = mock(MatchInfoMapper.class);
         results = mock(MatchResultMapper.class);
-        service = new SeasonLifecycleServiceImpl(seasons, schedules, enrollments, matches, results);
+        time = mock(SystemTimeService.class);
+        when(time.now()).thenReturn(LocalDateTime.of(2035, 1, 1, 0, 0));
+        service = new SeasonLifecycleServiceImpl(seasons, schedules, enrollments, matches, results, time);
     }
 
     @Test
@@ -59,6 +63,7 @@ class SeasonLifecycleServiceImplTest {
         SeasonScheduleBatch batch = new SeasonScheduleBatch();
         batch.setBatchStatus("CONFIRMED");
         when(schedules.findBySeasonForUpdate(1L)).thenReturn(batch);
+        when(schedules.countSeasonMatches(1L)).thenReturn(1);
         when(schedules.countUnpublishedScheduledMatches(1L)).thenReturn(0);
         assertThat(service.startInProgress(1L).getSeasonStatus()).isEqualTo("IN_PROGRESS");
 
@@ -75,13 +80,29 @@ class SeasonLifecycleServiceImplTest {
         when(seasons.findByIdForUpdate(1L)).thenReturn(season(SeasonStatus.DRAFT));
         assertThatThrownBy(() -> service.transitionCompatible(1L, "ACTIVE"))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("DRAFT -> PREPARING");
+                .hasMessage("赛季将在开始日由系统自动进入进行中");
 
         when(seasons.findByIdForUpdate(1L)).thenReturn(season(SeasonStatus.REGISTRATION));
         assertThatThrownBy(() -> service.transitionCompatible(1L, "FINISHED"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("REGISTRATION -> IN_PROGRESS");
         verify(seasons, never()).updateStatus(1L, "FINISHED");
+    }
+
+    @Test
+    void compatibleStatusEndpointCannotCreateHalfPreparedSeason() {
+        assertThatThrownBy(() -> service.transitionCompatible(1L, "PREPARING"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("请使用关闭报名接口完成自动排赛与发布");
+        verifyNoInteractions(seasons, schedules, enrollments, matches, results);
+    }
+
+    @Test
+    void compatibleStatusEndpointCannotManuallyStartSeason() {
+        assertThatThrownBy(() -> service.transitionCompatible(1L, "IN_PROGRESS"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("赛季将在开始日由系统自动进入进行中");
+        verifyNoInteractions(seasons, schedules, enrollments, matches, results);
     }
 
     @Test
@@ -93,6 +114,34 @@ class SeasonLifecycleServiceImplTest {
         assertThatThrownBy(() -> service.startInProgress(1L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("赛程尚未确认，不能进入进行中");
+    }
+
+    @Test
+    void automaticTransitionsRespectExactTimeAndRemainIdempotent() {
+        SeasonInfo draft = season(SeasonStatus.DRAFT);
+        when(seasons.findByIdForUpdate(1L)).thenReturn(draft);
+        when(time.now()).thenReturn(draft.getRegistrationStartTime().minusMinutes(1));
+        assertThat(service.openRegistrationIfDue(1L)).isFalse();
+        verify(seasons, never()).updateStatus(anyLong(), anyString());
+
+        when(time.now()).thenReturn(draft.getRegistrationStartTime());
+        when(seasons.findById(1L)).thenReturn(season(SeasonStatus.REGISTRATION));
+        assertThat(service.openRegistrationIfDue(1L)).isTrue();
+        verify(seasons).updateStatus(1L, "REGISTRATION");
+
+        when(seasons.findByIdForUpdate(1L)).thenReturn(season(SeasonStatus.REGISTRATION));
+        assertThat(service.openRegistrationIfDue(1L)).isFalse();
+    }
+
+    @Test
+    void seasonCannotStartBeforeStartDate() {
+        SeasonInfo preparing = season(SeasonStatus.PREPARING);
+        when(seasons.findByIdForUpdate(1L)).thenReturn(preparing);
+        when(time.now()).thenReturn(preparing.getStartDate().atStartOfDay().minusMinutes(1));
+        assertThat(service.startInProgressIfDue(1L)).isFalse();
+        assertThatThrownBy(() -> service.startInProgress(1L))
+                .hasMessage("赛季开始日尚未到达，不能进入进行中");
+        verify(seasons, never()).updateStatus(1L, "IN_PROGRESS");
     }
 
     @Test

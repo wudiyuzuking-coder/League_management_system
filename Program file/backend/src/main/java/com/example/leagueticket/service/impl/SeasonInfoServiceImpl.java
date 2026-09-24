@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.context.annotation.Profile;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 @Profile("dev")
 @RequiredArgsConstructor
 public class SeasonInfoServiceImpl implements SeasonInfoService {
+    private static final String DUPLICATE_NAME_MESSAGE = "赛季名称已存在，请添加编号后重试";
     private final SeasonInfoMapper mapper;
     private final RoundInfoMapper roundMapper;
     private final SystemTimeService timeService;
@@ -59,9 +61,14 @@ public class SeasonInfoServiceImpl implements SeasonInfoService {
     @Transactional
     public SeasonInfo create(SeasonRequest request) {
         validate(request);
+        requireUniqueName(request.seasonName(), null);
         SeasonInfo s = derive(new SeasonInfo(), request);
         s.setSeasonStatus(SeasonStatus.DRAFT.name());
-        mapper.insert(s);
+        try {
+            mapper.insert(s);
+        } catch (DataIntegrityViolationException exception) {
+            throw translateNameConflict(exception);
+        }
         return getById(s.getSeasonId());
     }
 
@@ -71,9 +78,14 @@ public class SeasonInfoServiceImpl implements SeasonInfoService {
         if (!SeasonStatus.DRAFT.matches(s.getSeasonStatus()))
             throw new BusinessException(HttpStatus.CONFLICT, "仅草稿阶段允许调整赛季");
         validate(request);
+        requireUniqueName(request.seasonName(), id);
         if (!roundMapper.findBySeasonId(id).isEmpty())
             throw new BusinessException(HttpStatus.CONFLICT, "a scheduled season cannot be edited");
-        mapper.update(derive(s, request));
+        try {
+            mapper.update(derive(s, request));
+        } catch (DataIntegrityViolationException exception) {
+            throw translateNameConflict(exception);
+        }
         return getById(id);
     }
 
@@ -102,8 +114,7 @@ public class SeasonInfoServiceImpl implements SeasonInfoService {
     }
 
     private SeasonInfo derive(SeasonInfo s, SeasonRequest r) {
-        LocalDateTime now = timeService.now();
-        LocalDateTime registrationStart = nextTwenty(now);
+        LocalDateTime registrationStart = r.startDate().minusDays(30).atTime(20, 0);
         LocalDateTime deadline = r.startDate().minusDays(15).atTime(19, 59);
         if (!deadline.isAfter(registrationStart))
             throw new BusinessException("自动报名窗口不足，请选择更晚的赛季开始日期");
@@ -118,8 +129,18 @@ public class SeasonInfoServiceImpl implements SeasonInfoService {
         return s;
     }
 
-    private LocalDateTime nextTwenty(LocalDateTime now) {
-        LocalDateTime today = now.toLocalDate().atTime(20, 0);
-        return now.isBefore(today) ? today : today.plusDays(1);
+    private void requireUniqueName(String name, Long excludeId) {
+        if (mapper.countByName(name.trim(), excludeId) > 0) {
+            throw new BusinessException(HttpStatus.CONFLICT, DUPLICATE_NAME_MESSAGE);
+        }
+    }
+
+    private RuntimeException translateNameConflict(DataIntegrityViolationException exception) {
+        String message = exception.getMostSpecificCause() == null ? "" : exception.getMostSpecificCause().getMessage();
+        String normalized = message == null ? "" : message.toLowerCase(java.util.Locale.ROOT);
+        if (normalized.contains("uq_season_name") || normalized.contains("season_name")) {
+            return new BusinessException(HttpStatus.CONFLICT, DUPLICATE_NAME_MESSAGE);
+        }
+        return exception;
     }
 }

@@ -44,21 +44,19 @@ test('USER season cards expose confirmed counts and protect the schedule entry',
   assert.match(detail, /getSeasonSchedule\(route\.params\.id\)/)
 })
 
-test('EVENT_ADMIN season actions use the five-stage lifecycle endpoints', async () => {
+test('EVENT_ADMIN season actions keep lifecycle controls and rely on automatic scheduling', async () => {
   const page = await source('../src/views/admin/AdminSeasons.vue')
   const api = await source('../src/api/league.js')
   assert.match(page, /开启报名/)
   assert.match(page, /结束报名/)
-  assert.match(page, /生成赛程/)
-  assert.match(page, /confirmScheduleAction/)
-  assert.match(page, /confirmSchedule\(row\.seasonId\)/)
-  assert.match(page, /row\.seasonStatus === 'PREPARING'/)
+  assert.doesNotMatch(page, /generateSchedule|confirmSchedule/)
+  assert.match(page, /系统将自动生成并发布赛程/)
   assert.match(page, /row\.seasonStatus === 'IN_PROGRESS'/)
   assert.doesNotMatch(page, /启用赛季|确认启用/)
   assert.match(api, /openSeasonRegistration=.*\/registration\/open/)
   assert.match(api, /closeSeasonRegistrationOnly=.*\/registration\/close/)
   assert.match(api, /closeSeasonRegistration=.*\/admin\/seasons\/\$\{seasonId\}\/close-registration/)
-  assert.match(api, /confirmSchedule=.*\/admin\/seasons\/\$\{seasonId\}\/schedule\/confirm/)
+  assert.doesNotMatch(api, /schedule\/generate|schedule\/confirm/)
   assert.match(api, /finishSeason=.*\/admin\/seasons\/\$\{id\}\/finish/)
 })
 
@@ -93,10 +91,10 @@ test('ticket UI no longer contains obsolete seven-day or unified-sale wording', 
   const files = [
     '../src/views/user/UserRounds.vue',
     '../src/components/TicketZoneList.vue',
-    '../src/views/admin/AdminMatchTickets.vue',
+    '../src/views/admin/AdminMatches.vue',
     '../src/views/admin/AdminSeasons.vue',
   ]
   const text = (await Promise.all(files.map(source))).join('\n')
   assert.doesNotMatch(text, /比赛前\s*7\s*天|赛季统一开售|报名截止.*开售/)
-  assert.match(text, /14天/)
+  assert.match(text, /售票时间按每场比赛日期自动计算/)
 })

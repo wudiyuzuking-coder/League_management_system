@@ -666,7 +666,7 @@ CREATE TABLE match_ticket_zone (
     match_zone_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '单场比赛票区主键',
     match_id BIGINT UNSIGNED NOT NULL COMMENT '比赛',
     stadium_zone_id BIGINT UNSIGNED NOT NULL COMMENT '对应场馆静态票区',
-    created_by BIGINT UNSIGNED NOT NULL COMMENT '创建管理员',
+    created_by BIGINT UNSIGNED NULL COMMENT '创建管理员，NULL表示系统自动创建',
     zone_name_snapshot VARCHAR(80) NOT NULL COMMENT '售票时票区名称快照',
     ticket_price DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '单价',
     zone_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '比赛票区状态',

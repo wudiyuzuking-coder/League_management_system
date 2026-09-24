@@ -1,14 +1,12 @@
 <script setup>
 import {computed,onMounted,reactive,ref} from 'vue'
 import {useRoute} from 'vue-router'
-import {ElMessage,ElMessageBox} from 'element-plus'
-import {getMatch,getMatchResult,submitMatchResult,updateMatchStatus} from '../../api/match'
-import {useSystemTimeStore} from '../../stores/systemTime'
+import {ElMessage} from 'element-plus'
+import {getMatch,getMatchResult,submitMatchResult} from '../../api/match'
 import {formatDateTime} from '../../utils/format'
 
-const route=useRoute(),match=ref({}),workflow=ref({submissions:[]}),loading=ref(false),error=ref(''),operating=ref(''),scoreVisible=ref(false),scoreSaving=ref(false),scoreRef=ref(),score=reactive({homeScore:0,awayScore:0}),systemTimeStore=useSystemTimeStore()
+const route=useRoute(),match=ref({}),workflow=ref({submissions:[]}),loading=ref(false),error=ref(''),scoreVisible=ref(false),scoreSaving=ref(false),scoreRef=ref(),score=reactive({homeScore:0,awayScore:0})
 const scoreRules={homeScore:[{required:true,type:'number',min:0,message:'比分不得小于0'}],awayScore:[{required:true,type:'number',min:0,message:'比分不得小于0'}]}
-const actions=computed(()=>({DRAFT:[['PUBLISHED','发布'],['CANCELLED','取消']],PUBLISHED:[['IN_PROGRESS','开始'],['CANCELLED','取消']],IN_PROGRESS:[['CANCELLED','取消']]}[match.value.matchStatus]||[]))
 const resultState=computed(()=>workflow.value.reviewStatus==='AUTO_PUBLISHED'?'赛果已自动发布':workflow.value.reviewReason==='CONFLICT'?'比分冲突待确认':workflow.value.reviewStatus?'等待多人确认':'尚未提交赛果')
 const metrics=computed(()=>[
   {label:'比赛时间',value:formatDateTime(match.value.matchTime)},
@@ -17,14 +15,13 @@ const metrics=computed(()=>[
   {label:'赛果状态',value:resultState.value},
 ])
 const load=async()=>{loading.value=true;error.value='';try{match.value=(await getMatch(route.params.id)).data;workflow.value=(await getMatchResult(route.params.id)).data}catch(e){error.value=e?.message||'加载比赛详情失败，请稍后重试。'}finally{loading.value=false}}
-const transition=async(status,label)=>{if(operating.value)return;await ElMessageBox.confirm(`确认${label}该比赛？`,'状态确认',{type:status==='CANCELLED'?'warning':'info'});operating.value=status;try{await updateMatchStatus(match.value.matchId,status);systemTimeStore.notifyBusinessChange();await load()}finally{operating.value=''}}
 const saveScore=async()=>{if(scoreSaving.value)return;await scoreRef.value.validate();scoreSaving.value=true;try{await submitMatchResult(match.value.matchId,score);scoreVisible.value=false;ElMessage.success('比分已独立提交，系统将按多人确认规则处理');await load()}finally{scoreSaving.value=false}}
 onMounted(load)
 </script>
 
 <template>
   <div class="operations-page">
-    <PageHeader :breadcrumb="[{label:'比赛管理',to:'/admin/matches'},{label:'比赛运营'}]" :title="match.homeClubName&&match.awayClubName?`${match.homeClubName} 对阵 ${match.awayClubName}`:'比赛运营'" :subtitle="`${match.seasonName||'赛事'}${match.roundName?` · ${match.roundName}`:''}`"><template #status><StatusTag v-if="match.matchStatus" :value="match.matchStatus" /></template><template #actions><RouterLink v-if="match.matchId" :to="`/admin/matches/${match.matchId}/tickets`" class="el-button">票务配置</RouterLink><el-button v-for="action in actions" :key="action[0]" :type="action[0]==='CANCELLED'?'danger':'primary'" :loading="operating===action[0]" :disabled="Boolean(operating)" @click="transition(action[0],action[1])">{{action[1]}}比赛</el-button><el-button v-if="['PUBLISHED','IN_PROGRESS'].includes(match.matchStatus)" type="success" :disabled="Boolean(operating)" @click="scoreVisible=true">提交我的比分</el-button></template></PageHeader>
+    <PageHeader back back-fallback="/admin/matches" :breadcrumb="[{label:'比赛管理',to:'/admin/matches'},{label:'比赛详情'}]" :title="match.homeClubName&&match.awayClubName?`${match.homeClubName} 对阵 ${match.awayClubName}`:'比赛详情'" :subtitle="`${match.seasonName||'赛事'}${match.roundName?` · ${match.roundName}`:''}`"><template #status><StatusTag v-if="match.matchStatus" :value="match.matchStatus" /></template><template #actions><el-button v-if="['PUBLISHED','IN_PROGRESS'].includes(match.matchStatus)" type="success" @click="scoreVisible=true">提交我的比分</el-button></template></PageHeader>
     <DataState :loading="loading" :error="error" :empty="!match.matchId" empty-title="未找到比赛" empty-description="该比赛可能已不存在或暂时无法访问。" @retry="load">
       <MetricStrip :items="metrics" label="比赛运营摘要" />
       <CardShell class="fixture-card" title="对阵信息" subtitle="比分与队伍信息来自当前比赛记录。" variant="fixture">
@@ -33,7 +30,7 @@ onMounted(load)
       </CardShell>
       <div class="detail-grid">
         <CardShell title="赛果信息"><dl class="detail-list"><div><dt>当前赛果</dt><dd class="score-nums">{{match.homeScore==null?'尚未发布':`${match.homeScore} : ${match.awayScore}`}}</dd></div><div><dt>已提交人数</dt><dd class="score-nums">{{workflow.submissions?.length||0}}</dd></div><div><dt>审核状态</dt><dd>{{resultState}}</dd></div></dl></CardShell>
-        <CardShell title="运营信息"><dl class="detail-list"><div><dt>比赛状态</dt><dd><StatusTag :value="match.matchStatus" /></dd></div><div><dt>自动开售</dt><dd>{{$formatDateTime(match.saleStartTime)}}</dd></div><div><dt>自动停售</dt><dd>{{$formatDateTime(match.saleEndTime)}}</dd></div></dl></CardShell>
+        <CardShell title="运营信息"><dl class="detail-list"><div><dt>比赛状态</dt><dd><StatusTag :value="match.matchStatus" /></dd></div><div><dt>状态说明</dt><dd>{{match.matchStatus==='PUBLISHED'?'比赛将在预定开始时间自动进入进行中':'状态由系统按赛事时间自动推进'}}</dd></div><div><dt>自动开售</dt><dd>{{$formatDateTime(match.saleStartTime)}}</dd></div><div><dt>自动停售</dt><dd>{{$formatDateTime(match.saleEndTime)}}</dd></div></dl></CardShell>
       </div>
     </DataState>
     <el-dialog v-model="scoreVisible" title="独立提交比分" width="420px"><el-alert title="提交后不可覆盖；系统需要不同赛事管理员形成共识。" type="info" :closable="false" /><el-form ref="scoreRef" :model="score" :rules="scoreRules" label-width="100px" class="score-form"><el-form-item :label="match.homeClubName" prop="homeScore"><el-input-number v-model="score.homeScore" :min="0" aria-label="主队比分" /></el-form-item><el-form-item :label="match.awayClubName" prop="awayScore"><el-input-number v-model="score.awayScore" :min="0" aria-label="客队比分" /></el-form-item></el-form><template #footer><el-button :disabled="scoreSaving" @click="scoreVisible=false">取消</el-button><el-button type="primary" :loading="scoreSaving" @click="saveScore">确认提交</el-button></template></el-dialog>

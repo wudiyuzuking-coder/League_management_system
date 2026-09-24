@@ -1,6 +1,8 @@
 package com.example.leagueticket.mapper;
 
 import java.util.List;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
@@ -75,6 +77,12 @@ public interface SeasonInfoMapper {
 
   @Select("SELECT * FROM season_info WHERE season_id=#{id} FOR UPDATE")
   SeasonInfo findByIdForUpdate(Long id);
+
+  @Select("SELECT season_id FROM season_info WHERE season_status='DRAFT' AND registration_start_time IS NOT NULL AND registration_start_time<=#{now} ORDER BY season_id")
+  List<Long> findDraftRegistrationCandidates(LocalDateTime now);
+
+  @Select("SELECT season_id FROM season_info WHERE season_status='PREPARING' AND start_date<=#{systemDate} ORDER BY season_id")
+  List<Long> findPreparingStartCandidates(LocalDate systemDate);
 
   @Select("""
       SELECT s.* FROM season_info s

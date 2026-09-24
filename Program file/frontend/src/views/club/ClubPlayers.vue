@@ -35,7 +35,7 @@ onMounted(()=>{load();if(!systemTime.synced)systemTime.sync().catch(()=>{})})
 
 <template>
   <div>
-    <PageHeader title="球员管理" subtitle="维护球衣号码、场上位置与首发替补阵容。">
+    <PageHeader back back-fallback="/club/personnel" title="球员管理" subtitle="维护球衣号码、场上位置与首发替补阵容。">
       <template #actions><el-button @click="organized=!organized">{{organized?'恢复添加顺序':'按阵容整理'}}</el-button><el-button type="primary" @click="openCreate">新增球员</el-button></template>
     </PageHeader>
     <DataState :loading="loading" :error="error" :empty="!rows.length" empty-title="暂无球员" empty-description="新增球员后即可开始组建首发与替补阵容。" @retry="load">

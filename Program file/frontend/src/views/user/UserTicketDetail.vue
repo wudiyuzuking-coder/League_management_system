@@ -11,7 +11,7 @@ onMounted(load)
 
 <template>
   <div>
-    <PageHeader title="电子票" subtitle="比赛入场时请出示本票券。" :breadcrumb="[{label:'我的电子票',to:'/user/tickets'},{label:'票券详情'}]">
+    <PageHeader back back-fallback="/user/tickets" title="电子票" subtitle="比赛入场时请出示本票券。" :breadcrumb="[{label:'我的电子票',to:'/user/tickets'},{label:'票券详情'}]">
       <template #status><StatusTag v-if="ticket.ticketStatus" :value="ticket.ticketStatus"/></template>
     </PageHeader>
     <DataState :loading="loading" :error="error" :empty="!ticket.ticketId" empty-title="电子票不存在或无权查看" @retry="load">
