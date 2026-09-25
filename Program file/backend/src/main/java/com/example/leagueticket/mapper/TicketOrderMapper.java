@@ -37,4 +37,6 @@ public interface TicketOrderMapper {
     @Update("UPDATE ticket_order SET order_status='PAID',version=version+1 WHERE order_id=#{id} AND order_status='REFUND_PENDING'") int restorePaid(Long id);
     @Select("SELECT order_id FROM ticket_order WHERE order_status='PENDING_PAYMENT' AND expire_time<=#{now} ORDER BY expire_time,order_id LIMIT #{limit}")
     List<Long> findExpiredIds(@Param("now")LocalDateTime now,@Param("limit")int limit);
+    @Select("SELECT order_id FROM ticket_order WHERE order_status='PENDING_PAYMENT' AND expire_time<=#{now} ORDER BY expire_time,order_id")
+    List<Long> findAllExpiredIds(@Param("now")LocalDateTime now);
 }

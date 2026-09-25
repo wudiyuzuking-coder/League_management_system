@@ -1,7 +1,5 @@
 package com.example.leagueticket.task;
 
-import com.example.leagueticket.mapper.SeasonScheduleMapper;
-import com.example.leagueticket.domain.SeasonStatus;
 import com.example.leagueticket.exception.BusinessException;
 import com.example.leagueticket.service.*;
 import lombok.RequiredArgsConstructor;
@@ -14,9 +12,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 @Slf4j @Component @Profile("dev") @RequiredArgsConstructor
 public class ScheduleGenerationTask {
-    private final SeasonScheduleMapper mapper;
     private final SeasonScheduleService service;
-    private final SystemTimeService timeService;
+    private final LifecycleCompensationService compensationService;
 
     @TransactionalEventListener(phase=TransactionPhase.AFTER_COMMIT)
     public void afterEnrollment(ScheduleEligibilityEvent event){
@@ -34,5 +31,5 @@ public class ScheduleGenerationTask {
     }
 
     @Scheduled(cron="0 * * * * *")
-    public void deadlineScan(){for(Long seasonId:mapper.findDeadlineCandidates(timeService.now(),SeasonStatus.REGISTRATION))try{service.generateIfEligible(seasonId,"DEADLINE");}catch(Exception e){log.warn("截止扫描自动排赛失败，事务已回滚，seasonId={}",seasonId,e);}}
+    public void deadlineScan(){int changed=compensationService.closeDueRegistrations();if(changed>0)log.info("截止扫描自动排赛完成，count={}",changed);}
 }

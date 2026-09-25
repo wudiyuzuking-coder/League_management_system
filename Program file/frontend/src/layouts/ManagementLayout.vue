@@ -111,7 +111,7 @@ watch(()=>systemTimeStore.revision,loadReminderCount)
         </div>
       </el-header>
       <el-main id="main-content" class="management-main" tabindex="-1">
-        <RouterView />
+        <RouterView :key="`${route.fullPath}:${systemTimeStore.businessTimeRevision}`" />
       </el-main>
     </el-container>
   </el-container>

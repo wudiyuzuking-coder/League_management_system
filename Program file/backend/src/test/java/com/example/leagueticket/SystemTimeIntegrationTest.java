@@ -1,7 +1,6 @@
 package com.example.leagueticket;
 
 import com.example.leagueticket.security.AuthenticatedUser;
-import com.example.leagueticket.service.OrderService;
 import com.example.leagueticket.service.SystemTimeService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,6 +20,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.*;
 
@@ -38,16 +38,24 @@ class SystemTimeIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired SystemTimeService systemTimeService;
-    @Autowired OrderService orderService;
 
     private String userToken,clubToken,eventAdminToken,adminToken;
     private Long matchId,zoneId;
     private LocalDateTime originalMatchTime;
+    private final Map<Long,String> originalSeasonStatuses=new LinkedHashMap<>();
+    private final Map<Long,String> originalMatchStatuses=new LinkedHashMap<>();
+    private final Map<Long,LocalDateTime> originalPendingExpiries=new LinkedHashMap<>();
 
     @BeforeEach
     void setup() throws Exception {
         jdbc.update("INSERT INTO sys_config(config_key,config_value,value_type,description,config_status) VALUES('SYSTEM_TIME_OFFSET_SECONDS','0','INTEGER','test','ENABLED') ON DUPLICATE KEY UPDATE config_value='0',config_status='ENABLED'");
         jdbc.update("DELETE FROM operation_log WHERE module_name='SYSTEM_TIME'");
+        jdbc.query("SELECT season_id,season_status FROM season_info",rs->{originalSeasonStatuses.put(rs.getLong(1),rs.getString(2));});
+        jdbc.query("SELECT match_id,match_status FROM match_info",rs->{originalMatchStatuses.put(rs.getLong(1),rs.getString(2));});
+        jdbc.query("SELECT order_id,expire_time FROM ticket_order WHERE order_status='PENDING_PAYMENT'",rs->{originalPendingExpiries.put(rs.getLong(1),rs.getTimestamp(2).toLocalDateTime());});
+        jdbc.update("UPDATE season_info SET season_status='FINISHED'");
+        jdbc.update("UPDATE match_info SET match_status='FINISHED'");
+        jdbc.update("UPDATE ticket_order SET expire_time='2099-12-31 23:59:59' WHERE order_status='PENDING_PAYMENT'");
         String hash=passwordEncoder.encode("123456");
         jdbc.update("UPDATE sys_user SET password_hash=?,user_status='ENABLED' WHERE username IN ('demo_user','demo_club','demo_event_admin','demo_admin')",hash);
         Long clubId=jdbc.queryForObject("SELECT MIN(club_id) FROM club_info",Long.class);
@@ -59,6 +67,10 @@ class SystemTimeIntegrationTest {
     void cleanup(){
         jdbc.update("UPDATE sys_config SET config_value='0',config_status='ENABLED' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");
         cleanupScenario();
+        originalSeasonStatuses.forEach((id,status)->jdbc.update("UPDATE season_info SET season_status=? WHERE season_id=?",status,id));
+        originalMatchStatuses.forEach((id,status)->jdbc.update("UPDATE match_info SET match_status=? WHERE match_id=?",status,id));
+        originalPendingExpiries.forEach((id,expiry)->jdbc.update("UPDATE ticket_order SET expire_time=? WHERE order_id=?",expiry,id));
+        originalSeasonStatuses.clear();originalMatchStatuses.clear();originalPendingExpiries.clear();
         jdbc.update("DELETE FROM operation_log WHERE module_name='SYSTEM_TIME'");
     }
 
@@ -144,7 +156,6 @@ class SystemTimeIntegrationTest {
         assertClose(expire,saleStart.plusMinutes(15),2);
 
         setTime(userToken,expire.plusSeconds(1)).andExpect(status().isOk());
-        assertThat(orderService.closeExpiredBatch()).isGreaterThanOrEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT order_status FROM ticket_order WHERE order_id=?",String.class,orderId)).isEqualTo("CANCELLED");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM match_seat_inventory WHERE match_zone_id=? AND inventory_status='AVAILABLE'",Integer.class,zoneId)).isEqualTo(8);
 
@@ -167,9 +178,9 @@ class SystemTimeIntegrationTest {
 
     private void setupTicketScenario(LocalDateTime matchTime,LocalDateTime saleEndTime){
         cleanupScenario();
-        matchId=id("SELECT match_id FROM match_info WHERE match_status='PUBLISHED' ORDER BY match_id LIMIT 1");
+        matchId=id("SELECT match_id FROM match_info ORDER BY match_id LIMIT 1");
         originalMatchTime=jdbc.queryForObject("SELECT match_time FROM match_info WHERE match_id=?",LocalDateTime.class,matchId);
-        jdbc.update("UPDATE match_info SET match_time=? WHERE match_id=?",matchTime,matchId);
+        jdbc.update("UPDATE match_info SET match_time=?,match_status='PUBLISHED' WHERE match_id=?",matchTime,matchId);
         long stadium=id("SELECT stadium_id FROM match_info WHERE match_id="+matchId),admin=id("SELECT user_id FROM sys_user WHERE username='demo_event_admin'");
         jdbc.update("INSERT INTO stadium_zone(stadium_id,zone_code,zone_name,sort_order,zone_status) VALUES(?,'IT16A','IT16A系统时间区',160,'ACTIVE')",stadium);
         long staticZone=id("SELECT stadium_zone_id FROM stadium_zone WHERE zone_code='IT16A'");

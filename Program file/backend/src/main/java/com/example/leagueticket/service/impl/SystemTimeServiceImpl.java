@@ -3,9 +3,11 @@ package com.example.leagueticket.service.impl;
 import com.example.leagueticket.mapper.OperationLogMapper;
 import com.example.leagueticket.mapper.SystemConfigMapper;
 import com.example.leagueticket.security.AuthenticatedUser;
+import com.example.leagueticket.service.SystemTimeChangedEvent;
 import com.example.leagueticket.service.SystemTimeService;
 import com.example.leagueticket.vo.SystemTimeResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ public class SystemTimeServiceImpl implements SystemTimeService {
     private final SystemConfigMapper configMapper;
     private final OperationLogMapper operationLogMapper;
     private final Clock systemClock;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override public LocalDateTime realNow(){return LocalDateTime.now(systemClock);}
     @Override public LocalDateTime now(){LocalDateTime real=realNow();return applyOffset(real,readOffset());}
@@ -40,7 +43,9 @@ public class SystemTimeServiceImpl implements SystemTimeService {
         Duration requestedOffset=Duration.between(real,targetTime);
         long afterOffset=requestedOffset.getSeconds()+(requestedOffset.getNano()==0?0:1);
         updateAndLog(operator,"SET","PUT","/api/system-time",real,before,targetTime,beforeOffset,afterOffset);
-        return new SystemTimeResponse(applyOffset(real,afterOffset),real,afterOffset);
+        SystemTimeResponse response=new SystemTimeResponse(applyOffset(real,afterOffset),real,afterOffset);
+        eventPublisher.publishEvent(new SystemTimeChangedEvent(response.systemTime(),"SET"));
+        return response;
     }
 
     @Override @Transactional
@@ -49,7 +54,9 @@ public class SystemTimeServiceImpl implements SystemTimeService {
         LocalDateTime real=realNow();
         LocalDateTime before=applyOffset(real,beforeOffset);
         updateAndLog(operator,"RESET","POST","/api/system-time/reset",real,before,real,beforeOffset,0);
-        return new SystemTimeResponse(real,real,0);
+        SystemTimeResponse response=new SystemTimeResponse(real,real,0);
+        eventPublisher.publishEvent(new SystemTimeChangedEvent(response.systemTime(),"RESET"));
+        return response;
     }
 
     private void updateAndLog(AuthenticatedUser operator,String type,String method,String uri,LocalDateTime real,

@@ -1,6 +1,6 @@
 package com.example.leagueticket.task;
 
-import com.example.leagueticket.service.MatchInfoService;
+import com.example.leagueticket.service.LifecycleCompensationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
@@ -12,11 +12,11 @@ import org.springframework.stereotype.Component;
 @Profile("dev")
 @RequiredArgsConstructor
 public class MatchLifecycleTask {
-    private final MatchInfoService matchService;
+    private final LifecycleCompensationService compensationService;
 
     @Scheduled(cron = "0 * * * * *")
     public void startPublishedMatches() {
-        int changed = matchService.startPublishedMatchesDue();
+        int changed = compensationService.startDueMatches();
         if (changed > 0) log.info("自动开始到时比赛，count={}", changed);
     }
 }

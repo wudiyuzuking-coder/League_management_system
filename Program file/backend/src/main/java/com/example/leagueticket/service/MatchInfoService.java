@@ -13,5 +13,6 @@ public interface MatchInfoService {
     MatchInfo update(Long id,MatchRequest request);
     MatchInfo updateStatus(Long id,String status);
     int startPublishedMatchesDue();
+    boolean startPublishedMatchIfDue(Long id);
     PageResponse<MatchResultReminderResponse> resultReminders(MatchResultReminderQueryRequest query);
 }
