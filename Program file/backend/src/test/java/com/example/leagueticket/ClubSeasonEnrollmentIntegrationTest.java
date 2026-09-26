@@ -68,7 +68,8 @@ class ClubSeasonEnrollmentIntegrationTest {
         available(season).andExpect(jsonPath("$.data[*].seasonId",not(hasItem((int)season))));
         setSystemTime(now.plusDays(2));available(season).andExpect(jsonPath("$.data[*].seasonId",hasItem((int)season)));
         setSystemTime(now.plusDays(3).plusSeconds(2));available(season).andExpect(jsonPath("$.data[*].seasonId",not(hasItem((int)season))));
-        mvc.perform(post("/api/club/enrollments").header("Authorization",bearer(clubToken)).contentType(MediaType.APPLICATION_JSON).content(payload(clubA,season))).andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("赛季报名已截止"));
+        mvc.perform(post("/api/club/enrollments").header("Authorization",bearer(clubToken)).contentType(MediaType.APPLICATION_JSON).content(payload(clubA,season))).andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("赛季当前不可报名"));
+        assertThat(jdbc.queryForObject("SELECT season_status FROM season_info WHERE season_id=?",String.class,season)).isEqualTo("CANCELLED");
     }
 
     @Test void overlappingSeasonIsRejectedWithoutResidue() throws Exception {

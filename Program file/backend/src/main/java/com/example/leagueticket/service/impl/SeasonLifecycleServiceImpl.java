@@ -112,6 +112,7 @@ public class SeasonLifecycleServiceImpl implements SeasonLifecycleService {
             case PREPARING -> throw conflict("请使用关闭报名接口完成自动排赛与发布");
             case IN_PROGRESS -> throw conflict("赛季将在开始日由系统自动进入进行中");
             case FINISHED -> finish(seasonId);
+            case CANCELLED -> throw conflict("赛季取消仅由报名截止自动处理");
             case DRAFT -> throw new BusinessException("赛季状态不允许回退为草稿");
         };
     }

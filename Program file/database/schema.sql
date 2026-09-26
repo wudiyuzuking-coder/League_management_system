@@ -66,6 +66,8 @@ CREATE TABLE season_info (
     ticket_sale_start_time DATETIME NULL COMMENT '历史兼容字段，不参与单场售票判定',
     max_clubs INT UNSIGNED NULL COMMENT '最大报名俱乐部数，历史赛季可为空',
     season_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '赛季状态',
+    cancel_reason VARCHAR(255) NULL COMMENT '赛季取消原因',
+    cancelled_at DATETIME NULL COMMENT '赛季取消业务时间',
     description VARCHAR(500) NULL COMMENT '赛季说明',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -88,8 +90,13 @@ CREATE TABLE season_info (
             'REGISTRATION',
             'PREPARING',
             'IN_PROGRESS',
-            'FINISHED'
+            'FINISHED',
+            'CANCELLED'
         )
+    ),
+    CONSTRAINT ck_season_cancellation CHECK (
+        (season_status = 'CANCELLED' AND cancel_reason IS NOT NULL AND cancelled_at IS NOT NULL)
+        OR (season_status <> 'CANCELLED' AND cancel_reason IS NULL AND cancelled_at IS NULL)
     )
 ) ENGINE = InnoDB COMMENT = '联赛赛季';
 
@@ -417,6 +424,22 @@ CREATE TABLE club_season_enrollment_coach (
     CONSTRAINT fk_enrollment_coach_enrollment FOREIGN KEY (enrollment_id) REFERENCES club_season_enrollment (enrollment_id) ON DELETE CASCADE,
     CONSTRAINT fk_enrollment_coach_coach FOREIGN KEY (coach_id) REFERENCES coach_info (coach_id)
 ) ENGINE = InnoDB COMMENT = '赛季报名教练及快照';
+
+CREATE TABLE club_season_notification (
+    notification_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '俱乐部赛季通知主键',
+    season_id BIGINT UNSIGNED NOT NULL COMMENT '关联赛季',
+    club_id BIGINT UNSIGNED NOT NULL COMMENT '接收俱乐部',
+    notification_type VARCHAR(32) NOT NULL COMMENT '通知类型',
+    message VARCHAR(500) NOT NULL COMMENT '通知内容',
+    occurred_at DATETIME NOT NULL COMMENT '业务发生时间',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
+    PRIMARY KEY (notification_id),
+    CONSTRAINT uq_club_season_notification UNIQUE (season_id, club_id, notification_type),
+    CONSTRAINT fk_club_season_notification_season FOREIGN KEY (season_id) REFERENCES season_info (season_id),
+    CONSTRAINT fk_club_season_notification_club FOREIGN KEY (club_id) REFERENCES club_info (club_id),
+    CONSTRAINT ck_club_season_notification_type CHECK (notification_type IN ('SEASON_CANCELLED')),
+    KEY idx_club_season_notification_query (club_id, occurred_at)
+) ENGINE = InnoDB COMMENT = '俱乐部赛季通知';
 
 CREATE TABLE sys_user (
     user_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户主键',

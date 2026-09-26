@@ -9,7 +9,8 @@ public enum SeasonStatus {
     REGISTRATION,
     PREPARING,
     IN_PROGRESS,
-    FINISHED;
+    FINISHED,
+    CANCELLED;
 
     public static SeasonStatus fromStored(String value) {
         if (value == null || value.isBlank()) {

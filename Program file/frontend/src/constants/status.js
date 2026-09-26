@@ -19,12 +19,12 @@ export const STATUS_LABELS = {
 export const STATUS_TYPES = {
   ENABLED: 'success', ACTIVE: 'success', PUBLISHED: 'success', SCHEDULE_PUBLISHED: 'success', ON_SALE: 'success', AVAILABLE: 'success',
   PAID: 'success', SUCCESS: 'success', USED: 'success', APPROVED: 'success',
-  DRAFT: 'info', PREPARING: 'primary', DISABLED: 'info', INACTIVE: 'info', CLOSED: 'info', ENDED: 'info', CANCELLED: 'info', VOID: 'info', FINISHED: 'info',
+  DRAFT: 'info', PREPARING: 'primary', DISABLED: 'info', INACTIVE: 'info', CLOSED: 'info', ENDED: 'info', VOID: 'info', FINISHED: 'info',
   PENDING_ACTIVATION: 'warning', PENDING_CLUB_APPROVAL: 'warning', PENDING_PAYMENT: 'warning', REFUND_PENDING: 'warning', LOCKED: 'warning', PAUSED: 'warning', CREATED: 'warning', PENDING: 'warning', GENERATED: 'warning', NOT_STARTED: 'warning', PENDING_ADMIN_REVIEW: 'warning', REGISTRATION: 'warning',
   SUBMITTED: 'info', SINGLE_SUBMISSION: 'warning', TODAY: 'warning',
   STARTER: 'success', SUBSTITUTE: 'info', TRANSFERRED: 'info', READY: 'success', NOT_READY: 'warning',
   CONFIRMED: 'success', SOLD_OUT: 'danger',
-  CONFLICT: 'danger', OVERDUE: 'danger',
+  CANCELLED: 'danger', CONFLICT: 'danger', OVERDUE: 'danger',
   FAILED: 'danger', REFUNDED: 'danger', REJECTED: 'danger', CODE_NOT_FOUND: 'danger', WRONG_MATCH: 'danger',
   ORDER_INVALID: 'danger', TICKET_USED: 'danger', TICKET_REFUNDED: 'danger', TICKET_VOID: 'danger',
 }

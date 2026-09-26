@@ -26,6 +26,7 @@ export const createClubEnrollment = (data) => request.post('/club/enrollments', 
 export const getClubEnrollments = () => request.get('/club/enrollments')
 export const getClubEnrollment = (id) => request.get(`/club/enrollments/${id}`)
 export const getClubSchedules = () => request.get('/club/schedules')
+export const getSeasonNotifications = () => request.get('/club/season-notifications')
 export const getAdminEnrollments = (params) => request.get('/admin/enrollments', { params })
 export const getAdminEnrollment = (id) => request.get(`/admin/enrollments/${id}`)
 

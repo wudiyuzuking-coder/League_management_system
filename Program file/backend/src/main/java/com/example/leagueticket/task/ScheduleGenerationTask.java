@@ -31,5 +31,5 @@ public class ScheduleGenerationTask {
     }
 
     @Scheduled(cron="0 * * * * *")
-    public void deadlineScan(){int changed=compensationService.closeDueRegistrations();if(changed>0)log.info("截止扫描自动排赛完成，count={}",changed);}
+    public void deadlineScan(){int changed=compensationService.closeDueRegistrations();if(changed>0)log.info("报名截止扫描处理完成，count={}",changed);}
 }

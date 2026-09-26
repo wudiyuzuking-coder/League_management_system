@@ -106,6 +106,14 @@ class SeasonLifecycleServiceImplTest {
     }
 
     @Test
+    void compatibleStatusEndpointCannotManuallyCancelSeason() {
+        assertThatThrownBy(() -> service.transitionCompatible(1L, "CANCELLED"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("赛季取消仅由报名截止自动处理");
+        verifyNoInteractions(seasons, schedules, enrollments, matches, results);
+    }
+
+    @Test
     void preparingCannotStartWithoutConfirmedPublishedSchedule() {
         when(seasons.findByIdForUpdate(1L)).thenReturn(season(SeasonStatus.PREPARING));
         SeasonScheduleBatch generated = new SeasonScheduleBatch();

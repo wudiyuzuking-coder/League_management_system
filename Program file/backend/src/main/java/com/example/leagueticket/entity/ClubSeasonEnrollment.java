@@ -14,6 +14,9 @@ public class ClubSeasonEnrollment {
     private LocalDateTime registrationStartTime;
     private LocalDateTime registrationDeadline;
     private Integer maxClubs;
+    private String seasonStatus;
+    private String cancelReason;
+    private LocalDateTime cancelledAt;
     private Long clubId;
     private String clubName;
     private Long stadiumId;

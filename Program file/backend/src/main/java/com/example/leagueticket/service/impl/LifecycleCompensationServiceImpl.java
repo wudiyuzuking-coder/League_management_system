@@ -9,7 +9,7 @@ import com.example.leagueticket.service.LifecycleCompensationService;
 import com.example.leagueticket.service.MatchInfoService;
 import com.example.leagueticket.service.OrderService;
 import com.example.leagueticket.service.SeasonLifecycleService;
-import com.example.leagueticket.service.SeasonScheduleService;
+import com.example.leagueticket.service.SeasonRegistrationDeadlineService;
 import com.example.leagueticket.service.SystemTimeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +34,7 @@ public class LifecycleCompensationServiceImpl implements LifecycleCompensationSe
     private final MatchInfoMapper matchMapper;
     private final TicketOrderMapper orderMapper;
     private final SeasonLifecycleService seasonLifecycleService;
-    private final SeasonScheduleService seasonScheduleService;
+    private final SeasonRegistrationDeadlineService registrationDeadlineService;
     private final MatchInfoService matchService;
     private final OrderService orderService;
     private final SystemTimeService timeService;
@@ -75,8 +75,7 @@ public class LifecycleCompensationServiceImpl implements LifecycleCompensationSe
         int changed = 0;
         for (Long id : ids) {
             try {
-                requiresNew(() -> seasonScheduleService.generateIfEligible(id, "DEADLINE"));
-                changed++;
+                if (Boolean.TRUE.equals(requiresNew(() -> registrationDeadlineService.processRegistrationDeadline(id)))) changed++;
             } catch (Exception exception) {
                 logEntityFailure("REGISTRATION_CLOSE", "season", id, now, exception);
             }

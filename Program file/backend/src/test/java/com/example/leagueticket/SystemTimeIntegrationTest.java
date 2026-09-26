@@ -42,7 +42,7 @@ class SystemTimeIntegrationTest {
     private String userToken,clubToken,eventAdminToken,adminToken;
     private Long matchId,zoneId;
     private LocalDateTime originalMatchTime;
-    private final Map<Long,String> originalSeasonStatuses=new LinkedHashMap<>();
+    private final Map<Long,SeasonSnapshot> originalSeasonStatuses=new LinkedHashMap<>();
     private final Map<Long,String> originalMatchStatuses=new LinkedHashMap<>();
     private final Map<Long,LocalDateTime> originalPendingExpiries=new LinkedHashMap<>();
 
@@ -50,10 +50,10 @@ class SystemTimeIntegrationTest {
     void setup() throws Exception {
         jdbc.update("INSERT INTO sys_config(config_key,config_value,value_type,description,config_status) VALUES('SYSTEM_TIME_OFFSET_SECONDS','0','INTEGER','test','ENABLED') ON DUPLICATE KEY UPDATE config_value='0',config_status='ENABLED'");
         jdbc.update("DELETE FROM operation_log WHERE module_name='SYSTEM_TIME'");
-        jdbc.query("SELECT season_id,season_status FROM season_info",rs->{originalSeasonStatuses.put(rs.getLong(1),rs.getString(2));});
+        jdbc.query("SELECT season_id,season_status,cancel_reason,cancelled_at FROM season_info",rs->{originalSeasonStatuses.put(rs.getLong(1),new SeasonSnapshot(rs.getString(2),rs.getString(3),rs.getTimestamp(4)==null?null:rs.getTimestamp(4).toLocalDateTime()));});
         jdbc.query("SELECT match_id,match_status FROM match_info",rs->{originalMatchStatuses.put(rs.getLong(1),rs.getString(2));});
         jdbc.query("SELECT order_id,expire_time FROM ticket_order WHERE order_status='PENDING_PAYMENT'",rs->{originalPendingExpiries.put(rs.getLong(1),rs.getTimestamp(2).toLocalDateTime());});
-        jdbc.update("UPDATE season_info SET season_status='FINISHED'");
+        jdbc.update("UPDATE season_info SET season_status='FINISHED',cancel_reason=NULL,cancelled_at=NULL");
         jdbc.update("UPDATE match_info SET match_status='FINISHED'");
         jdbc.update("UPDATE ticket_order SET expire_time='2099-12-31 23:59:59' WHERE order_status='PENDING_PAYMENT'");
         String hash=passwordEncoder.encode("123456");
@@ -67,7 +67,7 @@ class SystemTimeIntegrationTest {
     void cleanup(){
         jdbc.update("UPDATE sys_config SET config_value='0',config_status='ENABLED' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");
         cleanupScenario();
-        originalSeasonStatuses.forEach((id,status)->jdbc.update("UPDATE season_info SET season_status=? WHERE season_id=?",status,id));
+        originalSeasonStatuses.forEach((id,value)->jdbc.update("UPDATE season_info SET season_status=?,cancel_reason=?,cancelled_at=? WHERE season_id=?",value.status(),value.reason(),value.cancelledAt(),id));
         originalMatchStatuses.forEach((id,status)->jdbc.update("UPDATE match_info SET match_status=? WHERE match_id=?",status,id));
         originalPendingExpiries.forEach((id,expiry)->jdbc.update("UPDATE ticket_order SET expire_time=? WHERE order_id=?",expiry,id));
         originalSeasonStatuses.clear();originalMatchStatuses.clear();originalPendingExpiries.clear();
@@ -213,6 +213,7 @@ class SystemTimeIntegrationTest {
     private static LocalDateTime parse(JsonNode node,String field){return LocalDateTime.parse(node.path(field).asText());}
     private JsonNode response(ResultActions actions) throws Exception{return json.readTree(actions.andReturn().getResponse().getContentAsString());}
     private static void assertClose(LocalDateTime actual,LocalDateTime expected,long seconds){assertThat(Math.abs(Duration.between(expected,actual).toSeconds())).isLessThanOrEqualTo(seconds);}
+    private record SeasonSnapshot(String status,String reason,LocalDateTime cancelledAt){}
     private static void await(CyclicBarrier barrier){try{barrier.await(5,TimeUnit.SECONDS);}catch(Exception e){throw new RuntimeException(e);}}
     private long id(String sql){return jdbc.queryForObject(sql,Long.class);}
     private static String bearer(String token){return "Bearer "+token;}

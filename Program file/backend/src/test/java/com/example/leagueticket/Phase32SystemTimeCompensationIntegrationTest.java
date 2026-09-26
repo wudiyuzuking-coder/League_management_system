@@ -39,7 +39,7 @@ class Phase32SystemTimeCompensationIntegrationTest {
     @Autowired SystemTimeService time;
 
     private String token;
-    private final Map<Long, String> originalSeasonStatuses = new LinkedHashMap<>();
+    private final Map<Long, SeasonSnapshot> originalSeasonStatuses = new LinkedHashMap<>();
     private final Map<Long, String> originalMatchStatuses = new LinkedHashMap<>();
     private final Map<Long, LocalDateTime> originalPendingExpiries = new LinkedHashMap<>();
 
@@ -47,10 +47,13 @@ class Phase32SystemTimeCompensationIntegrationTest {
     void setup() throws Exception {
         cleanup();
         jdbc.update("UPDATE sys_config SET config_value='0',config_status='ENABLED' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");
-        jdbc.query("SELECT season_id,season_status FROM season_info", rs -> { originalSeasonStatuses.put(rs.getLong(1), rs.getString(2)); });
+        jdbc.query("SELECT season_id,season_status,cancel_reason,cancelled_at FROM season_info", rs -> {
+            originalSeasonStatuses.put(rs.getLong(1), new SeasonSnapshot(rs.getString(2), rs.getString(3),
+                    rs.getTimestamp(4) == null ? null : rs.getTimestamp(4).toLocalDateTime()));
+        });
         jdbc.query("SELECT match_id,match_status FROM match_info", rs -> { originalMatchStatuses.put(rs.getLong(1), rs.getString(2)); });
         jdbc.query("SELECT order_id,expire_time FROM ticket_order WHERE order_status='PENDING_PAYMENT'", rs -> { originalPendingExpiries.put(rs.getLong(1), rs.getTimestamp(2).toLocalDateTime()); });
-        jdbc.update("UPDATE season_info SET season_status='FINISHED'");
+        jdbc.update("UPDATE season_info SET season_status='FINISHED',cancel_reason=NULL,cancelled_at=NULL");
         jdbc.update("UPDATE match_info SET match_status='FINISHED'");
         jdbc.update("UPDATE ticket_order SET expire_time='2099-12-31 23:59:59' WHERE order_status='PENDING_PAYMENT'");
         jdbc.update("UPDATE sys_user SET password_hash=?,user_status='ENABLED' WHERE username='demo_admin'", passwordEncoder.encode("123456"));
@@ -61,7 +64,9 @@ class Phase32SystemTimeCompensationIntegrationTest {
     void tearDown() {
         jdbc.update("UPDATE sys_config SET config_value='0',config_status='ENABLED' WHERE config_key='SYSTEM_TIME_OFFSET_SECONDS'");
         cleanup();
-        originalSeasonStatuses.forEach((id, status) -> jdbc.update("UPDATE season_info SET season_status=? WHERE season_id=?", status, id));
+        originalSeasonStatuses.forEach((id, value) -> jdbc.update(
+                "UPDATE season_info SET season_status=?,cancel_reason=?,cancelled_at=? WHERE season_id=?",
+                value.status(), value.reason(), value.cancelledAt(), id));
         originalMatchStatuses.forEach((id, status) -> jdbc.update("UPDATE match_info SET match_status=? WHERE match_id=?", status, id));
         originalPendingExpiries.forEach((id, expiry) -> jdbc.update("UPDATE ticket_order SET expire_time=? WHERE order_id=?", expiry, id));
         originalSeasonStatuses.clear();
@@ -212,4 +217,6 @@ class Phase32SystemTimeCompensationIntegrationTest {
     private static String bearer(String value) {
         return "Bearer " + value;
     }
+
+    private record SeasonSnapshot(String status, String reason, LocalDateTime cancelledAt) { }
 }

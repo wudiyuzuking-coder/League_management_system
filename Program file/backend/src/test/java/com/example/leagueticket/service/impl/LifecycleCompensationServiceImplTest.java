@@ -8,7 +8,7 @@ import com.example.leagueticket.mapper.TicketOrderMapper;
 import com.example.leagueticket.service.MatchInfoService;
 import com.example.leagueticket.service.OrderService;
 import com.example.leagueticket.service.SeasonLifecycleService;
-import com.example.leagueticket.service.SeasonScheduleService;
+import com.example.leagueticket.service.SeasonRegistrationDeadlineService;
 import com.example.leagueticket.service.SystemTimeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,7 @@ class LifecycleCompensationServiceImplTest {
     private final MatchInfoMapper matches = mock(MatchInfoMapper.class);
     private final TicketOrderMapper orders = mock(TicketOrderMapper.class);
     private final SeasonLifecycleService seasonLifecycle = mock(SeasonLifecycleService.class);
-    private final SeasonScheduleService seasonSchedule = mock(SeasonScheduleService.class);
+    private final SeasonRegistrationDeadlineService registrationDeadline = mock(SeasonRegistrationDeadlineService.class);
     private final MatchInfoService matchService = mock(MatchInfoService.class);
     private final OrderService orderService = mock(OrderService.class);
     private final SystemTimeService time = mock(SystemTimeService.class);
@@ -42,7 +42,7 @@ class LifecycleCompensationServiceImplTest {
         when(time.now()).thenReturn(now);
         when(transactions.getTransaction(any(TransactionDefinition.class))).thenAnswer(invocation -> new SimpleTransactionStatus());
         service = new LifecycleCompensationServiceImpl(seasons, schedules, matches, orders, seasonLifecycle,
-                seasonSchedule, matchService, orderService, time, transactions);
+                registrationDeadline, matchService, orderService, time, transactions);
     }
 
     @Test
@@ -53,15 +53,16 @@ class LifecycleCompensationServiceImplTest {
         when(matches.findPublishedStartCandidates(now)).thenReturn(List.of(4L));
         when(orders.findAllExpiredIds(now)).thenReturn(List.of(5L));
         when(seasonLifecycle.openRegistrationIfDue(1L)).thenReturn(true);
+        when(registrationDeadline.processRegistrationDeadline(2L)).thenReturn(true);
         when(seasonLifecycle.startInProgressIfDue(3L)).thenReturn(true);
         when(matchService.startPublishedMatchIfDue(4L)).thenReturn(true);
         when(orderService.closeExpiredOrder(5L)).thenReturn(true);
 
         service.catchUpAfterSystemTimeChange();
 
-        var ordered = inOrder(seasonLifecycle, seasonSchedule, matchService, orderService);
+        var ordered = inOrder(seasonLifecycle, registrationDeadline, matchService, orderService);
         ordered.verify(seasonLifecycle).openRegistrationIfDue(1L);
-        ordered.verify(seasonSchedule).generateIfEligible(2L, "DEADLINE");
+        ordered.verify(registrationDeadline).processRegistrationDeadline(2L);
         ordered.verify(seasonLifecycle).startInProgressIfDue(3L);
         ordered.verify(matchService).startPublishedMatchIfDue(4L);
         ordered.verify(orderService).closeExpiredOrder(5L);

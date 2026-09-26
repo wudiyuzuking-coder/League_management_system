@@ -25,10 +25,6 @@ const runConfirmation = async () => { if (actionSeasonId.value || !confirmation.
 const openRegistration = row => requestConfirmation({ seasonId: row.seasonId, title: '开启赛季报名', message: `开启赛季“${row.seasonName}”的报名。`, impact: '开启后符合条件的俱乐部可在报名窗口内提交报名，赛季核心资料将不再允许修改。', confirmText: '确认开启', danger: false, execute: async () => { await openSeasonRegistration(row.seasonId); ElMessage.success('赛季报名已开启') } })
 const closeRegistration = row => requestConfirmation({ seasonId: row.seasonId, title: '结束赛季报名', message: `结束赛季“${row.seasonName}”的报名。`, impact: '结束后俱乐部无法继续报名；系统将自动生成并发布赛程、积分榜和票务库存。', confirmText: '确认结束报名', danger: false, execute: async () => { await closeSeasonRegistrationOnly(row.seasonId); ElMessage.success('报名已结束，系统正在自动生成并发布赛程') } })
 const finishSeasonAction = row => requestConfirmation({ seasonId: row.seasonId, title: '结束赛季', message: `结束赛季“${row.seasonName}”。`, impact: '仅当所有比赛完成且不存在待处理赛果时可结束；历史数据会保留。', confirmText: '确认结束', danger: true, execute: async () => { await finishSeason(row.seasonId); ElMessage.success('赛季已结束') } })
-const handleAction = (command, row) => {  if(command==='edit') open(row)
-if(command==='open-registration')openRegistration(row)
-if(command==='close-registration')closeRegistration(row)
-if(command==='finish-season')finishSeasonAction(row)}
 onMounted(load)
 </script>
 
@@ -58,14 +54,12 @@ onMounted(load)
           <el-table-column label="比赛阶段" width="120"><template #default="{ row }">
               <StatusTag :value="row.seasonStatus" />
             </template></el-table-column>
-          <el-table-column label="操作" width="190" fixed="right"><template #default="{ row }">
-              <RouterLink :to="`/admin/seasons/${row.seasonId}`" class="table-link">查看详情</RouterLink><el-dropdown
-                trigger="click" @command="command => handleAction(command, row)"><el-button link
-                  aria-label="打开赛季操作菜单">更多</el-button><template #dropdown><el-dropdown-menu><el-dropdown-item
-                      v-if="row.seasonStatus === 'DRAFT'" command="edit">调整赛季</el-dropdown-item><el-dropdown-item
-                      v-if="row.seasonStatus === 'DRAFT'" command="open-registration" divided>开启报名</el-dropdown-item><el-dropdown-item
-                      v-if="row.seasonStatus === 'REGISTRATION'" command="close-registration" divided>结束报名</el-dropdown-item><el-dropdown-item
-                      v-if="row.seasonStatus === 'IN_PROGRESS'" command="finish-season" divided>结束赛季</el-dropdown-item></el-dropdown-menu></template></el-dropdown>
+          <el-table-column label="操作" min-width="260" fixed="right"><template #default="{ row }">
+              <ActionToolbar class="season-actions"><RouterLink :to="`/admin/seasons/${row.seasonId}`" class="table-link">查看详情</RouterLink><el-button
+                  v-if="row.seasonStatus === 'DRAFT'" link type="primary" @click="open(row)">调整赛季</el-button><el-button
+                  v-if="row.seasonStatus === 'DRAFT'" link type="primary" @click="openRegistration(row)">开启报名</el-button><el-button
+                  v-if="row.seasonStatus === 'REGISTRATION'" link type="primary" @click="closeRegistration(row)">结束报名</el-button><el-button
+                  v-if="row.seasonStatus === 'IN_PROGRESS'" link type="danger" @click="finishSeasonAction(row)">结束赛季</el-button></ActionToolbar>
             </template></el-table-column>
         </el-table>
       </DataState>
@@ -124,6 +118,21 @@ onMounted(load)
 .table-link:hover {
   text-decoration: underline;
   text-underline-offset: 3px
+}
+
+.season-actions {
+  gap: var(--space-2)
+}
+
+.season-actions :deep(.action-toolbar__main) {
+  flex-wrap: nowrap
+}
+
+.season-actions {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent
 }
 
 .season-form {

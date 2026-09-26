@@ -15,6 +15,8 @@ public class SeasonInfo {
     private LocalDateTime ticketSaleStartTime;
     private Integer maxClubs;
     private String seasonStatus;
+    private String cancelReason;
+    private LocalDateTime cancelledAt;
     private String description;
     private Integer submittedTeamCount;
     private String scheduleBatchStatus;

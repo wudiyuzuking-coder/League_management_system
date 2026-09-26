@@ -12,6 +12,9 @@ public class EnrollmentResponse {
     private String seasonName;
     private LocalDate startDate;
     private LocalDate endDate;
+    private String seasonStatus;
+    private String cancelReason;
+    private LocalDateTime cancelledAt;
     private Long clubId;
     private String clubName;
     private Long stadiumId;

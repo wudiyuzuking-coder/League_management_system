@@ -13,6 +13,7 @@ public interface ClubSeasonEnrollmentMapper {
     String SUMMARY="""
         SELECT e.enrollment_id,e.season_id,s.season_name,s.start_date,s.end_date,
           s.registration_start_time,s.registration_deadline,s.max_clubs,
+          s.season_status,s.cancel_reason,s.cancelled_at,
           e.club_id,c.club_name,e.stadium_id,st.stadium_name,e.enrollment_status,e.submitted_at,
           (SELECT COUNT(*) FROM club_season_enrollment_player ep WHERE ep.enrollment_id=e.enrollment_id) player_count,
           (SELECT COUNT(*) FROM club_season_enrollment_coach ec WHERE ec.enrollment_id=e.enrollment_id) coach_count,
@@ -32,6 +33,7 @@ public interface ClubSeasonEnrollmentMapper {
           #{now} system_time,
           EXISTS(SELECT 1 FROM club_season_enrollment own JOIN season_info os ON os.season_id=own.season_id
             WHERE own.club_id=#{clubId} AND own.enrollment_status='SUBMITTED'
+              AND os.season_status<>'CANCELLED'
               AND s.start_date<=os.end_date AND s.end_date>=os.start_date) time_conflict
         FROM season_info s
         WHERE s.season_status=#{seasonStatus} AND s.registration_start_time IS NOT NULL
@@ -54,6 +56,7 @@ public interface ClubSeasonEnrollmentMapper {
     @Select("""
         SELECT s.* FROM club_season_enrollment e JOIN season_info s ON s.season_id=e.season_id
         WHERE e.club_id=#{clubId} AND e.enrollment_status='SUBMITTED' AND e.season_id<>#{seasonId}
+          AND s.season_status<>'CANCELLED'
           AND #{startDate}<=s.end_date AND #{endDate}>=s.start_date ORDER BY s.start_date LIMIT 1
         """)
     SeasonInfo findConflict(@Param("clubId")Long clubId,@Param("seasonId")Long seasonId,
