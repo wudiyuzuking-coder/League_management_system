@@ -31,7 +31,7 @@ public class AdminLeagueController {
     @PostMapping("/seasons") public Result<SeasonInfo> createSeason(@Valid @RequestBody SeasonRequest request){return Result.success(seasonService.create(request));}
     @PutMapping("/seasons/{id}") public Result<SeasonInfo> updateSeason(@PathVariable Long id,@Valid @RequestBody SeasonRequest request){return Result.success(seasonService.update(id,request));}
     @PutMapping("/seasons/{id}/status") public Result<SeasonInfo> updateSeasonStatus(@PathVariable Long id,@Valid @RequestBody SeasonStatusRequest request){return Result.success(lifecycleService.transitionCompatible(id,request.seasonStatus()));}
-    @PostMapping("/seasons/{id}/registration/open") public Result<SeasonInfo> openRegistration(@PathVariable Long id){return Result.success(lifecycleService.openRegistration(id));}
+    @PostMapping("/seasons/{id}/registration/open") public Result<SeasonInfo> openRegistration(@PathVariable Long id){return Result.success(lifecycleService.openRegistrationManually(id));}
     @PostMapping("/seasons/{id}/registration/close") public Result<ScheduleDetailResponse> closeRegistration(@PathVariable Long id,@AuthenticationPrincipal AuthenticatedUser user){return Result.success(scheduleService.closeRegistrationAndPublishSchedule(id,user.userId()));}
     @PostMapping("/seasons/{id}/finish") public Result<SeasonInfo> finishSeason(@PathVariable Long id){return Result.success(lifecycleService.finish(id));}
     @GetMapping("/seasons/{seasonId}/rounds") public Result<List<RoundInfo>> rounds(@PathVariable Long seasonId){return Result.success(roundService.listBySeason(seasonId));}

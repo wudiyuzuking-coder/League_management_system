@@ -61,7 +61,7 @@ class SeasonScheduleIntegrationTest {
     @Test void completeSeasonLifecycleRequiresConfirmedScheduleAndFinishedMatches(){
         long season=season("IT16C完整生命周期",2,LocalDate.of(2039,3,1),LocalDate.of(2039,5,1),time.now().plusDays(10));
         jdbc.update("UPDATE season_info SET season_status='DRAFT' WHERE season_id=?",season);
-        assertThat(lifecycle.openRegistration(season).getSeasonStatus()).isEqualTo("REGISTRATION");
+        assertThat(lifecycle.openRegistrationManually(season).getSeasonStatus()).isEqualTo("REGISTRATION");
         teams(season,2);
         assertThat(schedules.closeRegistrationAndPublishSchedule(season,eventAdminId()).getBatchStatus()).isEqualTo("CONFIRMED");
         assertThat(seasons.getById(season).getSeasonStatus()).isEqualTo("PREPARING");

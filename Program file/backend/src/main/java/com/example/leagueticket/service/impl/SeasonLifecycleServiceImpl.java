@@ -30,11 +30,16 @@ public class SeasonLifecycleServiceImpl implements SeasonLifecycleService {
 
     @Override
     @Transactional
-    public SeasonInfo openRegistration(Long seasonId) {
+    public SeasonInfo openRegistrationManually(Long seasonId) {
         SeasonInfo season = locked(seasonId);
         requireStatus(season, SeasonStatus.DRAFT);
         requireRegistrationReady(season);
-        return update(seasonId, SeasonStatus.REGISTRATION);
+        var openedAt = timeService.now();
+        if (!openedAt.isBefore(season.getRegistrationDeadline())) {
+            throw conflict("报名截止时间已到，无法开启报名");
+        }
+        seasonMapper.openRegistrationManually(seasonId, openedAt);
+        return seasonMapper.findById(seasonId);
     }
 
     @Override
@@ -108,7 +113,7 @@ public class SeasonLifecycleServiceImpl implements SeasonLifecycleService {
     @Transactional
     public SeasonInfo transitionCompatible(Long seasonId, String requestedStatus) {
         return switch (SeasonStatus.fromStored(requestedStatus)) {
-            case REGISTRATION -> openRegistration(seasonId);
+            case REGISTRATION -> openRegistrationManually(seasonId);
             case PREPARING -> throw conflict("请使用关闭报名接口完成自动排赛与发布");
             case IN_PROGRESS -> throw conflict("赛季将在开始日由系统自动进入进行中");
             case FINISHED -> finish(seasonId);

@@ -49,9 +49,10 @@ class SeasonLifecycleServiceImplTest {
 
     @Test
     void supportsTheCompleteLifecycle() {
+        when(time.now()).thenReturn(LocalDateTime.of(2034, 10, 1, 0, 0));
         stubTransition(SeasonStatus.DRAFT, SeasonStatus.REGISTRATION);
-        assertThat(service.openRegistration(1L).getSeasonStatus()).isEqualTo("REGISTRATION");
-        verify(seasons).updateStatus(1L, "REGISTRATION");
+        assertThat(service.openRegistrationManually(1L).getSeasonStatus()).isEqualTo("REGISTRATION");
+        verify(seasons).openRegistrationManually(1L, LocalDateTime.of(2034, 10, 1, 0, 0));
 
         reset(seasons, schedules, enrollments, matches, results);
         stubTransition(SeasonStatus.REGISTRATION, SeasonStatus.PREPARING);
@@ -59,6 +60,7 @@ class SeasonLifecycleServiceImplTest {
         verify(enrollments).findSubmittedIdsForUpdate(1L);
 
         reset(seasons, schedules, enrollments, matches, results);
+        when(time.now()).thenReturn(LocalDateTime.of(2035, 1, 1, 0, 0));
         stubTransition(SeasonStatus.PREPARING, SeasonStatus.IN_PROGRESS);
         SeasonScheduleBatch batch = new SeasonScheduleBatch();
         batch.setBatchStatus("CONFIRMED");
@@ -136,9 +138,58 @@ class SeasonLifecycleServiceImplTest {
         when(seasons.findById(1L)).thenReturn(season(SeasonStatus.REGISTRATION));
         assertThat(service.openRegistrationIfDue(1L)).isTrue();
         verify(seasons).updateStatus(1L, "REGISTRATION");
+        verify(seasons, never()).openRegistrationManually(anyLong(), any());
 
         when(seasons.findByIdForUpdate(1L)).thenReturn(season(SeasonStatus.REGISTRATION));
         assertThat(service.openRegistrationIfDue(1L)).isFalse();
+    }
+
+    @Test
+    void manualOpenRecordsSystemTimeAndKeepsDeadline() {
+        LocalDateTime openedAt = LocalDateTime.of(2034, 9, 20, 14, 30);
+        SeasonInfo draft = season(SeasonStatus.DRAFT);
+        SeasonInfo opened = season(SeasonStatus.REGISTRATION);
+        opened.setRegistrationStartTime(openedAt);
+        when(time.now()).thenReturn(openedAt);
+        when(seasons.findByIdForUpdate(1L)).thenReturn(draft);
+        when(seasons.findById(1L)).thenReturn(opened);
+
+        SeasonInfo result = service.openRegistrationManually(1L);
+
+        assertThat(result.getSeasonStatus()).isEqualTo("REGISTRATION");
+        assertThat(result.getRegistrationStartTime()).isEqualTo(openedAt);
+        assertThat(result.getRegistrationDeadline()).isEqualTo(draft.getRegistrationDeadline());
+        verify(seasons).openRegistrationManually(1L, openedAt);
+        verify(seasons, never()).updateStatus(1L, "REGISTRATION");
+    }
+
+    @Test
+    void manualOpenRejectsAtDeadlineWithoutChangingWindow() {
+        SeasonInfo draft = season(SeasonStatus.DRAFT);
+        when(seasons.findByIdForUpdate(1L)).thenReturn(draft);
+        when(time.now()).thenReturn(draft.getRegistrationDeadline());
+
+        assertThatThrownBy(() -> service.openRegistrationManually(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("报名截止时间已到，无法开启报名");
+
+        verify(seasons, never()).openRegistrationManually(anyLong(), any());
+        verify(seasons, never()).updateStatus(anyLong(), anyString());
+    }
+
+    @Test
+    void repeatedManualOpenDoesNotOverwriteFirstStartTime() {
+        SeasonInfo opened = season(SeasonStatus.REGISTRATION);
+        opened.setRegistrationStartTime(LocalDateTime.of(2034, 9, 20, 10, 0));
+        when(seasons.findByIdForUpdate(1L)).thenReturn(opened);
+        when(time.now()).thenReturn(LocalDateTime.of(2034, 9, 20, 11, 0));
+
+        assertThatThrownBy(() -> service.openRegistrationManually(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("REGISTRATION -> DRAFT");
+
+        assertThat(opened.getRegistrationStartTime()).isEqualTo(LocalDateTime.of(2034, 9, 20, 10, 0));
+        verify(seasons, never()).openRegistrationManually(anyLong(), any());
     }
 
     @Test

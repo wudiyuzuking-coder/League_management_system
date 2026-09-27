@@ -106,7 +106,7 @@ class Phase31CLifecycleIntegrationTest {
         try {
             Future<?> manual = pool.submit(() -> {
                 await(gate);
-                try { lifecycle.openRegistration(season); } catch (RuntimeException ignored) { }
+                try { lifecycle.openRegistrationManually(season); } catch (RuntimeException ignored) { }
             });
             Future<?> automatic = pool.submit(() -> {
                 await(gate);

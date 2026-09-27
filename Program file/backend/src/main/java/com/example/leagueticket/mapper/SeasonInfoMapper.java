@@ -121,6 +121,9 @@ public interface SeasonInfoMapper {
   @Update("UPDATE season_info SET season_status=#{status} WHERE season_id=#{id}")
   int updateStatus(@Param("id") Long id, @Param("status") String status);
 
+  @Update("UPDATE season_info SET season_status='REGISTRATION',registration_start_time=#{openedAt} WHERE season_id=#{id} AND season_status='DRAFT'")
+  int openRegistrationManually(@Param("id") Long id, @Param("openedAt") LocalDateTime openedAt);
+
   @Update("""
       UPDATE season_info
       SET season_status='CANCELLED',cancel_reason=#{reason},cancelled_at=#{cancelledAt}

@@ -3,7 +3,7 @@ package com.example.leagueticket.service;
 import com.example.leagueticket.entity.SeasonInfo;
 
 public interface SeasonLifecycleService {
-    SeasonInfo openRegistration(Long seasonId);
+    SeasonInfo openRegistrationManually(Long seasonId);
     boolean openRegistrationIfDue(Long seasonId);
     SeasonInfo closeRegistration(Long seasonId);
     SeasonInfo startInProgress(Long seasonId);
