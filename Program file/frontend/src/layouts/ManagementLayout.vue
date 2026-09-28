@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { computed,onMounted,ref,watch } from 'vue'
 import SystemTimeControl from '../components/SystemTimeControl.vue'
 import {useSystemTimeStore} from '../stores/systemTime'
-import {getResultReminders} from '../api/match'
+import {useResultReminderStore} from '../stores/resultReminders'
 import { UserFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { MENU_PATHS, ROLE_LABELS, ROLE_MENUS, ROLE_MENU_GROUPS } from '../config/navigation'
@@ -17,8 +17,8 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
-const systemTimeStore=useSystemTimeStore(),resultReminderCount=ref(0),accountCancelling=ref(false)
-const loadReminderCount=async()=>{if(authStore.user?.roleCode!=='EVENT_ADMIN')return;try{resultReminderCount.value=(await getResultReminders({page:1,size:1})).data.total}catch{resultReminderCount.value=0}}
+const systemTimeStore=useSystemTimeStore(),resultReminderStore=useResultReminderStore(),accountCancelling=ref(false)
+const loadReminderCount=async()=>{if(authStore.user?.roleCode!=='EVENT_ADMIN')return;try{await resultReminderStore.refreshCount()}catch{resultReminderStore.clear()}}
 const menuActive = computed(() => {
   const path = route.path
   return MENU_PATHS.find(root => path === root || path.startsWith(`${root}/`)) || path
@@ -52,7 +52,7 @@ const handleAccountCommand = command => {
   if (command === 'logout') logout()
   if (command === 'cancel') cancelSelf()
 }
-const menuLabel=item=>item[0]==='/admin/matches/result-reminders'?`${item[1]}（${resultReminderCount.value}）`:item[1]
+const menuLabel=item=>item[0]==='/admin/matches/result-reminders'?`${item[1]}（${resultReminderStore.count}）`:item[1]
 const menuGroups=computed(()=>{
   const items=ROLE_MENUS[authStore.user?.roleCode]||[]
   return (ROLE_MENU_GROUPS[authStore.user?.roleCode]||[]).map(group=>({

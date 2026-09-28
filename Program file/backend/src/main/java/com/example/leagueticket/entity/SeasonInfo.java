@@ -20,6 +20,7 @@ public class SeasonInfo {
     private String description;
     private Integer submittedTeamCount;
     private String scheduleBatchStatus;
+    private Integer matchCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

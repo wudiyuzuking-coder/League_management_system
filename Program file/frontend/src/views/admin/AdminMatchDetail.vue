@@ -4,8 +4,10 @@ import {useRoute} from 'vue-router'
 import {ElMessage} from 'element-plus'
 import {getMatch,getMatchResult,submitMatchResult} from '../../api/match'
 import {formatDateTime} from '../../utils/format'
+import {useResultReminderStore} from '../../stores/resultReminders'
 
 const route=useRoute(),match=ref({}),workflow=ref({submissions:[]}),loading=ref(false),error=ref(''),scoreVisible=ref(false),scoreSaving=ref(false),scoreRef=ref(),score=reactive({homeScore:0,awayScore:0})
+const resultReminderStore=useResultReminderStore()
 const scoreRules={homeScore:[{required:true,type:'number',min:0,message:'比分不得小于0'}],awayScore:[{required:true,type:'number',min:0,message:'比分不得小于0'}]}
 const resultState=computed(()=>workflow.value.reviewStatus==='AUTO_PUBLISHED'?'赛果已自动发布':workflow.value.reviewReason==='CONFLICT'?'比分冲突待确认':workflow.value.reviewStatus?'等待多人确认':'尚未提交赛果')
 const metrics=computed(()=>[
@@ -15,7 +17,7 @@ const metrics=computed(()=>[
   {label:'赛果状态',value:resultState.value},
 ])
 const load=async()=>{loading.value=true;error.value='';try{match.value=(await getMatch(route.params.id)).data;workflow.value=(await getMatchResult(route.params.id)).data}catch(e){error.value=e?.message||'加载比赛详情失败，请稍后重试。'}finally{loading.value=false}}
-const saveScore=async()=>{if(scoreSaving.value)return;await scoreRef.value.validate();scoreSaving.value=true;try{await submitMatchResult(match.value.matchId,score);scoreVisible.value=false;ElMessage.success('比分已独立提交，系统将按多人确认规则处理');await load()}finally{scoreSaving.value=false}}
+const saveScore=async()=>{if(scoreSaving.value)return;await scoreRef.value.validate();scoreSaving.value=true;try{await submitMatchResult(match.value.matchId,score);scoreVisible.value=false;ElMessage.success('比分已独立提交，系统将按多人确认规则处理');await load();try{await resultReminderStore.refreshCount()}catch{}}finally{scoreSaving.value=false}}
 onMounted(load)
 </script>
 

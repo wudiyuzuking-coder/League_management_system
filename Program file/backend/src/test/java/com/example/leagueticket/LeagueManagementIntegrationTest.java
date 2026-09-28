@@ -10,6 +10,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import java.util.Map;
@@ -23,9 +24,11 @@ class LeagueManagementIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired JdbcTemplate jdbc;
+    @Autowired PasswordEncoder passwordEncoder;
     String eventAdminToken,systemAdminToken,userToken,clubToken;
 
     @BeforeEach void reset() throws Exception {
+        jdbc.update("UPDATE sys_user SET password_hash=?,user_status='ENABLED' WHERE username IN ('demo_user','demo_admin','demo_club','demo_event_admin')", passwordEncoder.encode("123456"));
         jdbc.update("DELETE FROM club_season_record WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT5%')");
         jdbc.update("DELETE FROM round_info WHERE season_id IN (SELECT season_id FROM season_info WHERE season_name LIKE 'IT5%')");
         jdbc.update("DELETE FROM season_info WHERE season_name LIKE 'IT5%'");
@@ -75,6 +78,7 @@ class LeagueManagementIntegrationTest {
 
     @Test void standingsAreInitializedCalculatedSortedAndProtected() throws Exception {
         long seasonId=createSeason("IT5积分榜赛季");
+        enrollFirstClubs(seasonId,3);
         mockMvc.perform(post("/api/admin/seasons/{id}/standings/init",seasonId).header("Authorization",bearer(eventAdminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data",greaterThan(0)));
         mockMvc.perform(post("/api/admin/seasons/{id}/standings/init",seasonId).header("Authorization",bearer(eventAdminToken)))
@@ -91,6 +95,7 @@ class LeagueManagementIntegrationTest {
     }
 
     private long createSeason(String name)throws Exception{String body=mockMvc.perform(post("/api/admin/seasons").header("Authorization",bearer(eventAdminToken)).contentType(MediaType.APPLICATION_JSON).content(json(season(name,"2035-01-01","2035-12-31")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();return objectMapper.readTree(body).path("data").path("seasonId").asLong();}
+    private void enrollFirstClubs(long seasonId,int count){var clubs=jdbc.queryForList("SELECT club_id,home_stadium_id FROM club_info WHERE club_status='ACTIVE' AND home_stadium_id IS NOT NULL ORDER BY club_id LIMIT ?",count);for(var club:clubs)jdbc.update("INSERT INTO club_season_enrollment(season_id,club_id,stadium_id,enrollment_status,submitted_at) VALUES(?,?,?,'SUBMITTED',NOW())",seasonId,club.get("club_id"),club.get("home_stadium_id"));}
     private long createRound(long seasonId,int no,String start,String end)throws Exception{String body=mockMvc.perform(post("/api/admin/seasons/{id}/rounds",seasonId).header("Authorization",bearer(eventAdminToken)).contentType(MediaType.APPLICATION_JSON).content(json(round(no,start,end)))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();return objectMapper.readTree(body).path("data").path("roundId").asLong();}
     private org.springframework.test.web.servlet.ResultActions statusSeason(long id,String status)throws Exception{return mockMvc.perform(put("/api/admin/seasons/{id}/status",id).header("Authorization",bearer(eventAdminToken)).contentType(MediaType.APPLICATION_JSON).content(json(Map.of("seasonStatus",status))));}
     private org.springframework.test.web.servlet.ResultActions statusRound(long id,String status)throws Exception{return mockMvc.perform(put("/api/admin/rounds/{id}/status",id).header("Authorization",bearer(eventAdminToken)).contentType(MediaType.APPLICATION_JSON).content(json(Map.of("roundStatus",status))));}

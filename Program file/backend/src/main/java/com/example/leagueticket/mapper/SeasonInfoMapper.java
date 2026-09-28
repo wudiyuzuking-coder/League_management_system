@@ -16,6 +16,15 @@ import com.example.leagueticket.vo.PublicSeasonResponse;
 
 @Mapper
 public interface SeasonInfoMapper {
+  String MANAGEMENT_SEASON_SELECT = """
+      SELECT s.*,
+        (SELECT COUNT(*) FROM club_season_enrollment e
+          WHERE e.season_id=s.season_id AND e.enrollment_status='SUBMITTED') submitted_team_count,
+        (SELECT b.batch_status FROM season_schedule_batch b
+          WHERE b.season_id=s.season_id LIMIT 1) schedule_batch_status,
+        (SELECT COUNT(*) FROM match_info m WHERE m.season_id=s.season_id) match_count
+      FROM season_info s
+      """;
   String PUBLIC_VISIBILITY_PREDICATE = """
       (EXISTS (SELECT 1 FROM season_schedule_batch visible_batch
           WHERE visible_batch.season_id=s.season_id AND visible_batch.batch_status='CONFIRMED')
@@ -53,14 +62,7 @@ public interface SeasonInfoMapper {
       ) teams ON teams.season_id=s.season_id
       WHERE """ + PUBLIC_VISIBILITY_PREDICATE;
 
-  @Select("""
-      SELECT s.*,
-        (SELECT COUNT(*) FROM club_season_enrollment e
-          WHERE e.season_id=s.season_id AND e.enrollment_status='SUBMITTED') submitted_team_count,
-        (SELECT b.batch_status FROM season_schedule_batch b
-          WHERE b.season_id=s.season_id LIMIT 1) schedule_batch_status
-      FROM season_info s ORDER BY s.start_date DESC,s.season_id DESC
-      """)
+  @Select(MANAGEMENT_SEASON_SELECT + " ORDER BY s.start_date DESC,s.season_id DESC")
   List<SeasonInfo> findAll();
 
   @Select(PUBLIC_SEASON_SELECT + " ORDER BY s.start_date DESC,s.season_id DESC")
@@ -72,7 +74,7 @@ public interface SeasonInfoMapper {
   @Select("SELECT EXISTS(SELECT 1 FROM season_info s WHERE s.season_id=#{id} AND " + PUBLIC_VISIBILITY_PREDICATE + ")")
   boolean isPublicVisible(Long id);
 
-  @Select("SELECT * FROM season_info WHERE season_id=#{id}")
+  @Select(MANAGEMENT_SEASON_SELECT + " WHERE s.season_id=#{id}")
   SeasonInfo findById(Long id);
 
   @Select("SELECT * FROM season_info WHERE season_id=#{id} FOR UPDATE")

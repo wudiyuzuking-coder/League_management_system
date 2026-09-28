@@ -139,7 +139,8 @@ class Phase34ManualRegistrationOpenIntegrationTest {
     }
 
     private long insertDraft(String name, LocalDateTime registrationStart, LocalDateTime deadline) {
-        LocalDate start = LocalDate.of(2035, 1, 1);
+        LocalDate latestEnd = jdbc.queryForObject("SELECT MAX(s.end_date) FROM season_info s JOIN club_season_enrollment e ON e.season_id=s.season_id WHERE e.club_id=? AND e.enrollment_status='SUBMITTED' AND s.season_status<>'CANCELLED'", LocalDate.class, clubId);
+        LocalDate start = latestEnd == null ? LocalDate.of(2035, 1, 1) : latestEnd.plusYears(1);
         jdbc.update("INSERT INTO season_info(season_name,start_date,end_date,registration_start_time,registration_deadline,max_clubs,season_status) VALUES(?,?,?,?,?,4,'DRAFT')",
                 name, start, start.plusMonths(3), registrationStart, deadline);
         return jdbc.queryForObject("SELECT season_id FROM season_info WHERE season_name=?", Long.class, name);

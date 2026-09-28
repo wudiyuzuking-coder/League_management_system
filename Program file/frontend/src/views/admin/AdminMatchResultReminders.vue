@@ -3,13 +3,16 @@ import { onMounted, reactive, ref, watch } from 'vue'
 import { getResultReminders } from '../../api/match'
 import { getAdminSeasons } from '../../api/league'
 import { useSystemTimeStore } from '../../stores/systemTime'
+import { useResultReminderStore } from '../../stores/resultReminders'
 
 const systemTimeStore = useSystemTimeStore(), rows = ref([]), total = ref(0), seasons = ref([]), loading = ref(false), error = ref('')
+const resultReminderStore = useResultReminderStore()
 const query = reactive({ page: 1, size: 10, seasonId: null, reminderType: '' })
 const load = async () => { loading.value = true; error.value = ''; try { const data = (await getResultReminders(query)).data; rows.value = data.records; total.value = data.total } catch (e) { error.value = e?.message || '加载赛果提醒失败，请稍后重试。' } finally { loading.value = false } }
 const search = () => { query.page = 1; load() }
 const reset = () => { Object.assign(query, { page: 1, seasonId: null, reminderType: '' }); load() }
 watch(() => systemTimeStore.revision, load)
+watch(() => resultReminderStore.revision, load)
 const initialize = async () => { loading.value = true; error.value = ''; try { seasons.value = (await getAdminSeasons()).data; await load() } catch (e) { error.value = e?.message || '加载赛果提醒失败，请稍后重试。'; loading.value = false } }
 onMounted(initialize)
 </script>

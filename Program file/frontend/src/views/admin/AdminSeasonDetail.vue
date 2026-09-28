@@ -6,19 +6,19 @@ import { getAdminRounds, getAdminSeason, getAdminStandings, initStandings, updat
 
 const route = useRoute(), seasonId = Number(route.params.id)
 const season = ref({}), rounds = ref([]), standings = ref([]), loading = ref(false), error = ref('')
+const detailLoaded = ref(false)
 const recordVisible = ref(false), recordId = ref(null), recordRef = ref()
 const recordSaving = ref(false)
 const cancelled = computed(() => season.value.seasonStatus === 'CANCELLED')
 const blankRecord = () => ({ wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 }), record = reactive(blankRecord())
 const nonnegative = { type: 'number', min: 0, message: '不能小于0' }, recordRules = { wins: [nonnegative], draws: [nonnegative], losses: [nonnegative], goalsFor: [nonnegative], goalsAgainst: [nonnegative] }
-const matchCount = computed(() => season.value.matchCount ?? rounds.value.reduce((sum, item) => sum + Number(item.matchCount || 0), 0))
 const metrics = computed(() => [
-  { label: '报名球队', value: `${season.value.submittedTeamCount ?? 0} / ${season.value.maxClubs ?? '—'}` },
-  season.value.scheduleBatchStatus ? { label: '排赛状态', status: season.value.scheduleBatchStatus } : { label: '排赛状态', value: '未生成' },
-  { label: '比赛数量', value: matchCount.value },
+  { label: '报名球队', value: !detailLoaded.value ? '加载中' : season.value.submittedTeamCount == null ? '—' : `${season.value.submittedTeamCount} / ${season.value.maxClubs ?? '—'}` },
+  !detailLoaded.value ? { label: '排赛状态', value: '加载中' } : season.value.scheduleBatchStatus ? { label: '排赛状态', status: season.value.scheduleBatchStatus } : { label: '排赛状态', value: '未生成' },
+  { label: '比赛数量', value: !detailLoaded.value ? '加载中' : season.value.matchCount ?? '—' },
   season.value.seasonStatus ? { label: '当前阶段', status: season.value.seasonStatus } : { label: '当前阶段', value: '—' },
 ])
-const load = async () => { loading.value = true; error.value = ''; try { const [s, r, t] = await Promise.all([getAdminSeason(seasonId), getAdminRounds(seasonId), getAdminStandings(seasonId)]); season.value = s.data; rounds.value = r.data; standings.value = t.data } catch (e) { error.value = e?.message || '加载赛季详情失败，请稍后重试。' } finally { loading.value = false } }
+const load = async () => { loading.value = true; detailLoaded.value = false; error.value = ''; try { const [s, r, t] = await Promise.all([getAdminSeason(seasonId), getAdminRounds(seasonId), getAdminStandings(seasonId)]); season.value = s.data; rounds.value = r.data; standings.value = t.data; detailLoaded.value = true } catch (e) { error.value = e?.message || '加载赛季详情失败，请稍后重试。' } finally { loading.value = false } }
 const initialize = async () => { const result = await initStandings(seasonId); ElMessage.success(result.data ? `新增${result.data}条记录` : '记录已完整，无需重复初始化'); await load() }
 const openRecord = rowData => { recordId.value = rowData.recordId; Object.assign(record, blankRecord(), rowData); recordVisible.value = true }
 const saveRecord = async () => { await recordRef.value.validate(); recordSaving.value = true; try { await updateSeasonRecord(recordId.value, record); recordVisible.value = false; ElMessage.success('测试战绩已更新'); await load() } finally { recordSaving.value = false } }

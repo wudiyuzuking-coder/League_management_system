@@ -9,13 +9,29 @@ public interface ClubSeasonRecordMapper {
     @Select("SELECT * FROM club_season_record WHERE record_id=#{id}") ClubSeasonRecord findById(Long id);
     @Select("""
         SELECT r.*,c.club_name,c.logo_url FROM club_season_record r
-        JOIN club_info c ON c.club_id=r.club_id WHERE r.season_id=#{seasonId}
+        JOIN club_info c ON c.club_id=r.club_id
+        JOIN club_season_enrollment e ON e.season_id=r.season_id AND e.club_id=r.club_id
+          AND e.enrollment_status='SUBMITTED'
+        WHERE r.season_id=#{seasonId}
         ORDER BY r.points DESC,(CAST(r.goals_for AS SIGNED)-CAST(r.goals_against AS SIGNED)) DESC,r.goals_for DESC,r.club_id ASC
         """) List<RecordRow> findStandings(Long seasonId);
     @Insert("""
         INSERT IGNORE INTO club_season_record(season_id,club_id,played,wins,draws,losses,goals_for,goals_against,points,ranking)
-        SELECT #{seasonId},club_id,0,0,0,0,0,0,0,NULL FROM club_info WHERE club_status='ACTIVE'
-        """) int initializeActiveClubs(Long seasonId);
+        SELECT #{seasonId},e.club_id,0,0,0,0,0,0,0,NULL
+        FROM club_season_enrollment e
+        WHERE e.season_id=#{seasonId} AND e.enrollment_status='SUBMITTED'
+        """) int initializeSeasonParticipants(Long seasonId);
+    @Delete("""
+        DELETE r FROM club_season_record r
+        WHERE r.season_id=#{seasonId}
+          AND NOT EXISTS (
+            SELECT 1 FROM club_season_enrollment e
+            WHERE e.season_id=r.season_id AND e.club_id=r.club_id
+              AND e.enrollment_status='SUBMITTED'
+          )
+        """) int deleteNonParticipants(Long seasonId);
+    @Select("SELECT club_id FROM club_season_enrollment WHERE season_id=#{seasonId} AND enrollment_status='SUBMITTED' ORDER BY club_id")
+    List<Long> findParticipantClubIds(Long seasonId);
     @Update("UPDATE club_season_record SET played=#{played},wins=#{wins},draws=#{draws},losses=#{losses},goals_for=#{goalsFor},goals_against=#{goalsAgainst},points=#{points},ranking=NULL WHERE record_id=#{recordId}") int update(ClubSeasonRecord record);
     @Insert("INSERT IGNORE INTO club_season_record(season_id,club_id,played,wins,draws,losses,goals_for,goals_against,points,ranking) VALUES(#{seasonId},#{clubId},0,0,0,0,0,0,0,NULL)")
     int ensureRecord(@Param("seasonId") Long seasonId,@Param("clubId") Long clubId);
