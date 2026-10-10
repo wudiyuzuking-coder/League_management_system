@@ -303,8 +303,8 @@ def build_tex(blocks):
            r"{\LARGE\bfseries 足球联赛管理与在线票务系统\par}\vspace{0.7cm}",
            r"{\Large 课程设计总报告\par}\vspace{3cm}",
            r"{\large 课程：软件课程设计 I\par}\vspace{1.2cm}",
-           r"\begin{tabular}{rl}组号：&\underline{\hspace{6cm}}\\组员及学号：&\underline{\hspace{6cm}}\\班级：&\underline{\hspace{6cm}}\\指导教师：&\underline{\hspace{6cm}}\\提交日期：&\underline{\hspace{6cm}}\end{tabular}",
-           r"\vfill 2026 年\end{titlepage}",
+           r"{\renewcommand{\arraystretch}{1.6}\begin{tabular}{r@{\quad}l}组号：&13\\组员及学号：&肖博文\quad 924106840435\\&徐林时琛\quad 924106840436\\&杨舒念\quad 924106840437\\班级：&9241069501\end{tabular}}",
+           r"\vfill\end{titlepage}",
            r"\begingroup\small\linespread{1.0}\selectfont\setlength{\parskip}{0pt}\tableofcontents\endgroup\newpage"]
     title_seen = False
     for block in blocks:
@@ -440,11 +440,18 @@ def add_cover(doc):
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     set_run_font(p.add_run("课程：软件课程设计 I"), "宋体", 12)
     doc.add_paragraph("\n")
-    for label in ("组号", "组员及学号", "班级", "指导教师", "提交日期"):
+    for label, value in (
+        ("组号", "13"),
+        ("组员及学号", "肖博文  924106840435"),
+        ("", "徐林时琛  924106840436"),
+        ("", "杨舒念  924106840437"),
+        ("班级", "9241069501"),
+    ):
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.paragraph_format.space_after = Pt(11)
-        set_run_font(p.add_run(f"{label}：____________________________"), "宋体", 12)
+        text = f"{label}：{value}" if label else value
+        set_run_font(p.add_run(text), "宋体", 12)
     doc.add_page_break()
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
